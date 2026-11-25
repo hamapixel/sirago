@@ -1,5 +1,7 @@
 /* Mobile layout: wrap rather than hide important content. Loaded after shared styles. */
-.layout,.layout>*,.panel,.auth-shell,.auth-fields,.auth-form,.company-main,.company-records,.booking-space,.booking-summary,.travel-results,.travel-live{min-width:0;max-width:100%}
+.layout,.layout>*,.panel,.auth-shell,.auth-fields,.auth-form,.company-main,.company-records,.booking-space,.booking-summary,.travel-results,.travel-live{min-width:0}
+/* Keep the original desktop width limits (.layout, .join, company layout). */
+:where(.layout>*,.panel,.auth-shell,.auth-fields,.auth-form,.company-main,.company-records,.booking-space,.booking-summary,.travel-results,.travel-live){max-width:100%}
 h1,h2,h3,p,small,label,.primary,.outline,.company-nav,.partner,.route-card,.booking-leg,.booking-total,.trip-fare,.auth-error,.company-notice{overflow-wrap:anywhere}
 button svg,.primary svg,.outline svg,.field svg,.auth-heading svg,.company-status h2 svg,.trip-company svg,.booking-info svg{flex-shrink:0}
 .primary,.outline{min-width:0;max-width:100%;white-space:normal;line-height:1.35}
