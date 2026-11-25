@@ -1,6 +1,5 @@
 """Local test tickets; not valid for boarding."""
 from io import BytesIO
-from uuid import uuid5
 from datetime import datetime
 from zoneinfo import ZoneInfo
 import qrcode
@@ -13,6 +12,7 @@ from reportlab.lib.colors import HexColor
 from reportlab.pdfbase.pdfmetrics import stringWidth
 from .booking_views import simulation_enabled, traveler_error
 from .models import Booking
+from .ticket_refs import ticket_groups, ticket_code
 from accounts.views import error
 
 def ticket_booking(request,pk):
@@ -33,17 +33,9 @@ def ticket_booking(request,pk):
 def legs_for(b):
     return b.legs.select_related("departure__route","departure__company").order_by("position")
 
-def ticket_groups(b,l):
-    if b.ticket_mode=="individual":
-        return [[i] for i in range(b.passengers)]
-    premium=set(l.premium_positions)
-    return [g for g in ([i for i in range(b.passengers) if i not in premium],
-                        [i for i in range(b.passengers) if i in premium]) if g]
-
 def ticket_data(b,l,indices):
     i=indices[0]
-    suffix=str(i) if len(indices)==1 else "group:"+",".join(map(str,indices))
-    code="SRG-TEST-"+uuid5(b.request_id,f"{b.pk}:{l.pk}:{suffix}").hex.upper()
+    code=ticket_code(b,l,indices)
     premium=i in l.premium_positions
     names=[b.passenger_names[j] if j<len(b.passenger_names) else f"Passager {j+1}" for j in indices]
     unit=l.premium_unit_price if premium else l.unit_price

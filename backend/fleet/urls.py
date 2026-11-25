@@ -1,7 +1,10 @@
 from django.urls import path
-from . import views
+from . import views, boarding_views
 urlpatterns=[
     path("dashboard/",views.overview),
+    path("boarding/lookup/",boarding_views.lookup),
+    path("boarding/validate/",boarding_views.validate),
+    path("boarding/history/",boarding_views.history),
     path("reservations/",views.reservations),
     path("buses/",views.buses),
     path("buses/<int:pk>/",views.buses),

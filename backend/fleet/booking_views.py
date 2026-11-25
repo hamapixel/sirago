@@ -10,6 +10,7 @@ from accounts.models import Company, User
 from accounts.views import data, error
 from .models import Booking, BookingLeg, Departure, SimulatedPayment
 from django.conf import settings
+from .ticket_refs import register_refs
 from .public_views import public_departures, public_row, bounded_int, minimum_total
 
 def selection(values):
@@ -209,4 +210,5 @@ def simulate_payment(request,pk):
         SimulatedPayment.objects.create(booking=b,amount=amount,network=network)
         b.status=Booking.Status.TEST_PAID
         b.save(update_fields=["status"])
+        register_refs(b,legs)
         return JsonResponse(booking_json(b))

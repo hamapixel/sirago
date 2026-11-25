@@ -113,3 +113,22 @@ class SimulatedPayment(models.Model):
     amount = models.PositiveIntegerField()
     network = models.CharField(max_length=20, choices=[("orange_ml", "Orange Money"), ("moov_ml", "Moov Money")])
     created_at = models.DateTimeField(auto_now_add=True)
+
+
+class TestTicketReference(models.Model):
+    code = models.CharField(max_length=41, unique=True)
+    leg = models.ForeignKey(BookingLeg, on_delete=models.PROTECT, related_name="test_ticket_refs")
+    anchor = models.PositiveSmallIntegerField()
+
+    class Meta:
+        constraints = [models.UniqueConstraint(fields=["leg","anchor"],name="fleet_test_ticket_anchor")]
+
+
+class TestBoarding(models.Model):
+    leg = models.ForeignKey(BookingLeg, on_delete=models.PROTECT, related_name="test_boardings")
+    passenger = models.PositiveSmallIntegerField()
+    actor = models.ForeignKey("accounts.User", on_delete=models.PROTECT)
+    boarded_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        constraints = [models.UniqueConstraint(fields=["leg","passenger"],name="fleet_test_boarding_once")]
