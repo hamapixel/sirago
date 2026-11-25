@@ -14,3 +14,6 @@ Migration fleet.0004. Un car conserve au moins une place Standard ; Premium facu
 
 ### Ergonomie des catégories
 Cartes cliquables Standard/Premium, prix et sélection visibles, catégorie épuisée désactivée, Premium masquée lorsqu'elle n'est pas proposée. Compteur de recherche borné à 1–10, numérotation des passagers à partir de 1. Aucun changement API ou migration.
+
+### Profil voyageur
+Profil responsive avec initiales, coordonnées réelles, accès aux réservations, paramètres, modification des prénom/nom, changement du mot de passe avec contrôle de l’ancien, validation Django, limitation des tentatives et maintien de session. Les identifiants email/téléphone restent en lecture seule (pas de procédure de vérification de changement). FAQ locale, écran de langue française, informations légales non publiées en version de développement, notifications et transactions clairement à venir. Suppression de compte à traiter avec politique de conservation des réservations avant production ; aucun portefeuille, parrainage ou code promotionnel. Aucune migration requise.

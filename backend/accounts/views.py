@@ -2,7 +2,7 @@ import hashlib
 import json
 import re
 import uuid
-from django.contrib.auth import authenticate, login, logout
+from django.contrib.auth import authenticate, login, logout, update_session_auth_hash
 from django.contrib.auth.password_validation import validate_password
 from django.core.cache import cache
 from django.core.exceptions import ValidationError
@@ -181,3 +181,65 @@ def company_account(request):
     if not company:
         return error("Compagnie introuvable.", 403)
     return JsonResponse({"name": company.name, "status": company.status, "city": company.city})
+
+def traveler_profile_error(request):
+    if not request.user.is_authenticated:
+        return error("Connexion requise.", 401)
+    if request.user.is_superuser or request.user.role != User.Role.TRAVELER:
+        return error("Accès réservé aux voyageurs.", 403)
+    return None
+
+@never_cache
+@csrf_protect
+@require_POST
+def update_traveler_profile(request):
+    denied = traveler_profile_error(request)
+    if denied is not None:
+        return denied
+    try:
+        values = data(request)
+        first = " ".join(field(values, "first_name", 150).split())
+        last = " ".join(field(values, "last_name", 150).split())
+        if not first or not last or any(ord(ch)<32 for ch in first+last):
+            raise ValueError("Nom ou prénom invalide.")
+    except ValueError as exc:
+        return error(str(exc))
+    user = request.user
+    user.first_name, user.last_name = first, last
+    user.save(update_fields=["first_name", "last_name"])
+    return JsonResponse(profile(user))
+
+@never_cache
+@csrf_protect
+@require_POST
+def change_traveler_password(request):
+    denied = traveler_profile_error(request)
+    if denied is not None:
+        return denied
+    if limited(request, "password-change:" + str(request.user.pk), 10):
+        return error("Trop de tentatives. Réessayez dans quelques minutes.", 429)
+    try:
+        values = data(request)
+        current = values.get("current_password")
+        password = values.get("password")
+        if not isinstance(current, str) or not current or len(current)>128:
+            raise ValueError("Mot de passe actuel invalide.")
+        if not isinstance(password, str) or not 8<=len(password)<=128:
+            raise ValueError("Choisissez un mot de passe de 8 à 128 caractères.")
+        if password != values.get("password_confirmation"):
+            raise ValueError("Les mots de passe ne correspondent pas.")
+        with transaction.atomic():
+            user = User.objects.select_for_update().get(pk=request.user.pk)
+            if not user.check_password(current):
+                return error("Mot de passe actuel incorrect.", 400)
+            if user.check_password(password):
+                return error("Choisissez un nouveau mot de passe.", 400)
+            validate_password(password, user=user)
+            user.set_password(password)
+            user.save(update_fields=["password"])
+        update_session_auth_hash(request, user)
+    except ValidationError as exc:
+        return error(" ".join(exc.messages))
+    except ValueError as exc:
+        return error(str(exc))
+    return JsonResponse({"detail": "Mot de passe modifié."})
