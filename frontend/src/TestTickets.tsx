@@ -1,8 +1,9 @@
 import {useState,lazy,Suspense} from 'react';
-import {ArrowLeft,BusFront,Crown,Download,Share2,Ticket,CheckCircle2,CalendarDays} from 'lucide-react';
+import {ArrowLeft,BusFront,Crown,Download,Share2,Ticket,CheckCircle2} from 'lucide-react';
 import {useTravel,priceText,timeText} from './travel-api';
 import type {Booking,ReportResult} from './booking-api';
 import './tickets.css';
+import ReportAction,{reportUnavailableReason} from './ReportAction';
 const TicketReport=lazy(()=>import('./TicketReport'));
 
 export type TestTicket={code:string;leg:number;passenger:number;name:string;names?:string[];count?:number;unit_price?:number;category:'Standard'|'Premium';amount:number;company:string;origin:string;destination:string;starts_at:string;ends_at:string;boarding_point:string;arrival_point:string;qr:string[]};
@@ -42,8 +43,8 @@ export function TicketCard({ticket:t,bookingId,round=false}:{ticket:TestTicket;b
   </div>
  </article>
 }
-export default function TestTickets({booking:initial,onBack}:{booking:Booking;onBack:()=>void}){
- const [replacements,setReplacements]=useState<Booking[]>([]),[activeId,setActiveId]=useState<number|null>(null),[reporting,setReporting]=useState(false);
+export default function TestTickets({booking:initial,onBack,initialReport=false}:{booking:Booking;onBack:()=>void;initialReport?:boolean}){
+ const [replacements,setReplacements]=useState<Booking[]>([]),[activeId,setActiveId]=useState<number|null>(null),[reporting,setReporting]=useState(initialReport&&!reportUnavailableReason(initial));
  const booking=replacements.find(b=>b.id===activeId)??initial;
  function reported(b:ReportResult){setReplacements(old=>[...old.filter(x=>x.id!==booking.id),b,...(b.retained_booking?[b.retained_booking]:[])]);setActiveId(b.id);setReporting(false)}
  const enabled=booking.status==='TEST_PAID'&&!!booking.simulation_enabled;
@@ -53,7 +54,7 @@ export default function TestTickets({booking:initial,onBack}:{booking:Booking;on
  {!enabled?<p className="panel">Billets de test indisponibles.</p>:<><article className="panel booking-checkout ticket-success"><CheckCircle2 size={23}/><div><strong>Paiement simulé réussi</strong><p>Aucun argent débité.</p></div></article>
  {replacements.length>0&&<p className="panel profile-success" role="status">Report de test enregistré. Les anciens QR codes ne sont plus valides. Distribuez les nouveaux billets.</p>}
  {replacements.length>1&&<article className="panel ticket-report-groups"><h2>Nouvelles réservations</h2>{replacements.map(b=><button type="button" className="outline" key={b.id} aria-pressed={booking.id===b.id} onClick={()=>setActiveId(b.id)}><strong>{dateText(b.trips[0].starts_at)} · {timeText(b.trips[0].starts_at)}</strong>{b.trips.length===2&&<small>Retour : {dateText(b.trips[1].starts_at)} · {timeText(b.trips[1].starts_at)}</small>}<small>{b.count} passager(s) · {priceText(b.total)}</small></button>)}</article>}
- {enabled&&booking.trips.length>0&&booking.trips.every(t=>Date.parse(t.starts_at)>Date.now())&&<button type="button" className="outline" onClick={()=>setReporting(true)}><CalendarDays size={19}/> Reporter le voyage</button>}
+ <ReportAction booking={booking} onReport={()=>setReporting(true)}/>
  {q.loading&&<p role="status">Chargement des billets…</p>}{q.error&&<article className="panel booking-checkout" role="alert">{q.error}<button className="outline" onClick={q.retry}>Réessayer</button></article>}
  <div className="digital-ticket-list">{q.data?.items.map(t=><TicketCard key={t.code} ticket={t} bookingId={booking.id} round={booking.trips.length>1}/>)}</div></>}
  </section>
