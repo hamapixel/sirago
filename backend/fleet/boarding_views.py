@@ -1,4 +1,7 @@
 import re
+from datetime import date
+from django.db.models import Q, F, Func, TextField
+from .listing import search_term, page_slice
 from django.http import JsonResponse
 from django.utils import timezone
 from accounts.models import Company
@@ -66,5 +69,14 @@ def validate(request,company):
 def history(request,company):
     denied=access(request,company,"GET")
     if denied is not None:return denied
-    rows=TestBoarding.objects.filter(leg__departure__company=company).select_related("leg__booking","leg__departure__route").order_by("-boarded_at","-id")[:100]
-    return JsonResponse({"items":[{"id":r.id,"name":r.leg.booking.passenger_names[r.passenger] if r.passenger<len(r.leg.booking.passenger_names) else f"Passager {r.passenger+1}","origin":r.leg.departure.route.origin,"destination":r.leg.departure.route.destination,"boarded_at":r.boarded_at.isoformat()} for r in rows]})
+    qs=TestBoarding.objects.filter(leg__departure__company=company).select_related("leg__booking","leg__departure__route","actor").order_by("-boarded_at","-id")
+    term=search_term(request)
+    if term:
+        # PostgreSQL JSON array extraction by passenger index (zero based).
+        qs=qs.annotate(passenger_name=Func(F("leg__booking__passenger_names"),F("passenger"),template="(%(expressions)s)",arg_joiner=" ->> ",output_field=TextField()))
+        for word in term.split():
+            qs=qs.filter(Q(passenger_name__icontains=word)|Q(leg__departure__route__origin__icontains=word)|Q(leg__departure__route__destination__icontains=word)|Q(actor__first_name__icontains=word)|Q(actor__last_name__icontains=word))
+    day=request.GET.get("date","")
+    if day:qs=qs.filter(boarded_at__date=date.fromisoformat(day))
+    rows,meta=page_slice(request,qs)
+    return JsonResponse({"items":[{"id":r.id,"name":r.leg.booking.passenger_names[r.passenger] if r.passenger<len(r.leg.booking.passenger_names) else f"Passager {r.passenger+1}","origin":r.leg.departure.route.origin,"destination":r.leg.departure.route.destination,"boarded_at":r.boarded_at.isoformat(),"agent":r.actor.get_full_name() or "Agent","category":"Premium" if r.passenger in r.leg.premium_positions else "Standard"} for r in rows],**meta})

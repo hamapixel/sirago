@@ -2,6 +2,9 @@ from datetime import date, datetime, time, timedelta
 from functools import wraps
 from zoneinfo import ZoneInfo
 from django.db import IntegrityError, transaction
+from django.db.models import Q, TextField
+from django.db.models.functions import Cast
+from .listing import search_term, page_slice
 from django.http import JsonResponse
 from django.utils import timezone
 from django.views.decorators.cache import never_cache
@@ -190,16 +193,12 @@ def departures(request,company,pk=None):
             qs = qs.filter(starts_at__gte=datetime.combine(first,time.min,TZ))
         if last:
             qs = qs.filter(starts_at__lt=datetime.combine(last+timedelta(days=1),time.min,TZ))
-        # Bounded page, including historical departures.
-        try:
-            page=int(request.GET.get("page","1"))
-        except ValueError:
-            page=0
-        if not 1<=page<=100000:
-            return error("Page invalide.")
-        start=(page-1)*50
-        rows=list(qs[start:start+51])
-        return JsonResponse({"items":[departure_json(d) for d in rows[:50]],"page":page,"has_next":len(rows)>50})
+        term=search_term(request)
+        if term:
+            for word in term.split():
+                qs=qs.filter(Q(route__origin__icontains=word)|Q(route__destination__icontains=word)|Q(bus__name__icontains=word)|Q(bus__plate__icontains=word)|Q(route__boarding_point__icontains=word))
+        rows,meta=page_slice(request,qs,default_size=50)
+        return JsonResponse({"items":[departure_json(d) for d in rows],**meta})
     v=data(request)
     existing=company.departures.filter(pk=pk).first() if pk is not None else None
     if pk is not None and existing is None:
@@ -285,5 +284,11 @@ def reservations(request,company):
         return error("Méthode non autorisée.",405)
     from .models import BookingLeg, Booking
     now=timezone.now()
-    rows=BookingLeg.objects.filter(departure__company=company).select_related("booking","departure__route").order_by("-id")[:100]
-    return JsonResponse({"items":[{"id":l.id,"reference":str(l.booking.request_id),"origin":l.departure.route.origin,"destination":l.departure.route.destination,"starts_at":l.departure.starts_at.isoformat(),"count":l.booking.passengers,**({} if getattr(request,"company_agent",None) else {"total":l.total}),"premium_count":l.premium_count,"status":"EXPIRED" if l.booking.status==Booking.Status.HELD and l.booking.expires_at<=now else l.booking.status,"expires_at":l.booking.expires_at.isoformat()} for l in rows]})
+    qs=BookingLeg.objects.filter(departure__company=company).select_related("booking","departure__route").order_by("-id")
+    term=search_term(request)
+    if term:
+        qs=qs.annotate(names_text=Cast("booking__passenger_names",TextField()),ref_text=Cast("booking__request_id",TextField()))
+        for word in term.split():
+            qs=qs.filter(Q(names_text__icontains=word)|Q(ref_text__icontains=word)|Q(departure__route__origin__icontains=word)|Q(departure__route__destination__icontains=word))
+    rows,meta=page_slice(request,qs)
+    return JsonResponse({"items":[{"id":l.id,"reference":str(l.booking.request_id),"origin":l.departure.route.origin,"destination":l.departure.route.destination,"starts_at":l.departure.starts_at.isoformat(),"count":l.booking.passengers,**({} if getattr(request,"company_agent",None) else {"total":l.total}),"premium_count":l.premium_count,"status":"EXPIRED" if l.booking.status==Booking.Status.HELD and l.booking.expires_at<=now else l.booking.status,"expires_at":l.booking.expires_at.isoformat()} for l in rows],**meta})
