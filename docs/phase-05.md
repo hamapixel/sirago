@@ -11,3 +11,6 @@ Migration fleet.0003 : liste des noms des passagers, conservée sur la réservat
 
 ### Catégories Standard/Premium
 Migration fleet.0004. Un car conserve au moins une place Standard ; Premium facultatif. Le départ fixe les quantités offertes dans les limites physiques du car et le tarif Premium (au moins le tarif Standard). Les départs publiés restent non modifiables ; la configuration du car ne change pas avec des départs futurs. Le voyageur choisit par passager et par trajet. Inventaire séparé et tarif figé sur chaque ligne de réservation ; les verrous existants protègent les deux catégories. Les anciens enregistrements restent 100 % Standard. Les prix de recherche sont des minima, le total de confirmation est recalculé côté serveur. Aucun paiement, QR, portefeuille, parrainage ni code promo.
+
+### Ergonomie des catégories
+Cartes cliquables Standard/Premium, prix et sélection visibles, catégorie épuisée désactivée, Premium masquée lorsqu'elle n'est pas proposée. Compteur de recherche borné à 1–10, numérotation des passagers à partir de 1. Aucun changement API ou migration.
