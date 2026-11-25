@@ -10,6 +10,7 @@ from django.views.decorators.http import require_http_methods
 from accounts.models import Company, User
 from accounts.views import data, field, error
 from .models import Bus, Route, Departure
+from .availability import active_legs, with_remaining
 
 CITIES = ["Bamako","Sikasso","Kayes","Ségou","Koutiala","Bougouni","Mopti","San","Kita"]
 TZ = ZoneInfo("Africa/Bamako")
@@ -55,13 +56,16 @@ def flag(v, key, default=True):
     return x
 
 def bus_json(b):
-    return {"id":b.id,"name":b.name,"plate":b.plate,"capacity":b.capacity,"active":b.active}
+    return {"id":b.id,"name":b.name,"plate":b.plate,"capacity":b.capacity,"premium_capacity":b.premium_capacity,"active":b.active}
 
 def route_json(r):
     return {"id":r.id,"origin":r.origin,"destination":r.destination,"boarding_point":r.boarding_point,"arrival_point":r.arrival_point,"duration_minutes":r.duration_minutes,"price":r.price,"active":r.active}
 
 def departure_json(d):
-    return {"id":d.id,"bus_id":d.bus_id,"bus_name":d.bus.name,"route_id":d.route_id,"origin":d.route.origin,"destination":d.route.destination,"starts_at":d.starts_at.isoformat(),"ends_at":d.ends_at.isoformat(),"capacity":d.capacity,"price":d.price,"status":d.status}
+    result = {"id":d.id,"bus_id":d.bus_id,"bus_name":d.bus.name,"route_id":d.route_id,"origin":d.route.origin,"destination":d.route.destination,"starts_at":d.starts_at.isoformat(),"ends_at":d.ends_at.isoformat(),"capacity":d.capacity,"premium_capacity":d.premium_capacity,"premium_price":d.premium_price,"price":d.price,"status":d.status}
+    if hasattr(d,"remaining"):
+        result.update(remaining=max(0,d.remaining),standard_remaining=max(0,d.standard_remaining),premium_remaining=max(0,d.premium_remaining))
+    return result
 
 def future_departures(qs):
     return qs.exclude(status=D.CANCELLED).filter(ends_at__gt=timezone.now())
@@ -73,7 +77,7 @@ def overview(request, company):
     today = timezone.now().astimezone(TZ).date()
     start = datetime.combine(today,time.min,TZ)
     departures = company.departures.filter(starts_at__gte=start, starts_at__lt=start+timedelta(days=1),status=D.PUBLISHED)
-    return JsonResponse({"status":company.status,"active_buses":company.buses.filter(active=True).count(),"active_routes":company.routes.filter(active=True).count(),"today_departures":departures.count(),"today_capacity":sum(departures.filter(starts_at__gt=timezone.now()).values_list("capacity",flat=True))})
+    return JsonResponse({"status":company.status,"active_buses":company.buses.filter(active=True).count(),"active_routes":company.routes.filter(active=True).count(),"today_departures":departures.count(),"today_capacity":sum(with_remaining(departures.filter(starts_at__gt=timezone.now()),timezone.now()).values_list("remaining",flat=True))})
 
 @company_endpoint
 def buses(request,company,pk=None):
@@ -88,10 +92,11 @@ def buses(request,company,pk=None):
     name=field(v,"name",100)
     plate=" ".join(field(v,"plate",40).upper().split())
     capacity=integer(v,"capacity",1,100)
+    premium=integer({"premium_capacity":v.get("premium_capacity",b.premium_capacity if pk is not None else 0)},"premium_capacity",0,capacity-1)
     active=flag(v,"active")
-    if pk is not None and future_departures(b.departures).exists() and (not active or capacity!=b.capacity):
+    if pk is not None and future_departures(b.departures).exists() and (not active or capacity!=b.capacity or premium!=b.premium_capacity):
         return error("Annulez les départs à venir avant de désactiver le car ou modifier sa capacité.",409)
-    b.name,b.plate,b.capacity,b.active=name,plate,capacity,active
+    b.name,b.plate,b.capacity,b.premium_capacity,b.active=name,plate,capacity,premium,active
     b.save()
     return JsonResponse(bus_json(b),status=201 if pk is None else 200)
 
@@ -146,7 +151,7 @@ def departures(request,company,pk=None):
     if request.method=="GET":
         if pk is not None:
             return error("Méthode non autorisée.",405)
-        qs=company.departures.select_related("route","bus").order_by("-starts_at","-id")
+        qs=with_remaining(company.departures.select_related("route","bus"),timezone.now()).order_by("-starts_at","-id")
         # Apply filters before pagination, always scoped to the owner.
         status = request.GET.get("status", "")
         route_id = request.GET.get("route_id", "")
@@ -196,6 +201,10 @@ def departures(request,company,pk=None):
         return error("Car ou trajet introuvable ou inactif.",404)
     capacity=integer(v,"capacity",1,bus.capacity)
     price=integer(v,"price",1,1000000)
+    premium=integer({"premium_capacity":v.get("premium_capacity",existing.premium_capacity if existing else 0)},"premium_capacity",0,min(capacity-1,bus.premium_capacity))
+    if capacity-premium>bus.capacity-bus.premium_capacity:
+        raise ValueError("Trop de places Standard pour ce car.")
+    premium_price=integer({"premium_price":v.get("premium_price",existing.premium_price if existing else 0)},"premium_price",price if premium else 0,1000000 if premium else 0)
     starts=plan_dates(v)
     duration=timedelta(minutes=route.duration_minutes)
     if any(b<a+duration for a,b in zip(starts,starts[1:])):
@@ -208,9 +217,10 @@ def departures(request,company,pk=None):
             return error("Ce car est déjà affecté sur cette période. Aucun départ créé ou modifié.",409)
     if existing:
         existing.bus,existing.route,existing.starts_at,existing.ends_at,existing.price,existing.capacity=bus,route,starts[0],starts[0]+duration,price,capacity
+        existing.premium_capacity,existing.premium_price=premium,premium_price
         existing.save()
         return JsonResponse({"items":[departure_json(existing)]})
-    rows=[Departure(company=company,bus=bus,route=route,starts_at=s,ends_at=s+duration,price=price,capacity=capacity) for s in starts]
+    rows=[Departure(company=company,bus=bus,route=route,starts_at=s,ends_at=s+duration,price=price,capacity=capacity,premium_capacity=premium,premium_price=premium_price) for s in starts]
     Departure.objects.bulk_create(rows)
     return JsonResponse({"items":[departure_json(d) for d in rows]},status=201)
 
@@ -225,9 +235,10 @@ def departure_status(request,company,pk):
     allowed={D.DRAFT:(D.PUBLISHED,D.CANCELLED),D.PUBLISHED:(D.SUSPENDED,D.CANCELLED),D.SUSPENDED:(D.PUBLISHED,D.CANCELLED),D.CANCELLED:()}
     if d.starts_at<=timezone.now() or target not in allowed[d.status]:
         return error("Ce changement de statut n’est pas autorisé.",409)
-    if target==D.PUBLISHED and (company.status!=Company.Status.VERIFIED or not d.bus.active or not d.route.active or d.capacity>d.bus.capacity):
+    if target==D.PUBLISHED and (company.status!=Company.Status.VERIFIED or not d.bus.active or not d.route.active or d.capacity>d.bus.capacity or d.premium_capacity>d.bus.premium_capacity or d.capacity-d.premium_capacity>d.bus.capacity-d.bus.premium_capacity):
         return error("La compagnie, le car et le trajet doivent être actifs et validés.",403)
-    # Before phase 05 there are no bookings. Future cancellation must use booking-aware services.
+    if target==D.CANCELLED and active_legs(timezone.now()).filter(departure=d).exists():
+        return error("Des réservations sont en attente. Attendez leur expiration avant d’annuler le départ.",409)
     d.status=target
     d.save(update_fields=["status"])
     return JsonResponse(departure_json(d))
@@ -249,8 +260,17 @@ def publish_batch(request,company):
     now = timezone.now()
     if any(d.status != D.DRAFT or d.starts_at <= now for d in rows):
         return error("Seuls les brouillons futurs peuvent être publiés ensemble. Aucun départ publié.",409)
-    if any(not d.bus.active or not d.route.active or d.capacity > d.bus.capacity or d.bus.company_id != company.id or d.route.company_id != company.id for d in rows):
+    if any(not d.bus.active or not d.route.active or d.capacity > d.bus.capacity or d.premium_capacity>d.bus.premium_capacity or d.capacity-d.premium_capacity>d.bus.capacity-d.bus.premium_capacity or d.bus.company_id != company.id or d.route.company_id != company.id for d in rows):
         return error("Un car ou trajet sélectionné est invalide ou inactif. Aucun départ publié.",409)
     # company_endpoint holds the company row lock throughout validation and update.
     count = company.departures.filter(pk__in=ids).update(status=D.PUBLISHED)
     return JsonResponse({"published":count})
+
+@company_endpoint
+def reservations(request,company):
+    if request.method!="GET":
+        return error("Méthode non autorisée.",405)
+    from .models import BookingLeg, Booking
+    now=timezone.now()
+    rows=BookingLeg.objects.filter(departure__company=company).select_related("booking","departure__route").order_by("-id")[:100]
+    return JsonResponse({"items":[{"id":l.id,"reference":str(l.booking.request_id),"origin":l.departure.route.origin,"destination":l.departure.route.destination,"starts_at":l.departure.starts_at.isoformat(),"count":l.booking.passengers,"total":l.total,"premium_count":l.premium_count,"status":"EXPIRED" if l.booking.status==Booking.Status.HELD and l.booking.expires_at<=now else l.booking.status,"expires_at":l.booking.expires_at.isoformat()} for l in rows]})

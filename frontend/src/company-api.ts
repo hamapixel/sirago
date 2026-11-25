@@ -1,6 +1,6 @@
-export type Bus={id:number;name:string;plate:string;capacity:number;active:boolean};
+export type Bus={id:number;name:string;plate:string;capacity:number;premium_capacity:number;active:boolean};
 export type RouteItem={id:number;origin:string;destination:string;boarding_point:string;arrival_point:string;duration_minutes:number;price:number;active:boolean};
-export type Departure={id:number;bus_id:number;bus_name:string;route_id:number;origin:string;destination:string;starts_at:string;ends_at:string;capacity:number;price:number;status:'DRAFT'|'PUBLISHED'|'SUSPENDED'|'CANCELLED'};
+export type Departure={id:number;bus_id:number;bus_name:string;route_id:number;origin:string;destination:string;starts_at:string;ends_at:string;capacity:number;premium_capacity:number;premium_price:number;price:number;remaining?:number;standard_remaining?:number;premium_remaining?:number;status:'DRAFT'|'PUBLISHED'|'SUSPENDED'|'CANCELLED'};
 export type Dashboard={status:'PENDING'|'VERIFIED'|'REJECTED'|'SUSPENDED';active_buses:number;active_routes:number;today_departures:number;today_capacity:number};
 export type Page<T>={items:T[];page:number;has_next:boolean};
 export async function companyGet<T>(path:string):Promise<T>{

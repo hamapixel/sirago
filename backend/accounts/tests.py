@@ -52,3 +52,59 @@ class AuthTests(TestCase):
         for _ in range(20):
             self.post("login",{"identifier":"bad","password":"bad"})
         self.assertEqual(self.post("login",{"identifier":"bad","password":"bad"}).status_code,429)
+
+    def test_profile_update_is_self_only_and_preserves_identifiers(self):
+        self.assertEqual(self.post("register/traveler", self.payload).status_code, 201)
+        other = User.objects.create_user(username="other", first_name="Other")
+        response = self.post("profile", {"first_name":" Awa  Marie ", "last_name":"Traoré", "phone":"+22370000002", "email":"other@example.com", "role":"ADMIN", "id":other.pk})
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.json()["first_name"], "Awa Marie")
+        user=User.objects.get(phone="+22370000001")
+        self.assertEqual(user.last_name, "Traoré")
+        self.assertEqual(user.email, self.payload["email"])
+        self.assertEqual(user.role, User.Role.TRAVELER)
+        other.refresh_from_db()
+        self.assertEqual(other.first_name, "Other")
+        self.assertIn("no-store", response["Cache-Control"])
+
+    def test_profile_validation_and_access(self):
+        self.assertEqual(self.post("profile",{}).status_code,401)
+        self.assertEqual(self.post("password",{}).status_code,401)
+        self.post("register/traveler",self.payload)
+        for payload in ({"first_name":"","last_name":"Test"},{"first_name":"A"*151,"last_name":"Test"},{"first_name":42,"last_name":"Test"}):
+            self.assertEqual(self.post("profile",payload).status_code,400)
+        self.post("logout",{})
+        self.post("register/company",{**self.payload,"phone":"70000002","email":"company@example.com","company_name":"Test","city":"Bamako","address":"Gare"})
+        self.assertEqual(self.post("profile",{}).status_code,403)
+        self.assertEqual(self.post("password",{}).status_code,403)
+        admin=User.objects.create_superuser(username="admin",password="Demo!Strong2026")
+        self.client.force_login(admin)
+        self.assertEqual(self.post("profile",{}).status_code,403)
+        self.assertEqual(self.post("password",{}).status_code,403)
+
+    def test_profile_password_changes_and_keeps_current_session(self):
+        self.post("register/traveler", self.payload)
+        new="Nouveau!Fleuve2026"
+        values={"current_password":self.payload["password"],"password":new,"password_confirmation":new}
+        self.assertEqual(self.post("password",{**values,"current_password":"wrong"}).status_code,400)
+        self.assertEqual(self.post("password",{**values,"password_confirmation":"different"}).status_code,400)
+        self.assertEqual(self.post("password",{**values,"password":"12345678","password_confirmation":"12345678"}).status_code,400)
+        self.assertEqual(self.post("password",values).status_code,200)
+        self.assertEqual(self.client.get("/api/v1/auth/me/").status_code,200)
+        self.post("logout",{})
+        self.assertEqual(self.post("login",{"identifier":self.payload["phone"],"password":self.payload["password"]}).status_code,401)
+        self.assertEqual(self.post("login",{"identifier":self.payload["phone"],"password":new}).status_code,200)
+
+    def test_profile_mutations_require_csrf(self):
+        self.post("register/traveler", self.payload)
+        user=User.objects.get(phone="+22370000001")
+        client=Client(enforce_csrf_checks=True)
+        client.force_login(user)
+        for path in ("profile","password"):
+            self.assertEqual(client.post("/api/v1/auth/"+path+"/",{},content_type="application/json").status_code,403)
+
+    def test_password_change_rate_limit(self):
+        self.post("register/traveler",self.payload)
+        for _ in range(10):
+            self.assertEqual(self.post("password",{}).status_code,400)
+        self.assertEqual(self.post("password",{}).status_code,429)
