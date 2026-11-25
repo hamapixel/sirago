@@ -1,5 +1,6 @@
 import {useEffect,useState} from 'react';
 import AuthPage from './AuthPage';
+import SplashScreen from './SplashScreen';
 import TravelerProfile from './TravelerProfile';
 import CompanySpace from './CompanySpace';
 import TravelResults,{LivePreview} from './TravelResults';
@@ -39,9 +40,9 @@ export default function App(){
  function continueBooking(out:Trip,ret:Trip|null){const s:Selection={out:out.id,...(ret?{ret:ret.id}:{}),count};window.location.assign(account?.role==='TRAVELER'?bookingUrl(s):authUrl(false,s))}
  function closeResults(){SResult(false);requestAnimationFrame(()=>document.querySelector('.search-section')?.scrollIntoView({block:'start'}))}
 
- if((protectedPath||auth)&&loading)return <main className="layout"><p role="status">Vérification de votre session…</p></main>;
+ if(loading)return <SplashScreen message="Chargement…"/>;
  if((protectedPath||auth)&&sessionError)return <main className="layout"><p role="alert">{sessionError}</p><button className="primary" onClick={()=>window.location.reload()}>Réessayer</button></main>;
- if((protectedPath&&!account)||(account&&(auth||path==='/preview/company/'||(preview&&account.role!=='COMPANY')||((path==='/app/'||booking)&&account.role!=='TRAVELER'))))return <main className="layout"><p>Redirection…</p></main>;
+ if(!sessionError&&((protectedPath&&!account)||(account&&(auth||path==='/preview/company/'||(preview&&account.role!=='COMPANY')||((path==='/app/'||booking)&&account.role!=='TRAVELER')||(path==='/'&&account.role!=='TRAVELER')))))return <SplashScreen message="Redirection…"/>;
  return <><header className="header"><div className="header-inner"><a className="brand" href="/"><img src="/logo.svg" alt=""/>SiraGo</a><div className="header-actions"><span className="language">🇲🇱 FR</span>{account?<button type="button" className="outline" onClick={signOut}>Déconnexion</button>:<a href="/login/" className="login">Connexion</a>}<button className="icon-button" aria-label="Notifications" onClick={()=>alert('Notifications disponibles dans une prochaine phase.')}><Bell size={21}/></button></div></div></header>
  <main className={preview?"layout company-layout":"layout"}>
  {sessionError&&<p role="alert" className="auth-error">{sessionError}</p>}{auth?<AuthPage register={path==='/register/'} selection={selection}/>:preview&&account?<CompanySpace account={account} onLogout={signOut}/>:booking&&account?<>{selection?<BookingSpace selection={selection} account={account} onHistory={()=>choose('tickets')}/>:<section className="panel empty"><p>Sélection de voyage invalide.</p><a href="/app/" className="primary">Rechercher un voyage</a></section>}</>:tab==='home'&&result?<TravelResults criteria={criteria} initialTrip={initialTrip} onBack={closeResults} onContinue={continueBooking}/>:tab==='home'?<>
