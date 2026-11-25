@@ -9,7 +9,8 @@ import './agents.css';
 import './profile.css';
 import {SearchField,Pagination} from './listing';
 const Boarding=lazy(()=>import('./CompanyBoarding'));
-type Tab='boarding'|'departures'|'reservations'|'security';
+const SupportCenter=lazy(()=>import('./SupportCenter'));
+type Tab='boarding'|'departures'|'reservations'|'security'|'support';
 export default function CompanyAgentSpace({account,onLogout}:{account:Account;onLogout:()=>void}){
  const [tab,setTab]=useState<Tab>('boarding'),[id,setId]=useState<number|null>(null),[page,setPage]=useState(1),[revision,setRevision]=useState(0),[rows,setRows]=useState<Page<Departure>|null>(null),[loading,setLoading]=useState(false),[error,setError]=useState(''),[notice,setNotice]=useState('');
  const [query,setQuery]=useState('');
@@ -26,5 +27,5 @@ export default function CompanyAgentSpace({account,onLogout}:{account:Account;on
  {tab==='departures'&&(id!==null?<CompanyManifest id={id} onBack={()=>setId(null)}/>:<><div className="company-section-head"><h2>Départs et manifestes</h2><button className="outline" onClick={()=>setRevision(x=>x+1)} disabled={loading}>Actualiser</button></div><SearchField value={query} onChange={v=>{setQuery(v);setPage(1)}} placeholder="Trajet, car ou gare…"/>{loading&&<p role="status">Chargement…</p>}{error&&<p className="auth-error" role="alert">{error}</p>}{rows?.items.map(d=><article className="panel agent-departure" key={d.id}><strong>{d.origin} → {d.destination}</strong><p>{dayText(d.starts_at)} · {timeText(d.starts_at)} · {d.bus_name}</p><p>{d.capacity} places · {d.remaining??'—'} libres</p><button className="outline" onClick={()=>setId(d.id)}>Manifeste voyageurs</button></article>)}{rows?.items.length===0&&<p className="panel">Aucun départ.</p>}{rows&&<Pagination page={page} size={rows.page_size??10} total={rows.total??rows.items.length} onChange={setPage} disabled={loading}/>}</>)}
  {tab==='reservations'&&clerk&&<CompanyReservations/>}
  {tab==='security'&&<form className="panel profile-form" onSubmit={save}><h2>Modifier mon mot de passe</h2><label>Mot de passe actuel<input required type="password" autoComplete="current-password" maxLength={128} value={current} onChange={e=>setCurrent(e.target.value)} disabled={busy}/></label><label>Nouveau mot de passe<input required type="password" autoComplete="new-password" minLength={8} maxLength={128} value={password} onChange={e=>setPassword(e.target.value)} disabled={busy}/></label><label>Confirmer<input required type="password" autoComplete="new-password" maxLength={128} value={confirmation} onChange={e=>setConfirmation(e.target.value)} disabled={busy}/></label>{error&&<p className="auth-error" role="alert">{error}</p>}{notice&&<p className="profile-success" role="status">{notice}</p>}<button className="primary" disabled={busy||password!==confirmation}>Enregistrer</button></form>}
- </>}<button className="outline profile-logout" onClick={onLogout}><LogOut size={18}/> Déconnexion</button></section>
+ {tab==='support'&&<Suspense fallback={<p role="status">Chargement de l’assistance…</p>}><SupportCenter/></Suspense>}</>}<button className="outline" onClick={()=>navigate('support')} disabled={busy||!verified}>Assistance SiraGo</button><button className="outline profile-logout" onClick={onLogout}><LogOut size={18}/> Déconnexion</button></section>
 }

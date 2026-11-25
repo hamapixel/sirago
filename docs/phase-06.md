@@ -46,3 +46,6 @@ Sélection nominative par index, même si les noms sont identiques. Le report fr
 
 ## Étape 13 — Report aller-retour TEST
 Sélection de l’aller ou du retour, report complet ou partiel avant le début du voyage et sans embarquement préalable. L’autre trajet conserve sa date, ses catégories et ses tarifs; chronologie contrôlée côté serveur. Toutes les références des réservations remplacées sont renouvelées, et les responsables des deux compagnies sont informés si nécessaire. Le différentiel affiché porte uniquement sur le trajet changé. Pas de nouvelle migration. Les reports après le départ de l’aller et les changements simultanés des deux trajets ne sont pas disponibles. Accueil: billet et report indiqués disponibles en test, paiement réel et assistance restent à venir.
+
+## Étape 14 — Centre d’assistance interne
+Demandes privées par compte, référence, catégorie, statut, sujet et message; recherche et pagination de 10. Réponse et changement de statut depuis Django Admin par superutilisateur uniquement, notification interne au demandeur. Idempotence par UUID et limite de cinq demandes par heure. FAQ publique, accès depuis l’accueil et les profils, agents via bouton Assistance. Pas de chat en direct, pièces jointes, téléphone ou WhatsApp non confirmés. Migration accounts 0005.

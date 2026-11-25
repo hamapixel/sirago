@@ -56,3 +56,32 @@ class Notification(models.Model):
             models.Index(fields=["recipient", "-id"], name="notif_recipient_recent"),
             models.Index(fields=["recipient", "read_at"], name="notif_recipient_read"),
         ]
+
+
+class SupportRequest(models.Model):
+    class Category(models.TextChoices):
+        BOOKING = "BOOKING", "Réservation et billet"
+        REPORT = "REPORT", "Report de voyage"
+        PAYMENT = "PAYMENT", "Paiement"
+        ACCOUNT = "ACCOUNT", "Compte et accès"
+        TECHNICAL = "TECHNICAL", "Problème technique"
+        OTHER = "OTHER", "Autre"
+    class Status(models.TextChoices):
+        OPEN = "OPEN", "Reçue"
+        IN_PROGRESS = "IN_PROGRESS", "En cours"
+        RESOLVED = "RESOLVED", "Résolue"
+    requester = models.ForeignKey(User, on_delete=models.PROTECT, related_name="support_requests")
+    reference = models.UUIDField(unique=True, editable=False)
+    category = models.CharField(max_length=16, choices=Category.choices)
+    subject = models.CharField(max_length=120)
+    message = models.TextField(max_length=2000)
+    status = models.CharField(max_length=16, choices=Status.choices, default=Status.OPEN)
+    reply = models.TextField(max_length=4000, blank=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        indexes = [models.Index(fields=["requester","-id"], name="support_requester_recent")]
+
+    def __str__(self):
+        return f"SG-{self.reference.hex[:12].upper()}"

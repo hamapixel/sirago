@@ -1,4 +1,4 @@
-import {useState,useEffect,useRef,type FormEvent,type ReactNode} from 'react';
+import {lazy,Suspense,useState,useEffect,useRef,type FormEvent,type ReactNode} from 'react';
 import {ArrowLeft,BusFront,Building2,UserRound,ShieldCheck,Users,Bell,Headset,ChevronRight,LogOut,BadgeCheck} from 'lucide-react';
 import {authPost,type Account} from './auth-api';
 import {passwordValid} from './auth-validation';
@@ -7,6 +7,7 @@ import './profile.css';
 import './company-profile.css';
 import CompanyAgents from './CompanyAgents';
 import NotificationCenter from './NotificationCenter';
+const SupportCenter=lazy(()=>import('./SupportCenter'));
 
 type Page='home'|'company'|'responsible'|'password'|'agents'|'notifications'|'support';
 type Details={name:string;city:string;address:string;registration_number:string};
@@ -40,7 +41,7 @@ export default function CompanyProfile({account,status,onUpdated,onLogout}:{acco
  {(page==='responsible'||page==='password')&&<form className="panel profile-form" onSubmit={save}>{page==='responsible'?<><label>Prénom<input required autoComplete="given-name" maxLength={150} value={first} disabled={busy} onChange={e=>setFirst(e.target.value)}/></label><label>Nom<input required autoComplete="family-name" maxLength={150} value={last} disabled={busy} onChange={e=>setLast(e.target.value)}/></label><label>Téléphone<input readOnly value={account.phone||'Non renseigné'}/></label><label>Email<input readOnly value={account.email||'Non renseigné'}/></label><small>Les identifiants de connexion restent protégés.</small></>:<><label>Mot de passe actuel<input type="password" autoComplete="current-password" required maxLength={128} value={current} disabled={busy} onChange={e=>setCurrent(e.target.value)}/></label><label>Nouveau mot de passe<input type="password" autoComplete="new-password" required minLength={8} maxLength={128} value={password} disabled={busy} onChange={e=>setPassword(e.target.value)}/></label><label>Confirmer le mot de passe<input type="password" autoComplete="new-password" required maxLength={128} value={confirmation} disabled={busy} onChange={e=>setConfirmation(e.target.value)}/></label><small>8 caractères minimum. Choisissez un mot de passe unique.</small></>}{error&&<p className="auth-error" role="alert">{error}</p>}{notice&&<p className="profile-success" role="status">{notice}</p>}<button className="primary" disabled={busy||(page==='responsible'?(!validProfileName(first)||!validProfileName(last)):(!current||!passwordValid(password,confirmation)))}>{busy?'Enregistrement…':'Enregistrer'}</button></form>}
  {page==='agents'&&<CompanyAgents verified={state==='VERIFIED'}/>}
  {page==='notifications'&&<NotificationCenter/>}
- {page==='support'&&<article className="panel profile-faq"><h3>Aide SiraGo Pro</h3><details><summary>Comment contrôler un billet ?</summary><p>Ouvrez Contrôle des billets et utilisez la caméra, une image ou la référence. Sélectionnez uniquement les voyageurs présents avant validation.</p></details><details><summary>Où trouver le manifeste ?</summary><p>Dans Mes départs, ouvrez Manifeste voyageurs pour consulter ou télécharger la liste.</p></details><small>Le service d’assistance directe n’est pas encore activé.</small></article>}
+ {page==='support'&&<Suspense fallback={<p role="status">Chargement de l’assistance…</p>}><SupportCenter/></Suspense>}
  </>}
  {logout&&<dialog ref={dialog} className="booking-dialog" aria-label="Confirmer la déconnexion" onCancel={e=>{e.preventDefault();setLogout(false)}}><h2>Se déconnecter ?</h2><p>Les réservations et contrôles enregistrés seront conservés.</p><div className="profile-dialog-actions"><button className="outline" autoFocus onClick={()=>setLogout(false)}>Retour</button><button className="primary" onClick={()=>{setLogout(false);onLogout()}}>Déconnexion</button></div></dialog>}
  </section>
