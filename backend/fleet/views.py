@@ -147,6 +147,31 @@ def departures(request,company,pk=None):
         if pk is not None:
             return error("Méthode non autorisée.",405)
         qs=company.departures.select_related("route","bus").order_by("-starts_at","-id")
+        # Apply filters before pagination, always scoped to the owner.
+        status = request.GET.get("status", "")
+        route_id = request.GET.get("route_id", "")
+        date_from = request.GET.get("date_from", "")
+        date_to = request.GET.get("date_to", "")
+        if status:
+            if status not in D.values:
+                return error("Statut invalide.")
+            qs = qs.filter(status=status)
+        if route_id:
+            try:
+                route_id = int(route_id)
+            except ValueError:
+                return error("Trajet invalide.")
+            if not 1 <= route_id <= 2**63-1:
+                return error("Trajet invalide.")
+            qs = qs.filter(route_id=route_id)
+        first = date.fromisoformat(date_from) if date_from else None
+        last = date.fromisoformat(date_to) if date_to else None
+        if first and last and first > last:
+            return error("La date de fin doit suivre la date de début.")
+        if first:
+            qs = qs.filter(starts_at__gte=datetime.combine(first,time.min,TZ))
+        if last:
+            qs = qs.filter(starts_at__lt=datetime.combine(last+timedelta(days=1),time.min,TZ))
         # Bounded page, including historical departures.
         try:
             page=int(request.GET.get("page","1"))
@@ -206,3 +231,26 @@ def departure_status(request,company,pk):
     d.status=target
     d.save(update_fields=["status"])
     return JsonResponse(departure_json(d))
+
+@company_endpoint
+def publish_batch(request,company):
+    if request.method != "POST":
+        return error("Méthode non autorisée.",405)
+    if company.status != Company.Status.VERIFIED:
+        return error("Votre compagnie doit être validée.",403)
+    ids = data(request).get("ids")
+    if not isinstance(ids,list) or not 1 <= len(ids) <= 50 or any(type(i) is not int or not 1 <= i <= 2**63-1 for i in ids):
+        return error("Sélectionnez entre 1 et 50 départs.")
+    if len(set(ids)) != len(ids):
+        return error("Sélection invalide.")
+    rows = list(company.departures.select_related("bus","route").filter(pk__in=ids))
+    if len(rows) != len(ids):
+        return error("Un départ sélectionné est introuvable.",404)
+    now = timezone.now()
+    if any(d.status != D.DRAFT or d.starts_at <= now for d in rows):
+        return error("Seuls les brouillons futurs peuvent être publiés ensemble. Aucun départ publié.",409)
+    if any(not d.bus.active or not d.route.active or d.capacity > d.bus.capacity or d.bus.company_id != company.id or d.route.company_id != company.id for d in rows):
+        return error("Un car ou trajet sélectionné est invalide ou inactif. Aucun départ publié.",409)
+    # company_endpoint holds the company row lock throughout validation and update.
+    count = company.departures.filter(pk__in=ids).update(status=D.PUBLISHED)
+    return JsonResponse({"published":count})

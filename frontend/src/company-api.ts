@@ -19,3 +19,14 @@ export async function companyPost<T>(path:string,values:Record<string,unknown>):
  return result as T;
 }
 export const allowedStatus=(status:Departure['status'],verified:boolean):Departure['status'][]=>status==='DRAFT'?verified?['PUBLISHED','CANCELLED']:['CANCELLED']:status==='PUBLISHED'?['SUSPENDED','CANCELLED']:status==='SUSPENDED'?verified?['PUBLISHED','CANCELLED']:['CANCELLED']:[];
+
+export type DepartureFilters={date_from:string;date_to:string;route_id:string;status:string};
+export const emptyFilters:DepartureFilters={date_from:'',date_to:'',route_id:'',status:''};
+export function departurePath(page:number,filters:DepartureFilters){
+ const params=new URLSearchParams({page:String(page)});
+ for(const [key,value] of Object.entries(filters))if(value)params.set(key,value);
+ return 'departures/?'+params.toString();
+}
+export function selectableDrafts(rows:Departure[],verified:boolean,now=Date.now()){
+ return verified?rows.filter(d=>d.status==='DRAFT'&&Date.parse(d.starts_at)>now).map(d=>d.id):[];
+}

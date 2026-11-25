@@ -7,6 +7,7 @@ urlpatterns=[
     path("routes/",views.routes),
     path("routes/<int:pk>/",views.routes),
     path("departures/",views.departures),
+    path("departures/publish-batch/",views.publish_batch),
     path("departures/<int:pk>/",views.departures),
     path("departures/<int:pk>/status/",views.departure_status),
 ]

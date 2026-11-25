@@ -79,3 +79,67 @@ class FleetTests(TestCase):
         self.assertEqual(self.post(f"departures/{d.id}/status",{"status":"CANCELLED"}).status_code,200)
         self.assertEqual(self.post(f"departures/{d.id}/status",{"status":"PUBLISHED"}).status_code,409)
         self.assertEqual(self.post("departures",self.payload).status_code,201)
+
+    def test_publish_batch_verified(self):
+        d=self.create_departure()
+        end=(timezone.localdate()+timedelta(days=2)).isoformat()
+        result=self.post("departures",{**self.payload,"date":end})
+        self.assertEqual(result.status_code,201)
+        ids=list(Departure.objects.values_list("id",flat=True))
+        self.assertEqual(self.post("departures/publish-batch",{"ids":ids}).status_code,403)
+        self.verify()
+        response=self.post("departures/publish-batch",{"ids":ids})
+        self.assertEqual(response.status_code,200)
+        self.assertEqual(response.json()["published"],2)
+        self.assertEqual(Departure.objects.filter(status="PUBLISHED").count(),2)
+
+    def test_batch_atomic_and_owner_scoped(self):
+        d=self.create_departure()
+        self.verify()
+        self.assertEqual(self.post("departures/publish-batch",{"ids":[d.id,d.id]}).status_code,400)
+        self.assertEqual(self.post("departures/publish-batch",{"ids":[d.id,d.id+1000]}).status_code,404)
+        self.client.force_login(self.other)
+        self.assertEqual(self.post("departures/publish-batch",{"ids":[d.id]}).status_code,404)
+        d.refresh_from_db()
+        self.assertEqual(d.status,"DRAFT")
+        self.client.force_login(self.user)
+        end=(timezone.localdate()+timedelta(days=2)).isoformat()
+        self.assertEqual(self.post("departures",{**self.payload,"date":end}).status_code,201)
+        second=Departure.objects.exclude(pk=d.pk).get()
+        second.status="CANCELLED"
+        second.save(update_fields=["status"])
+        self.assertEqual(self.post("departures/publish-batch",{"ids":[d.id,second.id]}).status_code,409)
+        d.refresh_from_db()
+        self.assertEqual(d.status,"DRAFT")
+
+    def test_batch_rejects_past_departure(self):
+        d=self.create_departure()
+        self.verify()
+        d.starts_at=timezone.now()-timedelta(hours=8)
+        d.ends_at=timezone.now()-timedelta(hours=1)
+        d.save(update_fields=["starts_at","ends_at"])
+        self.assertEqual(self.post("departures/publish-batch",{"ids":[d.id]}).status_code,409)
+
+    def test_departure_filters(self):
+        d=self.create_departure()
+        self.verify()
+        self.post(f"departures/{d.id}/status",{"status":"PUBLISHED"})
+        end=(timezone.localdate()+timedelta(days=2)).isoformat()
+        self.assertEqual(self.post("departures",{**self.payload,"date":end}).status_code,201)
+        url="/api/v1/company/departures/"
+        response=self.client.get(url,{"status":"PUBLISHED","route_id":self.route.id,"date_from":self.date,"date_to":self.date})
+        self.assertEqual([x["id"] for x in response.json()["items"]],[d.id])
+        self.assertEqual(self.client.get(url,{"status":"DRAFT","date_to":self.date}).json()["items"],[])
+        self.assertEqual(self.client.get(url,{"route_id":self.route.id+1000}).json()["items"],[])
+        self.assertEqual(self.client.get(url,{"date_from":end,"date_to":self.date}).status_code,400)
+        self.assertEqual(self.client.get(url,{"status":"invalid"}).status_code,400)
+        self.client.force_login(self.other)
+        self.assertEqual(self.client.get(url,{"route_id":self.route.id}).json()["items"],[])
+
+    def test_batch_csrf(self):
+        d=self.create_departure()
+        self.verify()
+        client=Client(enforce_csrf_checks=True)
+        client.force_login(self.user)
+        response=client.post("/api/v1/company/departures/publish-batch/",{"ids":[d.id]},content_type="application/json")
+        self.assertEqual(response.status_code,403)
