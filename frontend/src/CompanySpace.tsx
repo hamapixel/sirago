@@ -89,7 +89,7 @@ export default function CompanySpace({account,onLogout}:{account:Account;onLogou
  </div>{tab==='departures'&&<div className="company-page"><button className="outline" disabled={page===1||loading||busy} onClick={()=>{setSelected([]);setLoading(true);setPage(p=>p-1)}}>Précédent</button><span>Page {page}</span><button className="outline" disabled={!hasNext||loading||busy} onClick={()=>{setSelected([]);setLoading(true);setPage(p=>p+1)}}>Suivant</button></div>}
  </>}
  </div>
- <nav className="company-bottom" aria-label="Navigation compagnie">{nav.filter(n=>n.id!=='reservations').map(({id,label,Icon})=><button key={id} className={tab===id?'selected':''} onClick={()=>navigate(id)} aria-label={label} aria-current={tab===id?'page':undefined}><Icon size={21}/><span>{id==='home'?'Accueil':id==='buses'?'Cars':id==='routes'?'Trajets':id==='departures'?'Départs':id==='reservations'?'Billets':'Profil'}</span></button>)}</nav>
+ <nav className="company-bottom" aria-label="Navigation compagnie">{nav.filter(n=>n.id!=='reservations').map(({id,label,Icon})=><button key={id} className={tab===id?'selected':''} onClick={()=>navigate(id)} aria-label={label} aria-current={tab===id?'page':undefined}><Icon size={21}/><span>{id==='home'?'Accueil':id==='buses'?'Cars':id==='routes'?'Trajets':id==='departures'?'Départs':'Profil'}</span></button>)}</nav>
  {confirmation&&<CompanyConfirm confirmation={confirmation} busy={busy} onClose={()=>{if(!busy)setConfirmation(null)}}/>}
  </section>
 }
