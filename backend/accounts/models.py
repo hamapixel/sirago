@@ -27,3 +27,17 @@ class Company(models.Model):
 
     def __str__(self):
         return self.name
+
+
+class CompanyAgent(models.Model):
+    class Role(models.TextChoices):
+        CLERK = "CLERK", "Guichetier"
+        CONTROLLER = "CONTROLLER", "Contrôleur"
+
+    user = models.OneToOneField(User, on_delete=models.PROTECT, related_name="company_agent")
+    company = models.ForeignKey(Company, on_delete=models.PROTECT, related_name="agents")
+    role = models.CharField(max_length=16, choices=Role.choices)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        constraints = [models.CheckConstraint(condition=models.Q(role__in=["CLERK","CONTROLLER"]),name="accounts_agent_role")]

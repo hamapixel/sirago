@@ -7,7 +7,7 @@ from django.utils import timezone
 from django.views.decorators.cache import never_cache
 from django.views.decorators.csrf import csrf_protect
 from django.views.decorators.http import require_http_methods
-from accounts.models import Company, User
+from accounts.models import Company, User, CompanyAgent
 from accounts.views import data, field, error
 from .models import Bus, Route, Departure
 from .availability import active_legs, with_remaining
@@ -31,7 +31,20 @@ def company_endpoint(fn):
                 qs = Company.objects
                 if request.method == "POST":
                     qs = qs.select_for_update()
-                company = qs.filter(owner=request.user).first()
+                agent = CompanyAgent.objects.filter(user=request.user).first()
+                if agent:
+                    company = qs.filter(pk=agent.company_id,status=Company.Status.VERIFIED).first()
+                    if not company:return error("Compagnie indisponible.",403)
+                    # Recheck under company lock after concurrent disable or role change.
+                    agent = CompanyAgent.objects.filter(pk=agent.pk,user__is_active=True).first()
+                    if not agent:return error("Agent désactivé.",403)
+                    allowed = fn.__module__ == 'fleet.boarding_views' and fn.__name__ in ('lookup','validate','history')
+                    allowed = allowed or (request.method=='GET' and fn.__module__=='fleet.manifest_views' and fn.__name__ in ('manifest','manifest_pdf'))
+                    allowed = allowed or (request.method=='GET' and fn.__module__=='fleet.views' and (fn.__name__=='departures' or (fn.__name__=='reservations' and agent.role==CompanyAgent.Role.CLERK)))
+                    if not allowed:return error("Permission insuffisante.",403)
+                    request.company_agent=agent
+                else:
+                    company = qs.filter(owner=request.user).first()
                 if not company:
                     return error("Compagnie introuvable.",403)
                 if request.method == "POST" and company.status not in (Company.Status.PENDING, Company.Status.VERIFIED):
@@ -273,4 +286,4 @@ def reservations(request,company):
     from .models import BookingLeg, Booking
     now=timezone.now()
     rows=BookingLeg.objects.filter(departure__company=company).select_related("booking","departure__route").order_by("-id")[:100]
-    return JsonResponse({"items":[{"id":l.id,"reference":str(l.booking.request_id),"origin":l.departure.route.origin,"destination":l.departure.route.destination,"starts_at":l.departure.starts_at.isoformat(),"count":l.booking.passengers,"total":l.total,"premium_count":l.premium_count,"status":"EXPIRED" if l.booking.status==Booking.Status.HELD and l.booking.expires_at<=now else l.booking.status,"expires_at":l.booking.expires_at.isoformat()} for l in rows]})
+    return JsonResponse({"items":[{"id":l.id,"reference":str(l.booking.request_id),"origin":l.departure.route.origin,"destination":l.departure.route.destination,"starts_at":l.departure.starts_at.isoformat(),"count":l.booking.passengers,**({} if getattr(request,"company_agent",None) else {"total":l.total}),"premium_count":l.premium_count,"status":"EXPIRED" if l.booking.status==Booking.Status.HELD and l.booking.expires_at<=now else l.booking.status,"expires_at":l.booking.expires_at.isoformat()} for l in rows]})

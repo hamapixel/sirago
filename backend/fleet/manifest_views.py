@@ -38,6 +38,9 @@ def access(request,company,pk):
     if request.method!="GET":return None,error("Méthode non autorisée.",405)
     if company.status!=Company.Status.VERIFIED:return None,error("Compagnie non validée.",403)
     result=manifest_data(company,pk)
+    if result is not None and getattr(request,"company_agent",None):
+        for key in ("simulated_amount","pending_amount","real_amount"):result.pop(key,None)
+        for item in result["items"]:item.pop("amount",None)
     return (result,None) if result is not None else (None,error("Départ introuvable.",404))
 
 @company_endpoint
@@ -68,14 +71,16 @@ def make_pdf(m):
         text(fmt(m["starts_at"])+" | "+m["bus"]+" | "+m["plate"]+" | "+m["boarding_point"],30,h-105,11,width=w-60)
         text(f'Capacité : {m["capacity"]}  |  Réservés : {m["reserved"]}  |  Standard : {m["standard"]}  |  Premium : {m["premium"]}  |  Libres : {m["remaining"]}',30,h-125,11,True)
         text(f'En attente : {m["pending"]}  |  Embarqués TEST : {m["boarded"]}  |  Non embarqués : {m["waiting"]}  |  Absents TEST : {m["absent"]}',30,h-144,10)
-        text("Simulé : "+money(m["simulated_amount"])+"   |   En attente : "+money(m["pending_amount"])+"   |   Recettes réelles : 0 FCFA",30,h-163,10,True)
+        if "real_amount" in m:
+            text("Simulé : "+money(m["simulated_amount"])+"   |   En attente : "+money(m["pending_amount"])+"   |   Recettes réelles : 0 FCFA",30,h-163,10,True)
+        else:text("Document opérationnel - Montants masqués",30,h-163,10,True)
         text("MODE TEST - Aucun encaissement ni embarquement réel",30,h-181,10,True,color="#94640C")
         cols=[30,64,365,450,560,705]
-        for x,label in zip(cols,["N°","Passager","Catégorie","Montant","Statut","Heure TEST"]):text(label,x,h-206,10,True)
+        for x,label in zip(cols,["N°","Passager","Catégorie","Montant" if "real_amount" in m else "", "Statut","Heure TEST"]):text(label,x,h-206,10,True)
         for j,r in enumerate(rows[page*18:(page+1)*18]):
             y=h-226-j*17
             p.setStrokeColor(HexColor("#DCE6E3"));p.line(30,y-5,w-30,y-5)
-            for x,value,width in zip(cols,[page*18+j+1,r["name"],r["category"],money(r["amount"]),LABELS[r["state"]],fmt(r["boarded_at"]) if r["boarded_at"] else "-"],[30,295,80,105,140,105]):text(value,x,y,9,width=width)
+            for x,value,width in zip(cols,[page*18+j+1,r["name"],r["category"],money(r["amount"]) if "amount" in r else "",LABELS[r["state"]],fmt(r["boarded_at"]) if r["boarded_at"] else "-"],[30,295,80,105,140,105]):text(value,x,y,9,width=width)
         if not rows:text("Aucun voyageur réservé.",30,h-235)
         text("Propulsé par BTDIGIT | Généré le "+fmt(m["generated_at"]),30,30,9)
         text(f"{page+1}/{pages}",w-65,30,9)

@@ -13,7 +13,7 @@ from django.middleware.csrf import get_token
 from django.views.decorators.cache import never_cache
 from django.views.decorators.csrf import csrf_protect
 from django.views.decorators.http import require_GET, require_POST
-from .models import User, Company
+from .models import User, Company, CompanyAgent
 
 def error(message, status=400):
     return JsonResponse({"detail": message}, status=status)
@@ -65,9 +65,11 @@ def profile(user):
               "email": user.email, "role": "ADMIN" if user.is_superuser else user.role,
               "company": None}
     if not user.is_superuser and user.role == User.Role.COMPANY:
-        company = Company.objects.filter(owner=user).first()
+        agent = CompanyAgent.objects.select_related("company").filter(user=user).first()
+        company = agent.company if agent else Company.objects.filter(owner=user).first()
         if company:
             result["company"] = {"name": company.name, "status": company.status, "city": company.city}
+            result["company_role"] = agent.role if agent else "OWNER"
     return result
 
 @never_cache
@@ -153,6 +155,9 @@ def sign_in(request):
             return error("Identifiants incorrects.", 401)
     except ValueError as exc:
         return error(str(exc))
+    agent=CompanyAgent.objects.select_related("company").filter(user=user).first()
+    if agent and agent.company.status!=Company.Status.VERIFIED:
+        return error("Accès de la compagnie indisponible.",403)
     login(request, user)
     return JsonResponse(profile(user))
 
@@ -278,6 +283,8 @@ def update_company_profile(request):
 @csrf_protect
 @require_POST
 def change_company_password(request):
+    if request.user.is_authenticated and not request.user.is_superuser and request.user.role==User.Role.COMPANY and CompanyAgent.objects.filter(user=request.user,company__status=Company.Status.VERIFIED).exists():
+        return change_password(request)
     denied=company_profile_error(request)
     if denied is not None:return denied
     return change_password(request)

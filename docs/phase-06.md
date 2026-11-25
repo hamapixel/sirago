@@ -28,3 +28,6 @@ Accessible depuis Mes départs, uniquement à la compagnie vérifiée propriéta
 
 ## Étape 7 — Scanner et profil compagnie
 Décodeur QR jsQR local, caméra et import JPEG/PNG/WebP (max 10 Mio), saisie manuelle conservée. Aucun envoi des images au serveur. Caméra sur localhost ou HTTPS avec autorisation. Profil compagnie premium, coordonnées de la société en lecture seule (identité vérifiée), modification du nom du responsable et du mot de passe avec session conservée. Agents, logo personnalisé, notifications et assistance directe à venir. Installer la nouvelle dépendance frontend dans le volume node_modules (npm install). Aucune migration.
+
+## Étape 8 — Agents et chargement différé
+Deux profils agents (guichetier, contrôleur), rattachés à une compagnie vérifiée. Le responsable crée les comptes, change le rôle, désactive ou réactive avec un nouveau mot de passe, et réinitialise les mots de passe. Désactivation invalide les identifiants et les sessions existantes. Les API agents sont explicitement autorisées par rôle; les montants des réservations et manifestes (JSON/PDF) sont masqués aux agents. Le tarif public des départs reste consultable. Les agents ne créent pas de réservations pour le compte des voyageurs à cette étape. Scanner et jsQR chargés à la demande par React.lazy. Migration accounts 0003.
