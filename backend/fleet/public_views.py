@@ -8,15 +8,16 @@ from django.views.decorators.http import require_GET
 from accounts.models import Company
 from accounts.views import error
 from .models import Departure
+from .availability import with_remaining
 from .views import CITIES, TZ
 
 def public_departures(now):
-    return Departure.objects.filter(
+    return with_remaining(Departure.objects.filter(
         status=Departure.Status.PUBLISHED, starts_at__gt=now,
         company__status=Company.Status.VERIFIED, bus__active=True, route__active=True,
         bus__company_id=F("company_id"), route__company_id=F("company_id"),
         capacity__lte=F("bus__capacity"),
-    )
+    ), now)
 
 def public_row(d):
     return {
@@ -25,7 +26,7 @@ def public_row(d):
         "boarding_point":d.route.boarding_point, "arrival_point":d.route.arrival_point,
         "starts_at":d.starts_at.isoformat(), "ends_at":d.ends_at.isoformat(),
         "duration_minutes":int((d.ends_at-d.starts_at).total_seconds()//60),
-        "price":d.price, "capacity":d.capacity,
+        "price":d.price, "capacity":d.capacity, "remaining":max(0,d.remaining),
     }
 
 def bounded_int(raw, low, high):
@@ -64,7 +65,7 @@ def search(request):
         low,high=periods[period]
         qs=public_departures(now).filter(route__origin=origin,route__destination=destination,
             starts_at__gte=start+timedelta(hours=low),starts_at__lt=start+timedelta(hours=high),
-            capacity__gte=passengers,price__lte=max_price)
+            remaining__gte=passengers,price__lte=max_price)
         if company:
             qs=qs.filter(company__name__icontains=company)
         if q.get("after"):
@@ -83,7 +84,7 @@ def search(request):
 @never_cache
 @require_GET
 def home(request):
-    qs=public_departures(timezone.now())
+    qs=public_departures(timezone.now()).filter(remaining__gt=0)
     popular=list(qs.values("route__origin","route__destination").annotate(price=Min("price")).order_by("route__origin","route__destination")[:12])
     partners=list(qs.values("company_id","company__name","company__city").distinct().order_by("company__name","company_id")[:30])
     return JsonResponse({

@@ -58,3 +58,33 @@ class Departure(models.Model):
             models.CheckConstraint(condition=Q(capacity__gte=1, capacity__lte=100, price__gte=1, price__lte=1000000), name="fleet_departure_values"),
         ]
         indexes = [models.Index(fields=["company","starts_at"], name="fleet_company_start_idx"), models.Index(fields=["bus","starts_at"], name="fleet_bus_start_idx")]
+
+class Booking(models.Model):
+    class Status(models.TextChoices):
+        HELD = "HELD", "En attente de paiement"
+        CANCELLED = "CANCELLED", "Annulée"
+    traveler = models.ForeignKey("accounts.User", on_delete=models.PROTECT, related_name="bookings")
+    request_id = models.UUIDField()
+    passengers = models.PositiveIntegerField()
+    status = models.CharField(max_length=16, choices=Status.choices, default=Status.HELD)
+    expires_at = models.DateTimeField()
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        constraints = [
+            models.UniqueConstraint(fields=["traveler","request_id"], name="fleet_booking_request_unique"),
+            models.CheckConstraint(condition=Q(passengers__gte=1,passengers__lte=10), name="fleet_booking_passengers"),
+        ]
+
+class BookingLeg(models.Model):
+    booking = models.ForeignKey(Booking, on_delete=models.PROTECT, related_name="legs")
+    departure = models.ForeignKey(Departure, on_delete=models.PROTECT, related_name="booking_legs")
+    position = models.PositiveSmallIntegerField()
+    unit_price = models.PositiveIntegerField()
+
+    class Meta:
+        constraints = [
+            models.UniqueConstraint(fields=["booking","position"], name="fleet_booking_leg_position"),
+            models.UniqueConstraint(fields=["booking","departure"], name="fleet_booking_leg_unique"),
+            models.CheckConstraint(condition=Q(position__lte=1,unit_price__gte=1,unit_price__lte=1000000), name="fleet_booking_leg_values"),
+        ]

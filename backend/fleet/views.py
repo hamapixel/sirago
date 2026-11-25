@@ -10,6 +10,7 @@ from django.views.decorators.http import require_http_methods
 from accounts.models import Company, User
 from accounts.views import data, field, error
 from .models import Bus, Route, Departure
+from .availability import active_legs, with_remaining
 
 CITIES = ["Bamako","Sikasso","Kayes","Ségou","Koutiala","Bougouni","Mopti","San","Kita"]
 TZ = ZoneInfo("Africa/Bamako")
@@ -73,7 +74,7 @@ def overview(request, company):
     today = timezone.now().astimezone(TZ).date()
     start = datetime.combine(today,time.min,TZ)
     departures = company.departures.filter(starts_at__gte=start, starts_at__lt=start+timedelta(days=1),status=D.PUBLISHED)
-    return JsonResponse({"status":company.status,"active_buses":company.buses.filter(active=True).count(),"active_routes":company.routes.filter(active=True).count(),"today_departures":departures.count(),"today_capacity":sum(departures.filter(starts_at__gt=timezone.now()).values_list("capacity",flat=True))})
+    return JsonResponse({"status":company.status,"active_buses":company.buses.filter(active=True).count(),"active_routes":company.routes.filter(active=True).count(),"today_departures":departures.count(),"today_capacity":sum(with_remaining(departures.filter(starts_at__gt=timezone.now()),timezone.now()).values_list("remaining",flat=True))})
 
 @company_endpoint
 def buses(request,company,pk=None):
@@ -227,7 +228,8 @@ def departure_status(request,company,pk):
         return error("Ce changement de statut n’est pas autorisé.",409)
     if target==D.PUBLISHED and (company.status!=Company.Status.VERIFIED or not d.bus.active or not d.route.active or d.capacity>d.bus.capacity):
         return error("La compagnie, le car et le trajet doivent être actifs et validés.",403)
-    # Before phase 05 there are no bookings. Future cancellation must use booking-aware services.
+    if target==D.CANCELLED and active_legs(timezone.now()).filter(departure=d).exists():
+        return error("Des réservations sont en attente. Attendez leur expiration avant d’annuler le départ.",409)
     d.status=target
     d.save(update_fields=["status"])
     return JsonResponse(departure_json(d))
@@ -254,3 +256,12 @@ def publish_batch(request,company):
     # company_endpoint holds the company row lock throughout validation and update.
     count = company.departures.filter(pk__in=ids).update(status=D.PUBLISHED)
     return JsonResponse({"published":count})
+
+@company_endpoint
+def reservations(request,company):
+    if request.method!="GET":
+        return error("Méthode non autorisée.",405)
+    from .models import BookingLeg, Booking
+    now=timezone.now()
+    rows=BookingLeg.objects.filter(departure__company=company).select_related("booking","departure__route").order_by("-id")[:100]
+    return JsonResponse({"items":[{"id":l.id,"reference":str(l.booking.request_id),"origin":l.departure.route.origin,"destination":l.departure.route.destination,"starts_at":l.departure.starts_at.isoformat(),"count":l.booking.passengers,"total":l.unit_price*l.booking.passengers,"status":"EXPIRED" if l.booking.status==Booking.Status.HELD and l.booking.expires_at<=now else l.booking.status,"expires_at":l.booking.expires_at.isoformat()} for l in rows]})
