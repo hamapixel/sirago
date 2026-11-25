@@ -6,7 +6,7 @@ class TicketTests(BookingFixture,TestCase):
     def setUp(self):
         super().setUp()
         self.client.force_login(self.user)
-        r=self.reserve()
+        r=self.reserve(ticket_mode="individual")
         self.assertEqual(r.status_code,201)
         self.base=f'/api/v1/travel/bookings/{r.json()["id"]}/'
         self.url=self.base+"tickets/"
@@ -46,3 +46,47 @@ class TicketTests(BookingFixture,TestCase):
         with override_settings(DEBUG=False):
             self.assertEqual(self.client.get(self.url).status_code,404)
             self.assertEqual(self.client.get(self.url+"0/0/pdf/").status_code,404)
+
+    def test_collective_default_and_capacity_100(self):
+        from uuid import uuid4
+        self.client.post(self.base+"cancel/")
+        self.departure.bus.capacity=100
+        self.departure.bus.save(update_fields=["capacity"])
+        self.departure.capacity=100
+        self.departure.save(update_fields=["capacity"])
+        r=self.reserve(count=100,passenger_names=[f"Passager {i}" for i in range(100)],total=800000,request_id=str(uuid4()))
+        self.assertEqual(r.status_code,201,r.content)
+        self.assertEqual(r.json()["ticket_mode"],"group")
+        self.base=f'/api/v1/travel/bookings/{r.json()["id"]}/'
+        self.url=self.base+"tickets/"
+        self.pay()
+        items=self.client.get(self.url).json()["items"]
+        self.assertEqual(len(items),1)
+        self.assertEqual(items[0]["count"],100)
+        self.assertEqual(items[0]["amount"],800000)
+        self.assertEqual(len(items[0]["names"]),100)
+        self.assertEqual(self.client.get(self.url+"0/1/pdf/").status_code,404)
+        self.assertTrue(self.client.get(self.url+"0/0/pdf/").content.startswith(b"%PDF"))
+        self.assertEqual(self.search()["total"],0)
+
+    def test_mixed_collective_and_choice_immutable(self):
+        from uuid import uuid4
+        self.client.post(self.base+"cancel/")
+        self.departure.bus.capacity=5
+        self.departure.bus.premium_capacity=2
+        self.departure.bus.save(update_fields=["capacity","premium_capacity"])
+        self.departure.capacity=5
+        self.departure.premium_capacity=2
+        self.departure.premium_price=12000
+        self.departure.save(update_fields=["capacity","premium_capacity","premium_price"])
+        payload=dict(count=5,passenger_names=["Awa Test","Moussa Test","Awa Test","Baba Test","Ami Test"],premium_positions=[[3,4]],total=48000,request_id=str(uuid4()))
+        r=self.reserve(**payload)
+        self.assertEqual(r.status_code,201,r.content)
+        self.assertEqual(self.reserve(**payload,ticket_mode="individual").status_code,409)
+        self.base=f'/api/v1/travel/bookings/{r.json()["id"]}/'
+        self.url=self.base+"tickets/"
+        self.pay()
+        items=self.client.get(self.url).json()["items"]
+        self.assertEqual([(t["category"],t["count"],t["amount"]) for t in items],[("Standard",3,24000),("Premium",2,24000)])
+        self.assertNotEqual(items[0]["code"],items[1]["code"])
+        self.assertEqual(items[0]["names"].count("Awa Test"),2)

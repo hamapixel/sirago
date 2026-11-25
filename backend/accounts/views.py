@@ -21,8 +21,8 @@ def error(message, status=400):
 def csrf_failure(request, reason=""):
     return error("Session de sécurité expirée. Actualisez la page et réessayez.", 403)
 
-def data(request):
-    if len(request.body) > 16384:
+def data(request, max_bytes=16384):
+    if len(request.body) > max_bytes:
         raise ValueError("Requête trop volumineuse.")
     try:
         value = json.loads(request.body)

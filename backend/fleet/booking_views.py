@@ -17,7 +17,7 @@ def selection(values):
         raise ValueError("Sélection invalide.")
     out=bounded_int(values.get("out", ""),1,2**63-1)
     ret=bounded_int(values["ret"],1,2**63-1) if values.get("ret") else None
-    count=bounded_int(values.get("count","1"),1,10)
+    count=bounded_int(values.get("count","1"),1,100)
     if out==ret:
         raise ValueError("Départs distincts requis.")
     return [out]+([ret] if ret else []),count
@@ -77,7 +77,7 @@ def booking_json(b):
     now=timezone.now()
     legs=list(b.legs.select_related("departure__route","departure__company","departure__bus").order_by("position"))
     return {"id":b.id,"reference":str(b.request_id),"count":b.passengers,"status":"EXPIRED" if b.status==Booking.Status.HELD and b.expires_at<=now else b.status,"expires_at":b.expires_at.isoformat(),"created_at":b.created_at.isoformat(),
-            "passenger_names":b.passenger_names,"total":sum(l.total for l in legs),
+            "passenger_names":b.passenger_names,"ticket_mode":b.ticket_mode,"total":sum(l.total for l in legs),
             "simulation_enabled":simulation_enabled(),
             "simulated_payment":({"amount":b.simulated_payment.amount,"network":b.simulated_payment.network,"created_at":b.simulated_payment.created_at.isoformat()} if b.status==Booking.Status.TEST_PAID and hasattr(b,"simulated_payment") else None),
             "trips":[{"id":l.departure_id,"company":l.departure.company.name,"origin":l.departure.route.origin,"destination":l.departure.route.destination,"starts_at":l.departure.starts_at.isoformat(),"ends_at":l.departure.ends_at.isoformat(),"boarding_point":l.departure.route.boarding_point,"arrival_point":l.departure.route.arrival_point,"bus_name":l.departure.bus.name,"price":l.unit_price,"premium_price":l.premium_unit_price,"premium_positions":l.premium_positions,"total":l.total} for l in legs]}
@@ -96,7 +96,10 @@ def reserve(request):
     denied=traveler_error(request)
     if denied is not None:return denied
     try:
-        v=data(request)
+        v=data(request, max_bytes=65536)
+        mode=v.get("ticket_mode","group")
+        if mode not in ("group","individual"):
+            raise ValueError("Format de billet invalide.")
         ids,count=selection(v)
         names=passenger_names(v.get("passenger_names"),count)
         classes=premium_selection(v.get("premium_positions"),count,len(ids))
@@ -109,7 +112,7 @@ def reserve(request):
             User.objects.select_for_update().get(pk=request.user.pk)
             old=Booking.objects.filter(traveler=request.user,request_id=key).first()
             if old:
-                if list(old.legs.order_by("position").values_list("departure_id",flat=True))!=ids or old.passengers!=count or old.passenger_names!=names or [l.premium_positions for l in old.legs.order_by("position")]!=classes or sum(l.total for l in old.legs.all())!=expected:
+                if list(old.legs.order_by("position").values_list("departure_id",flat=True))!=ids or old.passengers!=count or old.ticket_mode!=mode or old.passenger_names!=names or [l.premium_positions for l in old.legs.order_by("position")]!=classes or sum(l.total for l in old.legs.all())!=expected:
                     return error("Référence de requête déjà utilisée.",409)
                 return JsonResponse(booking_json(old))
             company_ids=list(Departure.objects.filter(pk__in=ids).values_list("company_id",flat=True).distinct())
@@ -124,7 +127,7 @@ def reserve(request):
             if Booking.objects.filter(traveler=request.user,status=Booking.Status.HELD,expires_at__gt=now).count()>=3:
                 return error("Vous avez déjà trois réservations en attente. Annulez-en une ou attendez son expiration.",409)
             expiry=min(now+timedelta(minutes=15),*(d.starts_at for d in rows))
-            b=Booking.objects.create(traveler=request.user,request_id=key,passengers=count,passenger_names=names,expires_at=expiry)
+            b=Booking.objects.create(traveler=request.user,request_id=key,passengers=count,passenger_names=names,ticket_mode=mode,expires_at=expiry)
             BookingLeg.objects.bulk_create([BookingLeg(booking=b,departure=d,position=i,unit_price=d.price,premium_count=len(classes[i]),premium_positions=classes[i],premium_unit_price=d.premium_price if classes[i] else 0) for i,d in enumerate(rows)])
             return JsonResponse(booking_json(b),status=201)
     except (ValueError,TypeError,OverflowError) as exc:

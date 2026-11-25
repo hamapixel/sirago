@@ -56,7 +56,7 @@ def search(request):
         day=date.fromisoformat(q.get("date",""))
         if not today<=day<=today+timedelta(days=365):
             raise ValueError("Choisissez une date dans les 365 prochains jours.")
-        passengers=bounded_int(q.get("passengers","1"),1,10)
+        passengers=bounded_int(q.get("passengers","1"),1,100)
         page=bounded_int(q.get("page","1"),1,1000)
         max_price=bounded_int(q.get("max_price","1000000"),1,1000000)
         company=q.get("company","").strip()

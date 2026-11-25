@@ -58,7 +58,7 @@ class PublicSearchTests(TestCase):
         self.assertEqual(self.search(after=(self.start+timedelta(hours=7)).isoformat()).json()["total"],1)
         self.assertEqual(self.search(date=(self.start.date()+timedelta(days=1)).isoformat()).json()["total"],0)
     def test_invalid(self):
-        for params in ({"origin":"Sikasso"},{"date":"bad"},{"passengers":11},{"sort":"bad"},{"page":0},{"after":"bad"}):
+        for params in ({"origin":"Sikasso"},{"date":"bad"},{"passengers":101},{"sort":"bad"},{"page":0},{"after":"bad"}):
             self.assertEqual(self.search(**params).status_code,400)
     def test_home_real_data(self):
         self.departure(price=8500)

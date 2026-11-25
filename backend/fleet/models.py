@@ -72,6 +72,7 @@ class Booking(models.Model):
     traveler = models.ForeignKey("accounts.User", on_delete=models.PROTECT, related_name="bookings")
     request_id = models.UUIDField()
     passengers = models.PositiveIntegerField()
+    ticket_mode = models.CharField(max_length=10, choices=[("group","Collectifs"),("individual","Individuels")], default="group")
     passenger_names = models.JSONField(default=list, blank=True)
     status = models.CharField(max_length=16, choices=Status.choices, default=Status.HELD)
     expires_at = models.DateTimeField()
@@ -80,7 +81,8 @@ class Booking(models.Model):
     class Meta:
         constraints = [
             models.UniqueConstraint(fields=["traveler","request_id"], name="fleet_booking_request_unique"),
-            models.CheckConstraint(condition=Q(passengers__gte=1,passengers__lte=10), name="fleet_booking_passengers"),
+            models.CheckConstraint(condition=Q(passengers__gte=1,passengers__lte=100), name="fleet_booking_passengers"),
+            models.CheckConstraint(condition=Q(ticket_mode__in=["group","individual"]), name="fleet_booking_ticket_mode"),
         ]
 
 class BookingLeg(models.Model):
@@ -101,7 +103,7 @@ class BookingLeg(models.Model):
             models.UniqueConstraint(fields=["booking","position"], name="fleet_booking_leg_position"),
             models.UniqueConstraint(fields=["booking","departure"], name="fleet_booking_leg_unique"),
             models.CheckConstraint(condition=Q(position__lte=1,unit_price__gte=1,unit_price__lte=1000000), name="fleet_booking_leg_values"),
-            models.CheckConstraint(condition=Q(premium_count__lte=10) & (Q(premium_count=0,premium_unit_price=0) | Q(premium_count__gt=0,premium_unit_price__gte=F("unit_price"),premium_unit_price__lte=1000000)),name="fleet_leg_premium_values"),
+            models.CheckConstraint(condition=Q(premium_count__lte=100) & (Q(premium_count=0,premium_unit_price=0) | Q(premium_count__gt=0,premium_unit_price__gte=F("unit_price"),premium_unit_price__lte=1000000)),name="fleet_leg_premium_values"),
         ]
 
 

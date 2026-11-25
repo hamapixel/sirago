@@ -16,3 +16,6 @@ Activer uniquement dans la base locale de développement: DJANGO_DEBUG=1 et SIRA
 
 ## Étape 3 — Billets numériques de test
 Un billet par passager et trajet pour toute réservation TEST_PAID avec enregistrement de simulation. Références déterministes SRG-TEST, QR contenant uniquement cette référence, PDF et partage natif si disponible (sinon téléchargement). Endpoints privés, no-store, désactivés hors DEBUG et opt-in. Pas de migration ni d'émission réelle. Rebuild backend nécessaire (qrcode et reportlab). Les billets réels persistés et le contrôle compagnie seront des étapes distinctes.
+
+## Étape 4 — Choix collectif / individuel
+Nouvelles réservations : group par défaut, individual au choix avant confirmation. Un groupe par catégorie et par trajet ; une seule personne garde le billet individuel. Le format est enregistré et lié à l'idempotence. Les anciennes réservations restent individuelles (migration 0006). Capacité 1 à 100 selon disponibilités réelles, sans répartir une réservation sur plusieurs cars. Les PDF collectifs incluent les noms en annexe. Le scanner et la validation individuelle à l'embarquement restent à développer ; les références TEST ne sont pas des titres de transport. Avant production, renforcer les protections anti-blocage abusif de grandes réservations.

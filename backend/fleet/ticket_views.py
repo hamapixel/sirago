@@ -33,17 +33,28 @@ def ticket_booking(request,pk):
 def legs_for(b):
     return b.legs.select_related("departure__route","departure__company").order_by("position")
 
-def ticket_data(b,l,i):
-    code="SRG-TEST-"+uuid5(b.request_id,f"{b.pk}:{l.pk}:{i}").hex.upper()
+def ticket_groups(b,l):
+    if b.ticket_mode=="individual":
+        return [[i] for i in range(b.passengers)]
+    premium=set(l.premium_positions)
+    return [g for g in ([i for i in range(b.passengers) if i not in premium],
+                        [i for i in range(b.passengers) if i in premium]) if g]
+
+def ticket_data(b,l,indices):
+    i=indices[0]
+    suffix=str(i) if len(indices)==1 else "group:"+",".join(map(str,indices))
+    code="SRG-TEST-"+uuid5(b.request_id,f"{b.pk}:{l.pk}:{suffix}").hex.upper()
     premium=i in l.premium_positions
+    names=[b.passenger_names[j] if j<len(b.passenger_names) else f"Passager {j+1}" for j in indices]
+    unit=l.premium_unit_price if premium else l.unit_price
     d=l.departure
     qr=qrcode.QRCode(error_correction=qrcode.constants.ERROR_CORRECT_M,border=4,box_size=1)
     qr.add_data(code)
     qr.make(fit=True)
     return {"code":code,"leg":l.position,"passenger":i,
-        "name":b.passenger_names[i] if i<len(b.passenger_names) else f"Passager {i+1}",
+        "name":names[0],"names":names,"count":len(indices),"unit_price":unit,
         "category":"Premium" if premium else "Standard",
-        "amount":l.premium_unit_price if premium else l.unit_price,
+        "amount":unit*len(indices),
         "company":d.company.name,"origin":d.route.origin,"destination":d.route.destination,
         "starts_at":d.starts_at.isoformat(),"ends_at":d.ends_at.isoformat(),
         "boarding_point":d.route.boarding_point,"arrival_point":d.route.arrival_point,
@@ -54,7 +65,7 @@ def ticket_data(b,l,i):
 def tickets(request,pk):
     b,denied=ticket_booking(request,pk)
     if denied is not None:return denied
-    return JsonResponse({"items":[ticket_data(b,l,i) for l in legs_for(b) for i in range(b.passengers)]})
+    return JsonResponse({"items":[ticket_data(b,l,g) for l in legs_for(b) for g in ticket_groups(b,l)]})
 
 def make_pdf(t):
     buf=BytesIO()
@@ -91,8 +102,8 @@ def make_pdf(t):
     label(t["boarding_point"],32,h-237,8,green,False,w/2-45)
     label(t["arrival_point"],w/2+8,h-237,8,green,False,w/2-42)
     line(h-247)
-    label("Passager",32,h-263,10)
-    label(t["name"],32,h-279,12,green,True)
+    label("Passager" if t["count"]==1 else "Billet collectif",32,h-263,10)
+    label(t["name"] if t["count"]==1 else f'{t["count"]} passagers - liste en annexe',32,h-279,12,green,True)
     label("Catégorie",32,h-298,10)
     label("Montant",w/2+8,h-298,10)
     label(t["category"],32,h-315,12,"#94640C" if t["category"]=="Premium" else green,True)
@@ -106,13 +117,24 @@ def make_pdf(t):
     for row,values in enumerate(matrix):
         for col,v in enumerate(values):
             if v=="1":p.rect(x+col*unit,y+(len(matrix)-1-row)*unit,unit,unit,fill=1,stroke=0)
-    label("QR code individuel",w/2-52,h-480,11,green,True)
+    label("QR code individuel" if t["count"]==1 else "QR code collectif",w/2-52,h-480,11,green,True)
     label(t["code"],32,h-496,8)
     p.setFillColor(HexColor("#FFF0E0"))
     p.roundRect(30,h-527,w-60,23,6,fill=1,stroke=0)
     label("TEST - Non valable pour voyager",39,h-519,11,"#963B0D",True)
     label("Propulsé par BTDIGIT",32,33,10,"#506866")
-    p.showPage();p.save()
+    p.showPage()
+    if t["count"]>1:
+        for offset in range(0,t["count"],24):
+            label("SiraGo - Liste des passagers TEST",30,h-40,16,green,True)
+            label(t["code"],30,h-60,9)
+            label(t["category"]+" - "+str(t["count"])+" passagers",30,h-80,11)
+            label(f'Prix unitaire : {t["unit_price"]} FCFA',30,h-98,10)
+            for j,name in enumerate(t["names"][offset:offset+24],start=offset+1):
+                label(f"{j}. {name}",30,h-123-(j-offset-1)*18,10)
+            label("TEST - Non valable pour voyager",30,30,10,"#963B0D",True)
+            p.showPage()
+    p.save()
     return buf.getvalue()
 
 @never_cache
@@ -123,7 +145,9 @@ def ticket_pdf(request,pk,leg,passenger):
     l=legs_for(b).filter(position=leg).first() if leg in (0,1) else None
     if l is None or not 0<=passenger<b.passengers:
         return error("Billet introuvable.",404)
-    t=ticket_data(b,l,passenger)
+    group=next((g for g in ticket_groups(b,l) if g[0]==passenger),None)
+    if group is None:return error("Billet introuvable.",404)
+    t=ticket_data(b,l,group)
     response=HttpResponse(make_pdf(t),content_type="application/pdf")
     response["Content-Disposition"]='attachment; filename="'+t["code"]+'.pdf"'
     response["X-Content-Type-Options"]="nosniff"

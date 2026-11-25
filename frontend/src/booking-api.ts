@@ -1,11 +1,11 @@
 import {type Trip} from './travel-api';
 export type Selection={out:number;ret?:number;count:number};
 export type Quote={trips:Trip[];count:number;total:number};
-export type Booking={id:number;reference:string;count:number;status:'HELD'|'EXPIRED'|'CANCELLED'|'TEST_PAID';simulation_enabled?:boolean;simulated_payment?:{amount:number;network:string;created_at:string}|null;expires_at:string;created_at:string;passenger_names:string[];total:number;trips:{id:number;company:string;origin:string;destination:string;starts_at:string;ends_at:string;boarding_point:string;arrival_point:string;bus_name:string;price:number;premium_price:number;premium_positions:number[];total:number}[]};
+export type Booking={id:number;reference:string;count:number;status:'HELD'|'EXPIRED'|'CANCELLED'|'TEST_PAID';ticket_mode?:'group'|'individual';simulation_enabled?:boolean;simulated_payment?:{amount:number;network:string;created_at:string}|null;expires_at:string;created_at:string;passenger_names:string[];total:number;trips:{id:number;company:string;origin:string;destination:string;starts_at:string;ends_at:string;boarding_point:string;arrival_point:string;bus_name:string;price:number;premium_price:number;premium_positions:number[];total:number}[]};
 export function parseSelection(search:string):Selection|null{
  const p=new URLSearchParams(search);
  const out=Number(p.get('out')),ret=Number(p.get('ret')),count=Number(p.get('count'));
- if(!Number.isSafeInteger(out)||out<=0||!Number.isSafeInteger(count)||count<1||count>10||!Number.isSafeInteger(ret)||ret<0||ret===out)return null;
+ if(!Number.isSafeInteger(out)||out<=0||!Number.isSafeInteger(count)||count<1||count>100||!Number.isSafeInteger(ret)||ret<0||ret===out)return null;
  return {out,...(ret?{ret}:{}),count};
 }
 export function selectionQuery(s:Selection){const p=new URLSearchParams({out:String(s.out),count:String(s.count)});if(s.ret)p.set('ret',String(s.ret));return '?'+p.toString()}

@@ -25,6 +25,7 @@ export default function BookingSpace({selection,account,onHistory}:{selection:Se
  const q=useTravel<Quote>('quote/'+selectionQuery(selection),0);
  const [busy,setBusy]=useState(false),[error,setError]=useState(''),[booked,setBooked]=useState<Booking|null>(null);
  const [showDetails,setShowDetails]=useState(false),[showPayment,setShowPayment]=useState(false);
+ const [ticketMode,setTicketMode]=useState<"group"|"individual">("group");
  const [names,setNames]=useState<string[]>(()=>Array.from({length:selection.count},(_,i)=>i===0?[account.first_name,account.last_name].filter(Boolean).join(" "):""));
  const namesValid=validPassengerNames(names,selection.count);
  const [choices,setChoices]=useState<Record<number,number[]>>({});
@@ -36,7 +37,7 @@ export default function BookingSpace({selection,account,onHistory}:{selection:Se
  async function reserve(){
   if(submitting.current||!q.data||!namesValid||!categoriesValid)return;
   submitting.current=true;setBusy(true);setError('');
-  try{const result=await bookingPost<Booking>('bookings/reserve/',{...selection,request_id:attemptKey(selection),total,premium_positions:positions,passenger_names:names.map(normalizePassengerName)});setBooked(result);clearAttempt(selection)}
+  try{const result=await bookingPost<Booking>('bookings/reserve/',{...selection,request_id:attemptKey(selection),total,ticket_mode:ticketMode,premium_positions:positions,passenger_names:names.map(normalizePassengerName)});setBooked(result);clearAttempt(selection)}
   catch(e){setError(e instanceof Error?e.message:'Réservation impossible.');q.retry()}
   finally{submitting.current=false;setBusy(false)}
  }
@@ -51,6 +52,7 @@ export default function BookingSpace({selection,account,onHistory}:{selection:Se
  <article className="panel booking-checkout"><h2>Passagers</h2><p className="muted">Un nom par passager. Sièges attribués par la compagnie.</p>
  {names.map((name,i)=><div className="passenger-config" key={i}><div className="passenger-config-head"><span className="passenger-number">{i+1}</span><strong>Passager {i+1}</strong><small>{priceText(q.data!.trips.reduce((sum,t,j)=>sum+(positions[j].includes(i)?t.premium_price:t.price),0))}</small></div><label htmlFor={'passenger-'+i}>Nom complet</label><input id={'passenger-'+i} autoComplete={i===0?'name':'off'} maxLength={100} value={name} disabled={busy} placeholder="Nom et prénom" required onChange={e=>setNames(old=>old.map((n,j)=>j===i?e.target.value:n))}/>{q.data!.trips.map((t,j)=><div key={t.id} className="passenger-category">{q.data!.trips.length>1&&<small>{j===0?'Aller':'Retour'}</small>}<SeatCategoryCards trip={t} premium={positions[j].includes(i)} disabled={busy} label={`Type de place, passager ${i+1}${q.data!.trips.length>1?(j===0?' aller':' retour'):''}`} onChange={value=>chooseCategory(j,i,value)}/></div>)}</div>)}
  </article>
+ {selection.count>1&&<article className="panel booking-checkout"><h2>Format des billets</h2><div className="ticket-mode-options" role="group" aria-label="Format des billets"><button type="button" className={'outline '+(ticketMode==='group'?'selected':'')} aria-pressed={ticketMode==='group'} disabled={busy} onClick={()=>setTicketMode('group')}><Users size={22}/><span><strong>Billets collectifs</strong><small>Un billet par catégorie et par trajet.</small></span></button><button type="button" className={'outline '+(ticketMode==='individual'?'selected':'')} aria-pressed={ticketMode==='individual'} disabled={busy} onClick={()=>setTicketMode('individual')}><Ticket size={22}/><span><strong>Billets individuels</strong><small>Un billet par passager et par trajet.</small></span></button></div><small>Nombre de billets : {ticketMode==='individual'?selection.count*positions.length:positions.reduce((sum,p)=>sum+Number(p.length>0)+Number(p.length<selection.count),0)}</small></article>}
  <article className="panel booking-checkout"><div className="booking-total"><strong>Total</strong><strong>{priceText(total)}</strong></div><div className="booking-info"><Clock size={20}/><p>Blocage : 15 min max. Aucun débit.</p></div>{!namesValid&&<small role="status">Renseignez tous les noms.</small>}{!categoriesValid&&<small role="alert">Places insuffisantes dans une catégorie. Modifiez votre choix.</small>}<button className="primary" disabled={busy||!namesValid||!categoriesValid} onClick={reserve}>{busy?'Enregistrement…':'Confirmer'}</button></article></>}
  {error&&<p className="auth-error" role="alert">{error}</p>}</>}
  </section>
