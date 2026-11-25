@@ -3,6 +3,7 @@ import {ArrowLeft,Clock,LockKeyhole,Smartphone,Ticket,UserRound} from 'lucide-re
 import {bookingPost,effectiveBookingStatus,bookingLabel,type Booking} from './booking-api';
 import {priceText,dayText,timeText} from './travel-api';
 import './payment-preview.css';
+import TestTickets from './TestTickets';
 
 export default function PaymentPreview({booking,onBack}:{booking:Booking;onBack:()=>void}){
  const [now,setNow]=useState(Date.now());
@@ -13,6 +14,7 @@ export default function PaymentPreview({booking,onBack}:{booking:Booking;onBack:
  const status=effectiveBookingStatus(result??booking,now);
  async function simulate(){if(pending.current||!booking.simulation_enabled||effectiveBookingStatus(booking)!=='HELD')return;pending.current=true;setBusy(true);setError('');try{setResult(await bookingPost<Booking>('bookings/'+booking.id+'/simulate-payment/',{network:method==='orange'?'orange_ml':'moov_ml'}))}catch(e){setError(e instanceof Error?e.message:'Simulation impossible.')}finally{pending.current=false;setBusy(false)}}
  const seconds=Math.max(0,Math.ceil((Date.parse(booking.expires_at)-now)/1000));
+ if(status==='TEST_PAID'&&(result??booking).simulation_enabled)return <TestTickets booking={result??booking} onBack={onBack}/>;
  return <section className="booking-space booking-details payment-preview">
  <div className="travel-heading"><div className="travel-heading-top"><button type="button" disabled={busy} onClick={onBack}><ArrowLeft size={19}/> Retour</button><LockKeyhole size={22}/></div><h1>Paiement</h1><p>{booking.trips[0]?.origin} → {booking.trips[0]?.destination}</p></div>
  {status!=='HELD'?<article className="panel booking-checkout"><h2>{bookingLabel(status)}</h2><p>{status==='TEST_PAID'?'Test réussi. Aucun argent débité. Aucun billet valable émis.':'Cette réservation ne peut plus être payée.'}</p><button className="primary" onClick={onBack}>Retour aux détails</button></article>:<>

@@ -13,3 +13,6 @@ La prochaine étape doit persister une tentative idempotente avant tout appel so
 
 ## Étape 2b — Simulation locale
 Activer uniquement dans la base locale de développement: DJANGO_DEBUG=1 et SIRAGO_ENABLE_SIMULATED_PAYMENTS=1 dans .env, puis recréer backend. Le POST de simulation est protégé par session, CSRF et propriété de réservation, et retourne 404 quand désactivé ou DEBUG=false. Montant issu du serveur, transaction atomique, un enregistrement de simulation par réservation, statut TEST_PAID distinct et places conservées après expiration. Aucun appel SasPay, aucune recette réelle, aucun billet émis. Ne jamais transférer les données locales de simulation vers la base de production. Les billets de test et la gestion des paiements réels seront des jalons séparés.
+
+## Étape 3 — Billets numériques de test
+Un billet par passager et trajet pour toute réservation TEST_PAID avec enregistrement de simulation. Références déterministes SRG-TEST, QR contenant uniquement cette référence, PDF et partage natif si disponible (sinon téléchargement). Endpoints privés, no-store, désactivés hors DEBUG et opt-in. Pas de migration ni d'émission réelle. Rebuild backend nécessaire (qrcode et reportlab). Les billets réels persistés et le contrôle compagnie seront des étapes distinctes.
