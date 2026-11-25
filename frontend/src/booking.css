@@ -10,3 +10,5 @@
 .booking-dialog p{margin:12px 0 20px}
 .booking-dialog .booking-actions button{flex:1}
 .booking-danger-solid.primary{background:#a4322c}
+
+.passenger-config{border:1px solid #dce6e3;border-radius:12px;padding:12px;display:grid;gap:8px;min-width:0}.passenger-config-head{display:flex;align-items:center;gap:8px;flex-wrap:wrap;min-width:0}.passenger-config-head strong{flex:1;min-width:0;overflow-wrap:anywhere}.passenger-config-head small{color:#16836c}.passenger-number{background:#e3f2ed;color:#14664f;border-radius:50%;width:32px;height:32px;display:grid;place-items:center;flex:none;font-weight:700}.passenger-config input{width:100%;min-width:0;border:1px solid #dce6e3;border-radius:9px;padding:10px 12px;min-height:44px;background:#f4f6f7;color:#103b38;font-size:1rem}.passenger-config label{font-size:.85rem}.passenger-config input:focus-visible{outline:2px solid #16836c;outline-offset:2px}

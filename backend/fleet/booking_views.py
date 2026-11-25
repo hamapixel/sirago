@@ -21,6 +21,19 @@ def selection(values):
         raise ValueError("Départs distincts requis.")
     return [out]+([ret] if ret else []),count
 
+def passenger_names(raw,count):
+    if not isinstance(raw,list) or len(raw)!=count:
+        raise ValueError("Renseignez le nom de chaque passager.")
+    names=[]
+    for value in raw:
+        if not isinstance(value,str) or len(value)>300 or any(ord(ch)<32 and ch!="\t" for ch in value):
+            raise ValueError("Nom de passager invalide.")
+        name=" ".join(value.split())
+        if not 2<=len(name)<=100 or not any(ch.isalpha() for ch in name):
+            raise ValueError("Chaque nom doit contenir de 2 à 100 caractères.")
+        names.append(name)
+    return names
+
 def selected_rows(ids,count,now):
     rows={d.id:d for d in public_departures(now).select_related("company","route","bus").filter(id__in=ids)}
     if len(rows)!=len(ids):
@@ -50,7 +63,7 @@ def booking_json(b):
     now=timezone.now()
     legs=list(b.legs.select_related("departure__route","departure__company","departure__bus").order_by("position"))
     return {"id":b.id,"reference":str(b.request_id),"count":b.passengers,"status":"EXPIRED" if b.status==Booking.Status.HELD and b.expires_at<=now else b.status,"expires_at":b.expires_at.isoformat(),"created_at":b.created_at.isoformat(),
-            "total":sum(l.unit_price for l in legs)*b.passengers,
+            "passenger_names":b.passenger_names,"total":sum(l.unit_price for l in legs)*b.passengers,
             "trips":[{"id":l.departure_id,"company":l.departure.company.name,"origin":l.departure.route.origin,"destination":l.departure.route.destination,"starts_at":l.departure.starts_at.isoformat(),"ends_at":l.departure.ends_at.isoformat(),"boarding_point":l.departure.route.boarding_point,"arrival_point":l.departure.route.arrival_point,"bus_name":l.departure.bus.name,"price":l.unit_price} for l in legs]}
 
 def traveler_error(request):
@@ -69,6 +82,7 @@ def reserve(request):
     try:
         v=data(request)
         ids,count=selection(v)
+        names=passenger_names(v.get("passenger_names"),count)
         key=UUID(str(v.get("request_id","")))
         expected=v.get("total")
         if type(expected) is not int or expected<1:
@@ -78,7 +92,7 @@ def reserve(request):
             User.objects.select_for_update().get(pk=request.user.pk)
             old=Booking.objects.filter(traveler=request.user,request_id=key).first()
             if old:
-                if list(old.legs.order_by("position").values_list("departure_id",flat=True))!=ids or old.passengers!=count:
+                if list(old.legs.order_by("position").values_list("departure_id",flat=True))!=ids or old.passengers!=count or old.passenger_names!=names:
                     return error("Référence de requête déjà utilisée.",409)
                 return JsonResponse(booking_json(old))
             company_ids=list(Departure.objects.filter(pk__in=ids).values_list("company_id",flat=True).distinct())
@@ -91,7 +105,7 @@ def reserve(request):
             if Booking.objects.filter(traveler=request.user,status=Booking.Status.HELD,expires_at__gt=now).count()>=3:
                 return error("Vous avez déjà trois réservations en attente. Annulez-en une ou attendez son expiration.",409)
             expiry=min(now+timedelta(minutes=15),*(d.starts_at for d in rows))
-            b=Booking.objects.create(traveler=request.user,request_id=key,passengers=count,expires_at=expiry)
+            b=Booking.objects.create(traveler=request.user,request_id=key,passengers=count,passenger_names=names,expires_at=expiry)
             BookingLeg.objects.bulk_create([BookingLeg(booking=b,departure=d,position=i,unit_price=d.price) for i,d in enumerate(rows)])
             return JsonResponse(booking_json(b),status=201)
     except (ValueError,TypeError,OverflowError) as exc:

@@ -20,7 +20,7 @@ class BookingFixture:
         self.departure=Departure.objects.create(company=self.company,bus=bus,route=route,starts_at=self.start,ends_at=self.start+timedelta(hours=7),price=8000,capacity=2,status="PUBLISHED")
         self.user=User.objects.create_user(username="traveler1",role=User.Role.TRAVELER)
         self.other=User.objects.create_user(username="traveler2",role=User.Role.TRAVELER)
-        self.payload={"out":self.departure.pk,"count":2,"total":16000,"request_id":str(uuid4())}
+        self.payload={"out":self.departure.pk,"count":2,"passenger_names":["Awa Test","Moussa Test"],"total":16000,"request_id":str(uuid4())}
         self.url="/api/v1/travel/bookings/reserve/"
     def reserve(self,client=None,**kw):
         return (client or self.client).post(self.url,{**self.payload,**kw},content_type="application/json")
@@ -122,6 +122,31 @@ class BookingTests(BookingFixture,TestCase):
     def test_detail_invalid_id(self):
         self.client.force_login(self.user)
         self.assertEqual(self.client.get("/api/v1/travel/bookings/99999999999999999999/").status_code,404)
+
+    def test_passenger_names_saved_and_private(self):
+        self.client.force_login(self.user)
+        result=self.reserve(passenger_names=["  Awa   Test ", "Awa Test"])
+        self.assertEqual(result.status_code,201,result.content)
+        b=result.json()
+        self.assertEqual(b["passenger_names"],["Awa Test","Awa Test"])
+        self.assertEqual(Booking.objects.get(pk=b["id"]).passenger_names,b["passenger_names"])
+        self.assertEqual(self.reserve(passenger_names=["Awa Test","Awa Test"]).status_code,200)
+        self.assertEqual(self.reserve().status_code,409)
+        self.client.force_login(self.owner)
+        self.assertNotIn("passenger_names",self.client.get("/api/v1/company/reservations/").json()["items"][0])
+
+    def test_invalid_passenger_names_do_not_hold_seats(self):
+        self.client.force_login(self.user)
+        for names in (None, [], ["Awa Test"], ["Awa Test",""], ["Awa Test",42], ["Awa Test","9"], ["Awa Test","A"*101]):
+            self.assertEqual(self.reserve(passenger_names=names).status_code,409)
+        self.assertEqual(Booking.objects.count(),0)
+        self.assertEqual(self.search()["items"][0]["remaining"],2)
+
+    def test_legacy_booking_without_names_remains_readable(self):
+        self.client.force_login(self.user)
+        b=self.reserve().json()
+        Booking.objects.filter(pk=b["id"]).update(passenger_names=[])
+        self.assertEqual(self.client.get(f"/api/v1/travel/bookings/{b['id']}/").json()["passenger_names"],[])
 
     def test_csrf(self):
         client=Client(enforce_csrf_checks=True)
