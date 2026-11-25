@@ -1,5 +1,5 @@
 import {useEffect,useState} from 'react';
-export type Trip={id:number;company_id:number;company:string;bus_name:string;origin:string;destination:string;boarding_point:string;arrival_point:string;starts_at:string;ends_at:string;duration_minutes:number;price:number;capacity:number;remaining:number};
+export type Trip={id:number;company_id:number;company:string;bus_name:string;origin:string;destination:string;boarding_point:string;arrival_point:string;starts_at:string;ends_at:string;duration_minutes:number;price:number;capacity:number;remaining:number;standard_remaining:number;premium_remaining:number;premium_price:number;from_price:number};
 export type Criteria={origin:string;destination:string;date:string;back:string;round:boolean;count:number};
 export type Filters={company:string;period:string;max_price:string;sort:string};
 export type TripPage={items:Trip[];total:number;page:number;has_next:boolean};
@@ -36,3 +36,5 @@ export const priceText=(price:number)=>price.toLocaleString('fr-FR')+' FCFA';
 export const timeText=(iso:string)=>new Intl.DateTimeFormat('fr-FR',{hour:'2-digit',minute:'2-digit',timeZone:'Africa/Bamako'}).format(new Date(iso));
 export const dayText=(iso:string)=>new Intl.DateTimeFormat('fr-FR',{dateStyle:'full',timeZone:'Africa/Bamako'}).format(new Date(iso.length===10?iso+'T12:00:00Z':iso));
 export const compatible=(out:Trip,back:Trip)=>Date.parse(back.starts_at)>=Date.parse(out.ends_at);
+
+export const minimumTripTotal=(t:Trip,count:number)=>{const premium=Math.max(0,count-t.standard_remaining);return (count-premium)*t.price+premium*t.premium_price};

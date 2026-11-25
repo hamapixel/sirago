@@ -148,6 +148,49 @@ class BookingTests(BookingFixture,TestCase):
         Booking.objects.filter(pk=b["id"]).update(passenger_names=[])
         self.assertEqual(self.client.get(f"/api/v1/travel/bookings/{b['id']}/").json()["passenger_names"],[])
 
+    def test_mixed_categories_inventory_and_cancel(self):
+        bus=self.departure.bus
+        bus.premium_capacity=1
+        bus.save()
+        self.departure.premium_capacity=1
+        self.departure.premium_price=12000
+        self.departure.save()
+        self.client.force_login(self.user)
+        self.assertEqual(self.reserve().status_code,409)
+        self.assertEqual(self.reserve(premium_positions=[[1]],total=16000).status_code,409)
+        response=self.reserve(premium_positions=[[1]],total=20000)
+        self.assertEqual(response.status_code,201,response.content)
+        b=response.json()
+        self.assertEqual(b["total"],20000)
+        self.assertEqual(b["trips"][0]["premium_positions"],[1])
+        self.assertEqual(self.reserve(premium_positions=[[1]],total=20000).status_code,200)
+        self.assertEqual(self.search()["total"],0)
+        self.client.post(f"/api/v1/travel/bookings/{b['id']}/cancel/")
+        row=self.search()["items"][0]
+        self.assertEqual((row["standard_remaining"],row["premium_remaining"]),(1,1))
+
+    def test_premium_only_remaining_search_and_quote(self):
+        bus=self.departure.bus
+        bus.premium_capacity=1
+        bus.save()
+        self.departure.premium_capacity=1
+        self.departure.premium_price=12000
+        self.departure.save()
+        self.client.force_login(self.user)
+        self.assertEqual(self.reserve(count=1,passenger_names=["Awa Test"],total=8000).status_code,201)
+        row=self.search()["items"][0]
+        self.assertEqual((row["standard_remaining"],row["premium_remaining"],row["from_price"]),(0,1,12000))
+        q=self.client.get("/api/v1/travel/quote/",{"out":self.departure.id,"count":1}).json()
+        self.assertEqual(q["total"],12000)
+        self.client.force_login(self.other)
+        self.assertEqual(self.reserve(count=1,passenger_names=["Moussa Test"],premium_positions=[[0]],total=12000).status_code,201)
+
+    def test_invalid_category_selection(self):
+        self.client.force_login(self.user)
+        for positions in ([[0,0]],[[2]],[[True]],["premium"],[[],[]]):
+            self.assertEqual(self.reserve(premium_positions=positions).status_code,409)
+        self.assertEqual(Booking.objects.count(),0)
+
     def test_csrf(self):
         client=Client(enforce_csrf_checks=True)
         client.force_login(self.user)

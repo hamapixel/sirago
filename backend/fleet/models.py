@@ -7,12 +7,14 @@ class Bus(models.Model):
     name = models.CharField(max_length=100)
     plate = models.CharField(max_length=40)
     capacity = models.PositiveIntegerField()
+    premium_capacity = models.PositiveIntegerField(default=0)
     active = models.BooleanField(default=True)
 
     class Meta:
         constraints = [
             models.UniqueConstraint(fields=["company", "plate"], name="fleet_unique_company_plate"),
             models.CheckConstraint(condition=Q(capacity__gte=1, capacity__lte=100), name="fleet_bus_capacity"),
+            models.CheckConstraint(condition=Q(premium_capacity__lt=F("capacity")), name="fleet_bus_premium_capacity"),
         ]
 
     def __str__(self):
@@ -50,12 +52,15 @@ class Departure(models.Model):
     ends_at = models.DateTimeField()
     price = models.PositiveIntegerField()
     capacity = models.PositiveIntegerField()
+    premium_capacity = models.PositiveIntegerField(default=0)
+    premium_price = models.PositiveIntegerField(default=0)
     status = models.CharField(max_length=16, choices=Status.choices, default=Status.DRAFT)
 
     class Meta:
         constraints = [
             models.CheckConstraint(condition=Q(ends_at__gt=F("starts_at")), name="fleet_departure_interval"),
             models.CheckConstraint(condition=Q(capacity__gte=1, capacity__lte=100, price__gte=1, price__lte=1000000), name="fleet_departure_values"),
+            models.CheckConstraint(condition=Q(premium_capacity__lt=F("capacity")) & (Q(premium_capacity=0,premium_price=0) | Q(premium_capacity__gt=0,premium_price__gte=F("price"),premium_price__lte=1000000)), name="fleet_departure_premium_values"),
         ]
         indexes = [models.Index(fields=["company","starts_at"], name="fleet_company_start_idx"), models.Index(fields=["bus","starts_at"], name="fleet_bus_start_idx")]
 
@@ -82,10 +87,18 @@ class BookingLeg(models.Model):
     departure = models.ForeignKey(Departure, on_delete=models.PROTECT, related_name="booking_legs")
     position = models.PositiveSmallIntegerField()
     unit_price = models.PositiveIntegerField()
+    premium_count = models.PositiveIntegerField(default=0)
+    premium_unit_price = models.PositiveIntegerField(default=0)
+    premium_positions = models.JSONField(default=list, blank=True)
+
+    @property
+    def total(self):
+        return self.unit_price*(self.booking.passengers-self.premium_count)+self.premium_unit_price*self.premium_count
 
     class Meta:
         constraints = [
             models.UniqueConstraint(fields=["booking","position"], name="fleet_booking_leg_position"),
             models.UniqueConstraint(fields=["booking","departure"], name="fleet_booking_leg_unique"),
             models.CheckConstraint(condition=Q(position__lte=1,unit_price__gte=1,unit_price__lte=1000000), name="fleet_booking_leg_values"),
+            models.CheckConstraint(condition=Q(premium_count__lte=10) & (Q(premium_count=0,premium_unit_price=0) | Q(premium_count__gt=0,premium_unit_price__gte=F("unit_price"),premium_unit_price__lte=1000000)),name="fleet_leg_premium_values"),
         ]

@@ -1,7 +1,7 @@
 import {type Trip} from './travel-api';
 export type Selection={out:number;ret?:number;count:number};
 export type Quote={trips:Trip[];count:number;total:number};
-export type Booking={id:number;reference:string;count:number;status:'HELD'|'EXPIRED'|'CANCELLED';expires_at:string;created_at:string;passenger_names:string[];total:number;trips:{id:number;company:string;origin:string;destination:string;starts_at:string;ends_at:string;boarding_point:string;arrival_point:string;bus_name:string;price:number}[]};
+export type Booking={id:number;reference:string;count:number;status:'HELD'|'EXPIRED'|'CANCELLED';expires_at:string;created_at:string;passenger_names:string[];total:number;trips:{id:number;company:string;origin:string;destination:string;starts_at:string;ends_at:string;boarding_point:string;arrival_point:string;bus_name:string;price:number;premium_price:number;premium_positions:number[];total:number}[]};
 export function parseSelection(search:string):Selection|null{
  const p=new URLSearchParams(search);
  const out=Number(p.get('out')),ret=Number(p.get('ret')),count=Number(p.get('count'));
@@ -31,3 +31,7 @@ export function effectiveBookingStatus(b:Pick<Booking,'status'|'expires_at'>,now
 
 export const normalizePassengerName=(name:string)=>name.trim().replace(/\s+/g,' ');
 export function validPassengerNames(names:string[],count:number){return names.length===count&&names.every(raw=>{const n=normalizePassengerName(raw);return n.length>=2&&n.length<=100&&/\p{L}/u.test(n)&&!/[\x00-\x08\x0A-\x1F]/.test(raw)})}
+
+export const defaultPremiumPositions=(t:Trip,count:number)=>Array.from({length:Math.max(0,count-t.standard_remaining)},(_,i)=>count-1-i).sort((a,b)=>a-b);
+export const categoryTotal=(t:Trip,count:number,positions:number[])=>t.price*(count-positions.length)+t.premium_price*positions.length;
+export const validCategories=(t:Trip,count:number,positions:number[])=>positions.length<=t.premium_remaining&&count-positions.length<=t.standard_remaining&&new Set(positions).size===positions.length&&positions.every(p=>Number.isInteger(p)&&p>=0&&p<count);

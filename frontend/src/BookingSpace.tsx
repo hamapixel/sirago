@@ -1,12 +1,12 @@
 import {useState,useEffect,useRef} from 'react';
 import {ArrowLeft,BusFront,Clock,LockKeyhole,ShieldCheck,Ticket,Users} from 'lucide-react';
-import {useTravel,priceText,timeText,dayText} from './travel-api';
-import {bookingPost,selectionQuery,attemptKey,clearAttempt,bookingLabel,effectiveBookingStatus,normalizePassengerName,validPassengerNames,type Selection,type Quote,type Booking} from './booking-api';
+import {useTravel,priceText,timeText,dayText,minimumTripTotal} from './travel-api';
+import {bookingPost,selectionQuery,attemptKey,clearAttempt,bookingLabel,effectiveBookingStatus,normalizePassengerName,validPassengerNames,defaultPremiumPositions,categoryTotal,validCategories,type Selection,type Quote,type Booking} from './booking-api';
 import {type Account} from './auth-api';
 import './booking.css';
 
-export function QuoteSummary({quote}:{quote:Quote}){
- return <div className="booking-summary">{quote.trips.map((t,i)=><div className="booking-leg" key={t.id}><BusFront size={22}/><div><small>{i===0?'Aller':'Retour'} · {t.company}</small><strong>{t.origin} → {t.destination}</strong><p>{dayText(t.starts_at)} · {timeText(t.starts_at)} – {timeText(t.ends_at)}</p><small>{t.remaining} places restantes</small></div><strong>{priceText(t.price*quote.count)}</strong></div>)}<div className="booking-total"><span><Users size={18}/> {quote.count} passager(s)</span><strong>{priceText(quote.total)}</strong></div></div>
+export function QuoteSummary({quote,positions}:{quote:Quote;positions?:number[][]}){
+ return <div className="booking-summary">{quote.trips.map((t,i)=><div className="booking-leg" key={t.id}><BusFront size={22}/><div><small>{i===0?'Aller':'Retour'} · {t.company}</small><strong>{t.origin} → {t.destination}</strong><p>{dayText(t.starts_at)} · {timeText(t.starts_at)} – {timeText(t.ends_at)}</p><small>{t.remaining} places restantes</small></div><strong>{priceText(positions?categoryTotal(t,quote.count,positions[i]):minimumTripTotal(t,quote.count))}</strong></div>)}<div className="booking-total"><span><Users size={18}/> {quote.count} passager(s)</span><strong>{priceText(positions?quote.trips.reduce((sum,t,i)=>sum+categoryTotal(t,quote.count,positions[i]),0):quote.total)}</strong></div></div>
 }
 export function AuthTrip({selection}:{selection:Selection}){
  const q=useTravel<Quote>('quote/'+selectionQuery(selection),0);
@@ -24,11 +24,16 @@ export default function BookingSpace({selection,account,onHistory}:{selection:Se
  const [showDetails,setShowDetails]=useState(false);
  const [names,setNames]=useState<string[]>(()=>Array.from({length:selection.count},(_,i)=>i===0?[account.first_name,account.last_name].filter(Boolean).join(" "):""));
  const namesValid=validPassengerNames(names,selection.count);
+ const [choices,setChoices]=useState<Record<number,number[]>>({});
+ const positions=q.data?.trips.map(t=>choices[t.id]??defaultPremiumPositions(t,selection.count))??[];
+ const categoriesValid=!!q.data&&q.data.trips.every((t,i)=>validCategories(t,selection.count,positions[i]));
+ const total=q.data?.trips.reduce((sum,t,i)=>sum+categoryTotal(t,selection.count,positions[i]),0)??0;
+ function chooseCategory(leg:number,passenger:number,premium:boolean){const t=q.data?.trips[leg];if(!t)return;const current=positions[leg];const next=premium?[...new Set([...current,passenger])].sort((a,b)=>a-b):current.filter(p=>p!==passenger);setChoices(old=>({...old,[t.id]:next}))}
  const submitting=useRef(false);
  async function reserve(){
-  if(submitting.current||!q.data||!namesValid)return;
+  if(submitting.current||!q.data||!namesValid||!categoriesValid)return;
   submitting.current=true;setBusy(true);setError('');
-  try{const result=await bookingPost<Booking>('bookings/reserve/',{...selection,request_id:attemptKey(selection),total:q.data.total,passenger_names:names.map(normalizePassengerName)});setBooked(result);clearAttempt(selection)}
+  try{const result=await bookingPost<Booking>('bookings/reserve/',{...selection,request_id:attemptKey(selection),total,premium_positions:positions,passenger_names:names.map(normalizePassengerName)});setBooked(result);clearAttempt(selection)}
   catch(e){setError(e instanceof Error?e.message:'Réservation impossible.');q.retry()}
   finally{submitting.current=false;setBusy(false)}
  }
@@ -38,11 +43,11 @@ export default function BookingSpace({selection,account,onHistory}:{selection:Se
  {q.loading&&<p className="panel" role="status">Vérification du voyage…</p>}
  {q.error&&<div className="panel" role="alert">{q.error}<button className="outline" onClick={q.retry}>Réessayer</button></div>}
  {q.data&&<>
- <article className="panel booking-checkout"><h2>Votre voyage</h2><QuoteSummary quote={q.data}/></article>
+ <article className="panel booking-checkout"><h2>Votre voyage</h2><QuoteSummary quote={q.data} positions={positions}/></article>
  <article className="panel booking-checkout"><h2>Passagers</h2><p className="muted">Un nom par passager. Sièges attribués par la compagnie.</p>
- {names.map((name,i)=><div className="passenger-config" key={i}><div className="passenger-config-head"><span className="passenger-number">{i+1}</span><strong>Passager {i+1}</strong><small>{priceText(q.data!.trips.reduce((sum,t)=>sum+t.price,0))}</small></div><label htmlFor={'passenger-'+i}>Nom complet</label><input id={'passenger-'+i} autoComplete={i===0?'name':'off'} maxLength={100} value={name} disabled={busy} placeholder="Nom et prénom" required onChange={e=>setNames(old=>old.map((n,j)=>j===i?e.target.value:n))}/><small>Standard</small></div>)}
+ {names.map((name,i)=><div className="passenger-config" key={i}><div className="passenger-config-head"><span className="passenger-number">{i+1}</span><strong>Passager {i+1}</strong><small>{priceText(q.data!.trips.reduce((sum,t,j)=>sum+(positions[j].includes(i)?t.premium_price:t.price),0))}</small></div><label htmlFor={'passenger-'+i}>Nom complet</label><input id={'passenger-'+i} autoComplete={i===0?'name':'off'} maxLength={100} value={name} disabled={busy} placeholder="Nom et prénom" required onChange={e=>setNames(old=>old.map((n,j)=>j===i?e.target.value:n))}/>{q.data!.trips.map((t,j)=><div key={t.id} className="passenger-category">{q.data!.trips.length>1&&<small>{j===0?'Aller':'Retour'}</small>}{t.premium_price>0?<label>Type de place<select aria-label={`Place passager ${i+1} ${j===0?'aller':'retour'}`} value={positions[j].includes(i)?'premium':'standard'} disabled={busy} onChange={e=>chooseCategory(j,i,e.target.value==='premium')}><option value="standard" disabled={t.standard_remaining===0}>Standard · {priceText(t.price)}</option><option value="premium" disabled={t.premium_remaining===0}>Premium · {priceText(t.premium_price)}</option></select></label>:<small>Standard</small>}</div>)}</div>)}
  </article>
- <article className="panel booking-checkout"><div className="booking-total"><strong>Total</strong><strong>{priceText(q.data.total)}</strong></div><div className="booking-info"><Clock size={20}/><p>Blocage : 15 min max. Aucun débit.</p></div>{!namesValid&&<small role="status">Renseignez tous les noms.</small>}<button className="primary" disabled={busy||!namesValid} onClick={reserve}>{busy?'Enregistrement…':'Confirmer'}</button></article></>}
+ <article className="panel booking-checkout"><div className="booking-total"><strong>Total</strong><strong>{priceText(total)}</strong></div><div className="booking-info"><Clock size={20}/><p>Blocage : 15 min max. Aucun débit.</p></div>{!namesValid&&<small role="status">Renseignez tous les noms.</small>}{!categoriesValid&&<small role="alert">Places insuffisantes dans une catégorie. Modifiez votre choix.</small>}<button className="primary" disabled={busy||!namesValid||!categoriesValid} onClick={reserve}>{busy?'Enregistrement…':'Confirmer'}</button></article></>}
  {error&&<p className="auth-error" role="alert">{error}</p>}</>}
  </section>
 }
@@ -82,8 +87,8 @@ function BookingDetails({id,onBack}:{id:number;onBack:()=>void}){
  {error&&<p role="alert" className="auth-error">{error}</p>}
  {b&&status&&<>
  <article className="panel booking-checkout"><div className="booking-total"><strong>Réservation</strong><span className={'booking-state '+status.toLowerCase()}>{bookingLabel(status)}</span></div><small>Réf. {b.reference}</small><small>Créée le {dayText(b.created_at)} · {timeText(b.created_at)}</small><div className="booking-total"><span><Users size={18}/> {b.count} passager(s)</span><strong>{priceText(b.total)}</strong></div></article>
- {b.passenger_names.length>0&&<article className="panel booking-checkout"><h2>Passagers</h2>{b.passenger_names.map((name,i)=><div className="passenger-config-head" key={i}><span className="passenger-number">{i+1}</span><strong>{name}</strong></div>)}</article>}
- {b.trips.map((t,i)=><article key={t.id} className="panel booking-checkout"><div className="trip-company"><div className="trip-logo"><BusFront size={23}/></div><div><strong>{t.company}</strong><small>{i===0?'Aller':'Retour'} · {t.bus_name}</small></div></div><small>{dayText(t.starts_at)}</small><div className="trip-timeline"><div className="trip-stop"><strong className="trip-time">{timeText(t.starts_at)}</strong><b>{t.origin}</b><small>{t.boarding_point}</small></div><div className="trip-middle"><div className="trip-line"><i/><span/><i/></div><BusFront size={20}/></div><div className="trip-stop arrival"><strong className="trip-time">{timeText(t.ends_at)}</strong><b>{t.destination}</b><small>{t.arrival_point}</small>{dayText(t.ends_at)!==dayText(t.starts_at)&&<small>{dayText(t.ends_at)}</small>}</div></div><div className="booking-total"><small>{priceText(t.price)} / passager</small><strong>{priceText(t.price*b.count)}</strong></div></article>)}
+ {b.passenger_names.length>0&&<article className="panel booking-checkout"><h2>Passagers</h2>{b.passenger_names.map((name,i)=><div className="passenger-config-head" key={i}><span className="passenger-number">{i+1}</span><strong>{name}</strong><small>{b.trips.map((t,j)=>(b.trips.length>1?(j===0?'Aller : ':'Retour : '):'')+(t.premium_positions.includes(i)?'Premium':'Standard')).join(' · ')}</small></div>)}</article>}
+ {b.trips.map((t,i)=><article key={t.id} className="panel booking-checkout"><div className="trip-company"><div className="trip-logo"><BusFront size={23}/></div><div><strong>{t.company}</strong><small>{i===0?'Aller':'Retour'} · {t.bus_name}</small></div></div><small>{dayText(t.starts_at)}</small><div className="trip-timeline"><div className="trip-stop"><strong className="trip-time">{timeText(t.starts_at)}</strong><b>{t.origin}</b><small>{t.boarding_point}</small></div><div className="trip-middle"><div className="trip-line"><i/><span/><i/></div><BusFront size={20}/></div><div className="trip-stop arrival"><strong className="trip-time">{timeText(t.ends_at)}</strong><b>{t.destination}</b><small>{t.arrival_point}</small>{dayText(t.ends_at)!==dayText(t.starts_at)&&<small>{dayText(t.ends_at)}</small>}</div></div><div className="booking-total"><small>{b.count-t.premium_positions.length} Standard{t.premium_positions.length>0?` · ${t.premium_positions.length} Premium`: ''}</small><strong>{priceText(t.total)}</strong></div></article>)}
  <article className="panel booking-checkout"><h2>Paiement</h2><div className="booking-total"><span>Montant à payer</span><strong>{priceText(status==='HELD'?b.total:0)}</strong></div><div className="booking-total"><span>Montant payé</span><strong>0 FCFA</strong></div><p>Paiement à venir. Aucun billet émis.</p>{status==='HELD'&&<div className="booking-info"><Clock size={20}/><p>Places bloquées : <Countdown expires={b.expires_at}/></p></div>}</article>
  {status==='HELD'&&<button className="outline booking-danger" onClick={()=>setConfirm(true)} disabled={busy}>Annuler la réservation</button>}
  <button className="outline" onClick={q.retry} disabled={busy}>Actualiser</button>
