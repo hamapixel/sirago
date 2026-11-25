@@ -17,16 +17,16 @@ function Status({loading,error,retry,empty}:{loading:boolean;error:string;retry:
  if(empty)return <div className="panel travel-empty"><Search size={28}/><strong>Aucun départ trouvé</strong><p>Essayez une autre date ou modifiez vos critères.</p></div>;
  return null;
 }
-export function LivePreview({criteria,valid,onOpen}:{criteria:Criteria;valid:boolean;onOpen:()=>void}){
+export function LivePreview({criteria,valid,onOpen}:{criteria:Criteria;valid:boolean;onOpen:(trip?:Trip)=>void}){
  const live=useTravel<TripPage>(valid?tripPath(criteria):null);
  if(!valid)return null;
  return <section className="travel-live"><div className="section-title"><h2>Départs correspondant à votre recherche</h2><span className="travel-live-label">Recherche instantanée</span></div>
  <Status loading={live.loading} error={live.error} retry={live.retry} empty={live.data?.total===0}/>
- {live.data&&live.data.total>0&&<><p className="muted">{live.data.total} départ(s) à l’aller · {dayText(criteria.date)}</p>{live.data.items.slice(0,2).map(t=><TripCard key={t.id} trip={t} count={criteria.count} onChoose={onOpen}/>)}<button className="outline" onClick={onOpen}>Comparer toutes les offres <ArrowRight size={18}/></button></>}
+ {live.data&&live.data.total>0&&<><p className="muted">{live.data.total} départ(s) à l’aller · {dayText(criteria.date)}</p>{live.data.items.slice(0,2).map(t=><TripCard key={t.id} trip={t} count={criteria.count} onChoose={()=>onOpen(t)}/>)}<button className="outline" onClick={()=>onOpen()}>Comparer toutes les offres <ArrowRight size={18}/></button></>}
  </section>
 }
-export default function TravelResults({criteria,onBack}:{criteria:Criteria;onBack:()=>void}){
- const [filters,setFilters]=useState<Filters>(defaultFilters),[show,setShow]=useState(false),[page,setPage]=useState(1),[out,setOut]=useState<Trip|null>(null),[ret,setRet]=useState<Trip|null>(null);
+export default function TravelResults({criteria,initialTrip,onBack}:{criteria:Criteria;initialTrip:Trip|null;onBack:()=>void}){
+ const [filters,setFilters]=useState<Filters>(defaultFilters),[show,setShow]=useState(false),[page,setPage]=useState(1),[out,setOut]=useState<Trip|null>(initialTrip),[ret,setRet]=useState<Trip|null>(null);
  const returnLeg=criteria.round&&!!out;
  const done=!!out&&(!criteria.round||!!ret);
  const query=useTravel<TripPage>(done?null:tripPath(criteria,filters,page,returnLeg,out?.ends_at));
@@ -34,7 +34,7 @@ export default function TravelResults({criteria,onBack}:{criteria:Criteria;onBac
  function pick(t:Trip){if(returnLeg&&out){if(compatible(out,t))setRet(t)}else{setOut(t);setPage(1);setFilters(defaultFilters)}}
  function resetChoice(){if(ret)setRet(null);else{setOut(null);setRet(null)}setPage(1);setFilters(defaultFilters)}
  return <section className="travel-results">
- <div className="travel-heading"><div className="travel-heading-top"><button type="button" onClick={onBack}><ArrowLeft size={19}/> Modifier la recherche</button>{!done&&<button type="button" aria-label="Afficher les filtres" aria-expanded={show} onClick={()=>setShow(v=>!v)}><SlidersHorizontal size={21}/></button>}</div><h1>{returnLeg?criteria.destination:criteria.origin} → {returnLeg?criteria.origin:criteria.destination}</h1><p>{dayText(returnLeg?criteria.back:criteria.date)} · {criteria.count} passager(s)</p>{criteria.round&&<small>{done?'Aller-retour sélectionné':returnLeg?'Étape 2 sur 2 · Retour':'Étape 1 sur 2 · Aller'}</small>}</div>
+ <div className="travel-heading"><div className="travel-heading-top"><button type="button" onClick={onBack}><ArrowLeft size={19}/> Résultats de recherche</button>{!done&&<button type="button" aria-label="Afficher les filtres" aria-expanded={show} title="Filtres" onClick={()=>setShow(v=>!v)}><SlidersHorizontal size={21}/></button>}</div><h1>{returnLeg?criteria.destination:criteria.origin} → {returnLeg?criteria.origin:criteria.destination}</h1><p>{dayText(returnLeg?criteria.back:criteria.date)} · {criteria.count} passager(s)</p>{criteria.round&&<small>{done?'Aller-retour sélectionné':returnLeg?'Étape 2 sur 2 · Retour':'Étape 1 sur 2 · Aller'}</small>}</div>
  {out&&<div className="panel travel-selection"><CheckCircle2 size={22}/><div><strong>Aller sélectionné</strong><p>{out.company} · {timeText(out.starts_at)} · {priceText(out.price*criteria.count)}</p></div><button className="outline" onClick={()=>{setOut(null);setRet(null);setPage(1);setFilters(defaultFilters)}}>Modifier</button></div>}
  {done&&out?<section className="panel travel-summary"><h2>Votre voyage sélectionné</h2><p><MapPin size={17}/> {out.origin} → {out.destination} · {dayText(out.starts_at)} · {timeText(out.starts_at)}</p>{ret&&<p><MapPin size={17}/> {ret.origin} → {ret.destination} · {dayText(ret.starts_at)} · {timeText(ret.starts_at)}</p>}<h3>Total indicatif : {priceText((out.price+(ret?.price||0))*criteria.count)}</h3><p>La réservation et le paiement seront activés lors des prochaines phases. Aucune place n’est bloquée.</p><button className="outline" onClick={resetChoice}>Modifier la sélection</button></section>:<>
  <div className="travel-result-bar"><strong aria-live="polite">{query.loading?'Recherche…':query.data?query.data.total+' départ(s) trouvé(s)':'Résultats'}</strong><label className="travel-sort"><span className="muted">Trier</span><select value={filters.sort} onChange={e=>filter('sort',e.target.value)}><option value="price">Prix croissant</option><option value="departure">Heure de départ</option><option value="duration">Durée du voyage</option></select></label></div>
