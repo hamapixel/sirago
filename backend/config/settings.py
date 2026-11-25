@@ -31,3 +31,8 @@ if DEBUG:
 
 # Explicit opt-in, always disabled when DEBUG is false.
 SIRAGO_ENABLE_SIMULATED_PAYMENTS = os.environ.get("SIRAGO_ENABLE_SIMULATED_PAYMENTS") == "1"
+
+# Explicit production profile; default Docker development workflow is unchanged.
+if os.environ.get("SIRAGO_ENV") == "production":
+    from .production import production_settings
+    globals().update(production_settings(os.environ))

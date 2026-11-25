@@ -55,3 +55,6 @@ Espace réservé au responsable vérifié. Période selon date du départ (pas d
 
 ## Étape 16 — Superadmin : supervision initiale
 Interface `/superadmin/` réservée aux superutilisateurs, redirection selon rôle serveur, statistiques globales et listes paginées des compagnies, voyageurs et demandes d’assistance. Les compteurs TEST sont distincts des opérations réelles. Les opérations sensibles (validation/suspension, gestion des comptes, réponses) restent dans Django Admin, avec liens vers les fiches. Aucune écriture, nouvelle permission, migration, ni activation SasPay. Accès via une session Django Admin existante ou le login SiraGo si le superutilisateur a un email/téléphone configuré.
+
+## Étape 17 — Préparation de sécurité
+Profil Django production opt-in avec validation des secrets, domaines et origines HTTPS, désactivation stricte des simulations et réglages des cookies/HTTPS. Tests de configuration et checklist dans docs/production-checklist.md. Aucun changement du compose local, aucune activation de paiement, aucun déploiement. Audit complet et infrastructure de production restent à réaliser.
