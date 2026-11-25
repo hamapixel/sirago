@@ -22,3 +22,6 @@ Nouvelles réservations : group par défaut, individual au choix avant confirmat
 
 ## Étape 5 — Contrôle d'embarquement TEST
 Registre indexé des QR existants et nouveaux (migration 0007), compatible avec les références déjà téléchargées. Validation atomique par passager et trajet, compagnie vérifiée propriétaire, unique en base, historique des 100 derniers embarquements TEST, interdit hors mode local. Lecture caméra par BarcodeDetector si disponible et contexte sécurisé ; saisie manuelle de secours. Pour les tests, un départ publié non terminé peut être contrôlé avant son horaire. Les règles réelles, les comptes agents et un décodeur QR universel restent à traiter avant production.
+
+## Étape 6 — Manifeste par départ
+Accessible depuis Mes départs, uniquement à la compagnie vérifiée propriétaire. Réservations actives (blocages non expirés et paiements simulés) et statut nominatif par trajet. Les absents sont comptés seulement après la fin prévue du départ, sinon non embarqués. Montants simulés calculés par trajet, jamais ajoutés aux recettes réelles (0 à cette étape). PDF A4 paysage paginé, aucune nouvelle migration. Le manifeste ne constitue pas un justificatif de paiement ni une autorisation d'embarquement réel.
