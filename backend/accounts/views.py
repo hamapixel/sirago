@@ -180,7 +180,7 @@ def company_account(request):
     company = Company.objects.filter(owner=request.user).first()
     if not company:
         return error("Compagnie introuvable.", 403)
-    return JsonResponse({"name": company.name, "status": company.status, "city": company.city})
+    return JsonResponse({"name": company.name, "status": company.status, "city": company.city, "address": company.address, "registration_number": company.registration_number})
 
 def traveler_profile_error(request):
     if not request.user.is_authenticated:
@@ -216,6 +216,9 @@ def change_traveler_password(request):
     denied = traveler_profile_error(request)
     if denied is not None:
         return denied
+    return change_password(request)
+
+def change_password(request):
     if limited(request, "password-change:" + str(request.user.pk), 10):
         return error("Trop de tentatives. Réessayez dans quelques minutes.", 429)
     try:
@@ -243,3 +246,38 @@ def change_traveler_password(request):
     except ValueError as exc:
         return error(str(exc))
     return JsonResponse({"detail": "Mot de passe modifié."})
+
+
+def company_profile_error(request):
+    if not request.user.is_authenticated:
+        return error("Connexion requise.",401)
+    if request.user.is_superuser or request.user.role != User.Role.COMPANY or not Company.objects.filter(owner=request.user).exists():
+        return error("Accès réservé aux compagnies.",403)
+    return None
+
+@never_cache
+@csrf_protect
+@require_POST
+def update_company_profile(request):
+    denied=company_profile_error(request)
+    if denied is not None:return denied
+    try:
+        values=data(request)
+        first=" ".join(field(values,"first_name",150).split())
+        last=" ".join(field(values,"last_name",150).split())
+        if not first or not last or any(ord(ch)<32 for ch in first+last):
+            raise ValueError("Nom ou prénom invalide.")
+    except ValueError as exc:
+        return error(str(exc))
+    user=request.user
+    user.first_name,user.last_name=first,last
+    user.save(update_fields=["first_name","last_name"])
+    return JsonResponse(profile(user))
+
+@never_cache
+@csrf_protect
+@require_POST
+def change_company_password(request):
+    denied=company_profile_error(request)
+    if denied is not None:return denied
+    return change_password(request)

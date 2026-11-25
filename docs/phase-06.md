@@ -25,3 +25,6 @@ Registre indexé des QR existants et nouveaux (migration 0007), compatible avec 
 
 ## Étape 6 — Manifeste par départ
 Accessible depuis Mes départs, uniquement à la compagnie vérifiée propriétaire. Réservations actives (blocages non expirés et paiements simulés) et statut nominatif par trajet. Les absents sont comptés seulement après la fin prévue du départ, sinon non embarqués. Montants simulés calculés par trajet, jamais ajoutés aux recettes réelles (0 à cette étape). PDF A4 paysage paginé, aucune nouvelle migration. Le manifeste ne constitue pas un justificatif de paiement ni une autorisation d'embarquement réel.
+
+## Étape 7 — Scanner et profil compagnie
+Décodeur QR jsQR local, caméra et import JPEG/PNG/WebP (max 10 Mio), saisie manuelle conservée. Aucun envoi des images au serveur. Caméra sur localhost ou HTTPS avec autorisation. Profil compagnie premium, coordonnées de la société en lecture seule (identité vérifiée), modification du nom du responsable et du mot de passe avec session conservée. Agents, logo personnalisé, notifications et assistance directe à venir. Installer la nouvelle dépendance frontend dans le volume node_modules (npm install). Aucune migration.

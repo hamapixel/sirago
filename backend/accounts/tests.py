@@ -108,3 +108,28 @@ class AuthTests(TestCase):
         for _ in range(10):
             self.assertEqual(self.post("password",{}).status_code,400)
         self.assertEqual(self.post("password",{}).status_code,429)
+
+
+    def test_company_profile_and_password(self):
+        self.assertEqual(self.post("company/profile",{}).status_code,401)
+        self.assertEqual(self.post("register/company",{**self.payload,"company_name":"Transport Test","city":"Bamako","address":"Gare"}).status_code,201)
+        user=User.objects.get(phone="+22370000001")
+        r=self.post("company/profile",{"first_name":" Awa  Marie ","last_name":"Test","email":"other@example.com","status":"VERIFIED","role":"ADMIN"})
+        self.assertEqual(r.status_code,200)
+        self.assertEqual(r.json()["first_name"],"Awa Marie")
+        user.refresh_from_db()
+        self.assertEqual(user.email,self.payload["email"])
+        self.assertEqual(Company.objects.get(owner=user).status,"PENDING")
+        self.assertEqual(self.client.get("/api/v1/auth/company/").json()["address"],"Gare")
+        new="Nouveau!Fleuve2026"
+        values={"current_password":self.payload["password"],"password":new,"password_confirmation":new}
+        self.assertEqual(self.post("company/password",{**values,"current_password":"incorrect"}).status_code,400)
+        self.assertEqual(self.post("company/password",values).status_code,200)
+        self.assertEqual(self.client.get("/api/v1/auth/me/").status_code,200)
+        user.refresh_from_db()
+        self.assertTrue(user.check_password(new))
+
+    def test_company_profile_rejects_traveler(self):
+        self.post("register/traveler",self.payload)
+        self.assertEqual(self.post("company/profile",{"first_name":"A","last_name":"B"}).status_code,403)
+        self.assertEqual(self.post("company/password",{}).status_code,403)

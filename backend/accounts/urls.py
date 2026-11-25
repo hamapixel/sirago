@@ -10,4 +10,6 @@ urlpatterns = [
     path("profile/", views.update_traveler_profile),
     path("password/", views.change_traveler_password),
     path("company/", views.company_account),
+    path("company/profile/", views.update_company_profile),
+    path("company/password/", views.change_company_password),
 ]
