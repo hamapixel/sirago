@@ -185,6 +185,26 @@ class BookingTests(BookingFixture,TestCase):
         self.client.force_login(self.other)
         self.assertEqual(self.reserve(count=1,passenger_names=["Moussa Test"],premium_positions=[[0]],total=12000).status_code,201)
 
+    def test_return_different_categories_and_expiry(self):
+        bus=self.departure.bus
+        bus.premium_capacity=1
+        bus.save()
+        self.departure.capacity=1
+        self.departure.save()
+        route=Route.objects.create(company=self.company,origin="Sikasso",destination="Bamako",boarding_point="B",arrival_point="A",duration_minutes=420,price=7000)
+        ret=Departure.objects.create(company=self.company,bus=bus,route=route,starts_at=self.start+timedelta(hours=8),ends_at=self.start+timedelta(hours=15),price=7000,capacity=2,premium_capacity=1,premium_price=11000,status="PUBLISHED")
+        self.client.force_login(self.user)
+        response=self.reserve(count=1,passenger_names=["Awa Test"],ret=ret.id,premium_positions=[[],[0]],total=19000)
+        self.assertEqual(response.status_code,201,response.content)
+        b=response.json()
+        self.assertEqual([t["total"] for t in b["trips"]],[8000,11000])
+        from .availability import with_remaining
+        row=with_remaining(Departure.objects.filter(pk=ret.pk),timezone.now()).get()
+        self.assertEqual((row.standard_remaining,row.premium_remaining),(1,0))
+        Booking.objects.filter(pk=b["id"]).update(expires_at=timezone.now()-timedelta(seconds=1))
+        row=with_remaining(Departure.objects.filter(pk=ret.pk),timezone.now()).get()
+        self.assertEqual((row.standard_remaining,row.premium_remaining),(1,1))
+
     def test_invalid_category_selection(self):
         self.client.force_login(self.user)
         for positions in ([[0,0]],[[2]],[[True]],["premium"],[[],[]]):

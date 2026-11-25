@@ -28,6 +28,20 @@ class FleetTests(TestCase):
         self.assertEqual(self.post("buses",{"name":"Car 02","plate":"aa 002","capacity":50}).status_code,201)
         self.assertEqual(self.post("buses",{"name":"duplicate","plate":"AA 002","capacity":50}).status_code,409)
         self.assertEqual(self.post("buses",{"name":"bad","plate":"A","capacity":0}).status_code,400)
+    def test_premium_capacity_and_tariff(self):
+        self.assertEqual(self.post("buses",{"name":"Bad","plate":"BAD","capacity":5,"premium_capacity":5}).status_code,400)
+        self.assertEqual(self.post(f"buses/{self.bus.id}",{"name":"Car 01","plate":"AA 001","capacity":60,"premium_capacity":10}).status_code,200)
+        self.assertEqual(self.post("departures",{**self.payload,"premium_capacity":11,"premium_price":12000}).status_code,400)
+        self.assertEqual(self.post("departures",{**self.payload,"premium_capacity":5,"premium_price":12000}).status_code,400)
+        self.assertEqual(self.post("departures",{**self.payload,"premium_capacity":10,"premium_price":7000}).status_code,400)
+        response=self.post("departures",{**self.payload,"premium_capacity":10,"premium_price":12000})
+        self.assertEqual(response.status_code,201,response.content)
+        d=Departure.objects.get()
+        self.assertEqual((d.premium_capacity,d.premium_price),(10,12000))
+        self.assertEqual(self.post(f"buses/{self.bus.id}",{"name":"Car 01","plate":"AA 001","capacity":60,"premium_capacity":5}).status_code,409)
+        row=self.client.get("/api/v1/company/departures/").json()["items"][0]
+        self.assertEqual((row["standard_remaining"],row["premium_remaining"]),(50,10))
+
     def test_route(self):
         v={"origin":"Bamako","destination":"Bamako","boarding_point":"A","arrival_point":"B","duration_minutes":60,"price":1000}
         self.assertEqual(self.post("routes",v).status_code,400)

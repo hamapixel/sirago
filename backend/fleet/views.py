@@ -62,7 +62,10 @@ def route_json(r):
     return {"id":r.id,"origin":r.origin,"destination":r.destination,"boarding_point":r.boarding_point,"arrival_point":r.arrival_point,"duration_minutes":r.duration_minutes,"price":r.price,"active":r.active}
 
 def departure_json(d):
-    return {"id":d.id,"bus_id":d.bus_id,"bus_name":d.bus.name,"route_id":d.route_id,"origin":d.route.origin,"destination":d.route.destination,"starts_at":d.starts_at.isoformat(),"ends_at":d.ends_at.isoformat(),"capacity":d.capacity,"premium_capacity":d.premium_capacity,"premium_price":d.premium_price,"price":d.price,"status":d.status}
+    result = {"id":d.id,"bus_id":d.bus_id,"bus_name":d.bus.name,"route_id":d.route_id,"origin":d.route.origin,"destination":d.route.destination,"starts_at":d.starts_at.isoformat(),"ends_at":d.ends_at.isoformat(),"capacity":d.capacity,"premium_capacity":d.premium_capacity,"premium_price":d.premium_price,"price":d.price,"status":d.status}
+    if hasattr(d,"remaining"):
+        result.update(remaining=max(0,d.remaining),standard_remaining=max(0,d.standard_remaining),premium_remaining=max(0,d.premium_remaining))
+    return result
 
 def future_departures(qs):
     return qs.exclude(status=D.CANCELLED).filter(ends_at__gt=timezone.now())
@@ -148,7 +151,7 @@ def departures(request,company,pk=None):
     if request.method=="GET":
         if pk is not None:
             return error("Méthode non autorisée.",405)
-        qs=company.departures.select_related("route","bus").order_by("-starts_at","-id")
+        qs=with_remaining(company.departures.select_related("route","bus"),timezone.now()).order_by("-starts_at","-id")
         # Apply filters before pagination, always scoped to the owner.
         status = request.GET.get("status", "")
         route_id = request.GET.get("route_id", "")
