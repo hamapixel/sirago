@@ -129,3 +129,66 @@ class ReportTests(BookingFixture,TestCase):
         self.assertEqual(new["retained_booking"]["trips"][0]["premium_positions"],[])
         self.assertEqual(new["retained_booking"]["total"],8000)
         self.assertEqual(TestTicketReport.objects.get().previous_amount,12000)
+
+
+@override_settings(DEBUG=True,SIRAGO_ENABLE_SIMULATED_PAYMENTS=True)
+class RoundReportTests(BookingFixture,TestCase):
+    def setUp(self):
+        super().setUp()
+        from .models import Route
+        route=Route.objects.create(company=self.company,origin="Sikasso",destination="Bamako",boarding_point="Gare B",arrival_point="Gare A",duration_minutes=420,price=7000)
+        def departure(route,start,price):
+            return Departure.objects.create(company=self.company,bus=self.departure.bus,route=route,starts_at=start,ends_at=start+timedelta(hours=7),price=price,capacity=2,status="PUBLISHED")
+        self.ret=departure(route,self.start+timedelta(days=3),7000)
+        self.new_ret=departure(route,self.start+timedelta(days=4),9000)
+        self.new_out=departure(self.departure.route,self.start+timedelta(days=1),9000)
+        self.late_out=departure(self.departure.route,self.start+timedelta(days=5),9000)
+        self.early_ret=departure(route,self.start+timedelta(hours=1),9000)
+        self.client.force_login(self.user)
+        r=self.reserve(ret=self.ret.pk,total=30000)
+        self.assertEqual(r.status_code,201,r.content)
+        self.base=f'/api/v1/travel/bookings/{r.json()["id"]}/'
+        self.original=r.json()["id"]
+        self.assertEqual(self.client.post(self.base+"simulate-payment/",{"network":"orange_ml"},content_type="application/json").status_code,200)
+        self.codes=[t["code"] for t in self.client.get(self.base+"tickets/").json()["items"]]
+    def move(self,leg,departure,amount,**kw):
+        return self.client.post(self.base+"report/",{"leg":leg,"departure_id":departure.pk,"total":amount,**kw},content_type="application/json")
+    def test_return_only_preserves_outbound_and_invalidates_old_codes(self):
+        opts=self.client.get(self.base+"report/options/",{"leg":1}).json()
+        self.assertEqual(opts["previous_amount"],14000)
+        self.assertIn(self.new_ret.pk,[x["id"] for x in opts["items"]])
+        self.assertNotIn(self.early_ret.pk,[x["id"] for x in opts["items"]])
+        r=self.move(1,self.new_ret,18000)
+        self.assertEqual(r.status_code,201,r.content)
+        b=r.json()
+        self.assertEqual([x["id"] for x in b["trips"]],[self.departure.pk,self.new_ret.pk])
+        self.assertEqual(b["total"],34000)
+        self.assertEqual(b["simulated_payment"]["amount"],34000)
+        self.assertEqual(self.move(1,self.new_ret,18000).json()["id"],b["id"])
+        self.assertEqual(self.move(0,self.departure,18000).status_code,409)
+        self.assertEqual(self.client.get(self.base+"tickets/").status_code,409)
+        new_codes=[t["code"] for t in self.client.get(f'/api/v1/travel/bookings/{b["id"]}/tickets/').json()["items"]]
+        self.assertFalse(set(new_codes)&set(self.codes))
+        self.client.force_login(self.owner)
+        for code in self.codes:
+            self.assertEqual(self.client.post("/api/v1/company/boarding/lookup/",{"code":code},content_type="application/json").status_code,404)
+    def test_partial_outbound_preserves_both_groups_return(self):
+        r=self.move(0,self.new_out,9000,passengers=[1])
+        self.assertEqual(r.status_code,201,r.content)
+        b=r.json();kept=b["retained_booking"]
+        self.assertEqual([x["id"] for x in b["trips"]],[self.new_out.pk,self.ret.pk])
+        self.assertEqual([x["id"] for x in kept["trips"]],[self.departure.pk,self.ret.pk])
+        self.assertEqual((b["total"],kept["total"]),(16000,15000))
+        rows={d.pk:d.remaining for d in with_remaining(Departure.objects.all(),timezone.now())}
+        self.assertEqual((rows[self.departure.pk],rows[self.new_out.pk],rows[self.ret.pk]),(1,1,0))
+    def test_incompatible_departures_preserve_original(self):
+        self.assertEqual(self.move(0,self.late_out,18000).status_code,409)
+        self.assertEqual(self.move(1,self.early_ret,18000).status_code,409)
+        self.assertEqual(self.move(2,self.new_ret,18000).status_code,400)
+        self.assertEqual(Booking.objects.get(pk=self.original).status,"TEST_PAID")
+        self.assertEqual(TestTicketReport.objects.count(),0)
+    def test_started_outbound_blocks_return_report(self):
+        now=timezone.now()
+        Departure.objects.filter(pk=self.departure.pk).update(starts_at=now-timedelta(hours=1),ends_at=now+timedelta(hours=6))
+        self.assertEqual(self.move(1,self.new_ret,18000).status_code,409)
+        self.assertEqual(self.client.get(self.base+"report/options/",{"leg":1}).status_code,409)
