@@ -5,6 +5,7 @@ import {bookingPost,selectionQuery,attemptKey,clearAttempt,bookingLabel,effectiv
 import {type Account} from './auth-api';
 import './booking.css';
 import SeatCategoryCards from './SeatCategoryCards';
+import PaymentPreview from './PaymentPreview';
 
 export function QuoteSummary({quote,positions}:{quote:Quote;positions?:number[][]}){
  return <div className="booking-summary">{quote.trips.map((t,i)=><div className="booking-leg" key={t.id}><BusFront size={22}/><div><small>{i===0?'Aller':'Retour'} · {t.company}</small><strong>{t.origin} → {t.destination}</strong><p>{dayText(t.starts_at)} · {timeText(t.starts_at)} – {timeText(t.ends_at)}</p><small>{t.remaining} places restantes</small></div><strong>{priceText(positions?categoryTotal(t,quote.count,positions[i]):minimumTripTotal(t,quote.count))}</strong></div>)}<div className="booking-total"><span><Users size={18}/> {quote.count} passager(s)</span><strong>{priceText(positions?quote.trips.reduce((sum,t,i)=>sum+categoryTotal(t,quote.count,positions[i]),0):quote.total)}</strong></div></div>
@@ -22,7 +23,7 @@ function Countdown({expires}:{expires:string}){
 export default function BookingSpace({selection,account,onHistory}:{selection:Selection;account:Account;onHistory:()=>void}){
  const q=useTravel<Quote>('quote/'+selectionQuery(selection),0);
  const [busy,setBusy]=useState(false),[error,setError]=useState(''),[booked,setBooked]=useState<Booking|null>(null);
- const [showDetails,setShowDetails]=useState(false);
+ const [showDetails,setShowDetails]=useState(false),[showPayment,setShowPayment]=useState(false);
  const [names,setNames]=useState<string[]>(()=>Array.from({length:selection.count},(_,i)=>i===0?[account.first_name,account.last_name].filter(Boolean).join(" "):""));
  const namesValid=validPassengerNames(names,selection.count);
  const [choices,setChoices]=useState<Record<number,number[]>>({});
@@ -38,9 +39,10 @@ export default function BookingSpace({selection,account,onHistory}:{selection:Se
   catch(e){setError(e instanceof Error?e.message:'Réservation impossible.');q.retry()}
   finally{submitting.current=false;setBusy(false)}
  }
+ if(booked&&showPayment)return <BookingDetails id={booked.id} initialPayment onBack={()=>setShowPayment(false)}/>;
  if(booked&&showDetails)return <BookingDetails id={booked.id} onBack={onHistory}/>;
  return <section className="booking-space booking-details"><div className="travel-heading"><a className="booking-back" href="/app/"><ArrowLeft size={18}/> Retour</a><h1>{booked?'Réservation enregistrée':'Confirmer le voyage'}</h1><p>{account.first_name} · SiraGo</p></div>
- {booked?<article className="panel booking-success"><ShieldCheck size={32}/><h2>{bookingLabel(booked.status)}</h2><p>Référence : {booked.reference}</p><h3>{priceText(booked.total)}</h3>{booked.status==='HELD'&&<><p><Clock size={17}/> Places bloquées : <Countdown expires={booked.expires_at}/></p><p>Paiement à venir. Aucun billet émis.</p></>}<button className="primary" onClick={()=>setShowDetails(true)}>Voir les détails</button><button className="outline" onClick={onHistory}>Mes réservations</button></article>:<>
+ {booked?<article className="panel booking-success"><ShieldCheck size={32}/><h2>{bookingLabel(booked.status)}</h2><p>Référence : {booked.reference}</p><h3>{priceText(booked.total)}</h3>{booked.status==='HELD'&&<><p><Clock size={17}/> Places bloquées : <Countdown expires={booked.expires_at}/></p><p>Aucun débit effectué.</p><button className="primary" onClick={()=>setShowPayment(true)}>Continuer vers le paiement</button></>}<button className="outline" onClick={()=>setShowDetails(true)}>Voir les détails</button><button className="outline" onClick={onHistory}>Mes réservations</button></article>:<>
  {q.loading&&<p className="panel" role="status">Vérification du voyage…</p>}
  {q.error&&<div className="panel" role="alert">{q.error}<button className="outline" onClick={q.retry}>Réessayer</button></div>}
  {q.data&&<>
@@ -66,12 +68,13 @@ export function MyBookings({account,onSearch}:{account:Account|null;onSearch:()=
  </section>
 }
 
-function BookingDetails({id,onBack}:{id:number;onBack:()=>void}){
+function BookingDetails({id,onBack,initialPayment=false}:{id:number;onBack:()=>void;initialPayment?:boolean}){
  const q=useTravel<Booking>('bookings/'+id+'/',0);
  const [now,setNow]=useState(Date.now()),[busy,setBusy]=useState(false),[confirm,setConfirm]=useState(false),[error,setError]=useState('');
  const dialog=useRef<HTMLDialogElement>(null),submitting=useRef(false);
  useEffect(()=>{const timer=window.setInterval(()=>setNow(Date.now()),1000);return()=>window.clearInterval(timer)},[]);
  useEffect(()=>{const el=dialog.current;if(confirm&&el&&!el.open)el.showModal();return()=>{if(el?.open)el.close()}},[confirm]);
+ const [payment,setPayment]=useState(initialPayment);
  const b=q.data;
  const status=b?effectiveBookingStatus(b,now):null;
  async function cancel(){
@@ -81,6 +84,7 @@ function BookingDetails({id,onBack}:{id:number;onBack:()=>void}){
   catch(e){setError(e instanceof Error?e.message:'Annulation impossible.');setConfirm(false)}
   finally{setBusy(false);submitting.current=false}
  }
+ if(payment&&b&&!q.loading&&!q.error)return <PaymentPreview booking={b} onBack={()=>{setPayment(false);q.retry()}}/>;
  return <section className="booking-space booking-details">
  <div className="travel-heading"><div className="travel-heading-top"><button onClick={onBack} disabled={busy}><ArrowLeft size={19}/> Retour</button><Ticket size={23}/></div><h1>Détails de la réservation</h1><p>Consultez votre voyage.</p></div>
  {q.loading&&<p className="panel" role="status">Chargement…</p>}
@@ -90,7 +94,7 @@ function BookingDetails({id,onBack}:{id:number;onBack:()=>void}){
  <article className="panel booking-checkout"><div className="booking-total"><strong>Réservation</strong><span className={'booking-state '+status.toLowerCase()}>{bookingLabel(status)}</span></div><small>Réf. {b.reference}</small><small>Créée le {dayText(b.created_at)} · {timeText(b.created_at)}</small><div className="booking-total"><span><Users size={18}/> {b.count} passager(s)</span><strong>{priceText(b.total)}</strong></div></article>
  {b.passenger_names.length>0&&<article className="panel booking-checkout"><h2>Passagers</h2>{b.passenger_names.map((name,i)=><div className="passenger-config-head" key={i}><span className="passenger-number">{i+1}</span><strong>{name}</strong><small>{b.trips.map((t,j)=>(b.trips.length>1?(j===0?'Aller : ':'Retour : '):'')+(t.premium_positions.includes(i)?'Premium':'Standard')).join(' · ')}</small></div>)}</article>}
  {b.trips.map((t,i)=><article key={t.id} className="panel booking-checkout"><div className="trip-company"><div className="trip-logo"><BusFront size={23}/></div><div><strong>{t.company}</strong><small>{i===0?'Aller':'Retour'} · {t.bus_name}</small></div></div><small>{dayText(t.starts_at)}</small><div className="trip-timeline"><div className="trip-stop"><strong className="trip-time">{timeText(t.starts_at)}</strong><b>{t.origin}</b><small>{t.boarding_point}</small></div><div className="trip-middle"><div className="trip-line"><i/><span/><i/></div><BusFront size={20}/></div><div className="trip-stop arrival"><strong className="trip-time">{timeText(t.ends_at)}</strong><b>{t.destination}</b><small>{t.arrival_point}</small>{dayText(t.ends_at)!==dayText(t.starts_at)&&<small>{dayText(t.ends_at)}</small>}</div></div><div className="booking-total"><small>{b.count-t.premium_positions.length} Standard{t.premium_positions.length>0?` · ${t.premium_positions.length} Premium`: ''}</small><strong>{priceText(t.total)}</strong></div></article>)}
- <article className="panel booking-checkout"><h2>Paiement</h2><div className="booking-total"><span>Montant à payer</span><strong>{priceText(status==='HELD'?b.total:0)}</strong></div><div className="booking-total"><span>Montant payé</span><strong>0 FCFA</strong></div><p>Paiement à venir. Aucun billet émis.</p>{status==='HELD'&&<div className="booking-info"><Clock size={20}/><p>Places bloquées : <Countdown expires={b.expires_at}/></p></div>}</article>
+ <article className="panel booking-checkout"><h2>Paiement</h2><div className="booking-total"><span>Montant à payer</span><strong>{priceText(status==='HELD'?b.total:0)}</strong></div><div className="booking-total"><span>Montant payé</span><strong>0 FCFA</strong></div><p>Aucun paiement enregistré. Aucun billet émis.</p>{status==='HELD'&&<><div className="booking-info"><Clock size={20}/><p>Places bloquées : <Countdown expires={b.expires_at}/></p></div><button className="primary" disabled={busy} onClick={()=>setPayment(true)}>Continuer vers le paiement</button></>}</article>
  {status==='HELD'&&<button className="outline booking-danger" onClick={()=>setConfirm(true)} disabled={busy}>Annuler la réservation</button>}
  <button className="outline" onClick={q.retry} disabled={busy}>Actualiser</button>
  </>}
