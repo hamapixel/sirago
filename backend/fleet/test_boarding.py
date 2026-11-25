@@ -43,3 +43,35 @@ class BoardingTests(BookingFixture,TestCase):
         self.departure.status="SUSPENDED"
         self.departure.save(update_fields=["status"])
         self.assertEqual(self.post("validate",passengers=[0]).status_code,409)
+
+    def test_history_search_and_filters(self):
+        self.owner.first_name="Agent"
+        self.owner.last_name="Test"
+        self.owner.save(update_fields=["first_name","last_name"])
+        self.assertEqual(self.post("validate",passengers=[0,1]).status_code,200)
+        url="/api/v1/company/boarding/history/"
+        r=self.client.get(url,{"q":"Moussa","page_size":10})
+        self.assertEqual(r.status_code,200,r.content)
+        self.assertEqual(r.json()["total"],1)
+        self.assertEqual(r.json()["items"][0]["name"],"Moussa Test")
+        self.assertEqual(r.json()["items"][0]["agent"],"Agent Test")
+        self.assertEqual(self.client.get(url,{"q":"Agent Test"}).json()["total"],2)
+        self.assertEqual(self.client.get(url,{"q":"introuvable"}).json()["total"],0)
+        self.assertEqual(self.client.get(url,{"date":"2000-01-01"}).json()["total"],0)
+        self.assertEqual(self.client.get(url,{"page_size":0}).status_code,400)
+
+    def test_company_search_across_pages(self):
+        from datetime import timedelta
+        from .models import Departure
+        for i in range(11):
+            starts=self.start+timedelta(days=i+1)
+            Departure.objects.create(company=self.company,bus=self.departure.bus,route=self.departure.route,starts_at=starts,ends_at=starts+timedelta(hours=7),price=8000,capacity=2,status="PUBLISHED")
+        url="/api/v1/company/departures/"
+        first=self.client.get(url,{"q":"Bamako Sikasso","page_size":10}).json()
+        second=self.client.get(url,{"q":"Bamako Sikasso","page_size":10,"page":2}).json()
+        self.assertEqual(first["total"],12)
+        self.assertEqual(len(first["items"]),10)
+        self.assertEqual(len(second["items"]),2)
+        self.assertFalse(set(x["id"] for x in first["items"]) & set(x["id"] for x in second["items"]))
+        self.assertEqual(self.client.get("/api/v1/company/reservations/",{"q":"Moussa"}).json()["total"],1)
+        self.assertEqual(self.client.get("/api/v1/company/reservations/",{"q":"introuvable"}).json()["total"],0)
