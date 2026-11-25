@@ -1,0 +1,6 @@
+import {it,expect} from 'vitest';
+import {renderToStaticMarkup} from 'react-dom/server';
+import CompanyFinance,{FinanceSummary,periodDates} from './CompanyFinance';
+it('sépare les recettes réelles des valeurs de simulation et des montants en attente',()=>{const html=renderToStaticMarkup(<FinanceSummary data={{real_amount:0,simulated_amount:16000,pending_amount:8000,simulated_passengers:2,pending_passengers:1,standard:2,premium:0,orange_amount:16000,moov_amount:0}}/>);for(const v of ['Recettes réelles','Montants simulés (TEST)','Réservations en attente','Non encaissé','Orange Money · TEST','Moov Money · TEST'])expect(html).toContain(v)});
+it('calcule les périodes selon les dates locales, y compris le changement de mois',()=>{expect(periodDates('week','2026-11-01')).toEqual({from:'2026-10-26',to:'2026-11-01'});expect(periodDates('month','2028-02-15')).toEqual({from:'2028-02-01',to:'2028-02-29'});expect(periodDates('today','2026-11-25')).toEqual({from:'2026-11-25',to:'2026-11-25'})});
+it('affiche les filtres et l’avertissement de simulation',()=>{const html=renderToStaticMarkup(<CompanyFinance/>);for(const v of ['Recettes et finances','Aucun encaissement réel','Aujourd’hui','Semaine','Mois','Rechercher un trajet ou un car'])expect(html).toContain(v)});

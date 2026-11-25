@@ -1,7 +1,8 @@
 from django.urls import path
-from . import views, boarding_views, manifest_views
+from . import views, boarding_views, manifest_views, finance_views
 urlpatterns=[
     path("dashboard/",views.overview),
+    path("finance/",finance_views.finance),
     path("boarding/lookup/",boarding_views.lookup),
     path("boarding/validate/",boarding_views.validate),
     path("boarding/history/",boarding_views.history),

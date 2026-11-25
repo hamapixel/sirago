@@ -49,3 +49,6 @@ Sélection de l’aller ou du retour, report complet ou partiel avant le début 
 
 ## Étape 14 — Centre d’assistance interne
 Demandes privées par compte, référence, catégorie, statut, sujet et message; recherche et pagination de 10. Réponse et changement de statut depuis Django Admin par superutilisateur uniquement, notification interne au demandeur. Idempotence par UUID et limite de cinq demandes par heure. FAQ publique, accès depuis l’accueil et les profils, agents via bouton Assistance. Pas de chat en direct, pièces jointes, téléphone ou WhatsApp non confirmés. Migration accounts 0005.
+
+## Étape 15 — Recettes et valeurs de réservation TEST
+Espace réservé au responsable vérifié. Période selon date du départ (pas date d’encaissement), recherche serveur par trajet/car, pagination et totaux sur tous les résultats filtrés. Seules les réservations actives payées en simulation avec enregistrement de paiement sont comptabilisées en simulation; les réservations temporaires non expirées sont distinguées. Les anciens billets reportés sont exclus; chaque trajet est valorisé une fois, même pour des allers-retours intercompagnies. Ventilation Orange/Moov et Standard/Premium. Aucun mouvement financier réel ni solde, commission, reversement ou export comptable. Pas de migration.
