@@ -1,3 +1,4 @@
+from accounts.notifications import notify
 import re
 from datetime import date
 from django.db.models import Q, F, Func, TextField
@@ -61,8 +62,15 @@ def validate(request,company):
         return error("Sélection de passagers invalide.",400)
     if not row(ref,indices)["can_board"]:return error("Départ indisponible ou terminé.",409)
     # Company row locked by company_endpoint; database unique constraint is final guard.
+    added=0
     for i in selected:
-        TestBoarding.objects.get_or_create(leg=ref.leg,passenger=i,defaults={"actor":request.user})
+        _,created=TestBoarding.objects.get_or_create(leg=ref.leg,passenger=i,defaults={"actor":request.user})
+        added+=int(created)
+    if added:
+        d=ref.leg.departure
+        message=f"{d.route.origin} → {d.route.destination} : {added} passager(s) validé(s) en mode TEST."
+        notify(ref.leg.booking.traveler_id,"TEST_BOARDING","Embarquement de test enregistré",message)
+        notify(company.owner_id,"TEST_BOARDING","Contrôle de billets TEST",message)
     return JsonResponse(row(ref,indices))
 
 @company_endpoint

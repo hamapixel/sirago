@@ -1,3 +1,4 @@
+from accounts.notifications import notify
 from datetime import date, datetime, time, timedelta
 from functools import wraps
 from zoneinfo import ZoneInfo
@@ -251,8 +252,14 @@ def departure_status(request,company,pk):
         return error("La compagnie, le car et le trajet doivent être actifs et validés.",403)
     if target==D.CANCELLED and active_legs(timezone.now()).filter(departure=d).exists():
         return error("Des réservations occupent des places. Impossible d’annuler ce départ.",409)
+    previous=d.status
     d.status=target
     d.save(update_fields=["status"])
+    if target in (D.SUSPENDED,D.CANCELLED) or (previous==D.SUSPENDED and target==D.PUBLISHED):
+        label={D.SUSPENDED:"Départ suspendu",D.CANCELLED:"Départ annulé",D.PUBLISHED:"Départ republié"}[target]
+        recipients=active_legs(timezone.now()).filter(departure=d).values_list("booking__traveler_id",flat=True).distinct()
+        for recipient in recipients:
+            notify(recipient,"DEPARTURE",label,f"{d.route.origin} → {d.route.destination}, {d.starts_at.astimezone(TZ):%d/%m/%Y %H:%M}. Vérifiez les informations de votre réservation.")
     return JsonResponse(departure_json(d))
 
 @company_endpoint

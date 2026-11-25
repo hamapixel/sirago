@@ -1,7 +1,11 @@
 from django.urls import path
-from . import views, agent_views
+from . import views, agent_views, notifications
 urlpatterns = [
     path("csrf/", views.csrf),
+    path("notifications/", notifications.notifications),
+    path("notifications/count/", notifications.notification_count),
+    path("notifications/read-all/", notifications.mark_all_read),
+    path("notifications/<int:pk>/read/", notifications.mark_read),
     path("register/traveler/", views.register_traveler),
     path("register/company/", views.register_company),
     path("login/", views.sign_in),

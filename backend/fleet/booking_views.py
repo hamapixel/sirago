@@ -1,3 +1,4 @@
+from accounts.notifications import notify
 from datetime import timedelta
 from uuid import UUID
 from django.db import transaction
@@ -130,6 +131,7 @@ def reserve(request):
             expiry=min(now+timedelta(minutes=15),*(d.starts_at for d in rows))
             b=Booking.objects.create(traveler=request.user,request_id=key,passengers=count,passenger_names=names,ticket_mode=mode,expires_at=expiry)
             BookingLeg.objects.bulk_create([BookingLeg(booking=b,departure=d,position=i,unit_price=d.price,premium_count=len(classes[i]),premium_positions=classes[i],premium_unit_price=d.premium_price if classes[i] else 0) for i,d in enumerate(rows)])
+            notify(b.traveler_id,"RESERVATION","Réservation enregistrée",f"{count} place(s) réservée(s) temporairement. Finalisez le paiement avant expiration.")
             return JsonResponse(booking_json(b),status=201)
     except (ValueError,TypeError,OverflowError) as exc:
         return error(str(exc),409)
@@ -170,6 +172,7 @@ def cancel(request,pk):
         if b.status==Booking.Status.HELD and b.expires_at>timezone.now():
             b.status=Booking.Status.CANCELLED
             b.save(update_fields=["status"])
+            notify(b.traveler_id,"CANCELLED","Réservation annulée","Votre réservation a été annulée et les places libérées.")
         return JsonResponse(booking_json(b))
 
 
@@ -211,4 +214,8 @@ def simulate_payment(request,pk):
         b.status=Booking.Status.TEST_PAID
         b.save(update_fields=["status"])
         register_refs(b,legs)
+        notify(b.traveler_id,"TEST_PAYMENT","Billets de test disponibles","Paiement simulé réussi. Aucun argent débité. Consultez Mes billets.")
+        for l in legs:
+            d=l.departure
+            notify(d.company.owner_id,"TEST_BOOKING","Nouvelle réservation TEST",f"{d.route.origin} → {d.route.destination} : {b.passengers} passager(s). Aucun encaissement réel.")
         return JsonResponse(booking_json(b))

@@ -41,3 +41,18 @@ class CompanyAgent(models.Model):
 
     class Meta:
         constraints = [models.CheckConstraint(condition=models.Q(role__in=["CLERK","CONTROLLER"]),name="accounts_agent_role")]
+
+
+class Notification(models.Model):
+    recipient = models.ForeignKey(User, on_delete=models.CASCADE, related_name="sirago_notifications")
+    kind = models.CharField(max_length=32)
+    title = models.CharField(max_length=120)
+    message = models.CharField(max_length=500)
+    created_at = models.DateTimeField(auto_now_add=True)
+    read_at = models.DateTimeField(null=True, blank=True)
+
+    class Meta:
+        indexes = [
+            models.Index(fields=["recipient", "-id"], name="notif_recipient_recent"),
+            models.Index(fields=["recipient", "read_at"], name="notif_recipient_read"),
+        ]
