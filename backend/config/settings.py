@@ -28,3 +28,6 @@ SESSION_COOKIE_SAMESITE = "Lax"
 CSRF_COOKIE_SAMESITE = "Lax"
 if DEBUG:
     CSRF_TRUSTED_ORIGINS += ["http://localhost:8035", "http://127.0.0.1:8035"]
+
+# Explicit opt-in, always disabled when DEBUG is false.
+SIRAGO_ENABLE_SIMULATED_PAYMENTS = os.environ.get("SIRAGO_ENABLE_SIMULATED_PAYMENTS") == "1"

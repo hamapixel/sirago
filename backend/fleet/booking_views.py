@@ -8,7 +8,8 @@ from django.views.decorators.csrf import csrf_protect
 from django.views.decorators.http import require_GET, require_POST
 from accounts.models import Company, User
 from accounts.views import data, error
-from .models import Booking, BookingLeg, Departure
+from .models import Booking, BookingLeg, Departure, SimulatedPayment
+from django.conf import settings
 from .public_views import public_departures, public_row, bounded_int, minimum_total
 
 def selection(values):
@@ -69,11 +70,16 @@ def quote(request):
     except (ValueError,TypeError,OverflowError):
         return error("Ce voyage n’est plus disponible ou la sélection est invalide.",409)
 
+def simulation_enabled():
+    return settings.DEBUG and settings.SIRAGO_ENABLE_SIMULATED_PAYMENTS
+
 def booking_json(b):
     now=timezone.now()
     legs=list(b.legs.select_related("departure__route","departure__company","departure__bus").order_by("position"))
     return {"id":b.id,"reference":str(b.request_id),"count":b.passengers,"status":"EXPIRED" if b.status==Booking.Status.HELD and b.expires_at<=now else b.status,"expires_at":b.expires_at.isoformat(),"created_at":b.created_at.isoformat(),
             "passenger_names":b.passenger_names,"total":sum(l.total for l in legs),
+            "simulation_enabled":simulation_enabled(),
+            "simulated_payment":({"amount":b.simulated_payment.amount,"network":b.simulated_payment.network,"created_at":b.simulated_payment.created_at.isoformat()} if b.status==Booking.Status.TEST_PAID and hasattr(b,"simulated_payment") else None),
             "trips":[{"id":l.departure_id,"company":l.departure.company.name,"origin":l.departure.route.origin,"destination":l.departure.route.destination,"starts_at":l.departure.starts_at.isoformat(),"ends_at":l.departure.ends_at.isoformat(),"boarding_point":l.departure.route.boarding_point,"arrival_point":l.departure.route.arrival_point,"bus_name":l.departure.bus.name,"price":l.unit_price,"premium_price":l.premium_unit_price,"premium_positions":l.premium_positions,"total":l.total} for l in legs]}
 
 def traveler_error(request):
@@ -160,4 +166,44 @@ def cancel(request,pk):
         if b.status==Booking.Status.HELD and b.expires_at>timezone.now():
             b.status=Booking.Status.CANCELLED
             b.save(update_fields=["status"])
+        return JsonResponse(booking_json(b))
+
+
+@never_cache
+@csrf_protect
+@require_POST
+def simulate_payment(request,pk):
+    if not simulation_enabled():
+        return error("Simulation indisponible.",404)
+    denied=traveler_error(request)
+    if denied is not None:
+        return denied
+    if not 1<=pk<=2**63-1:
+        return error("Réservation introuvable.",404)
+    try:
+        network=data(request).get("network")
+    except (ValueError, TypeError):
+        return error("Données invalides.",400)
+    if network not in ("orange_ml","moov_ml"):
+        return error("Réseau de test invalide.",400)
+    with transaction.atomic():
+        # Same lock order as reserve; serialize against cancellation and company changes.
+        User.objects.select_for_update().get(pk=request.user.pk)
+        b=Booking.objects.select_for_update().filter(pk=pk,traveler=request.user).first()
+        if b is None:
+            return error("Réservation introuvable.",404)
+        if b.status==Booking.Status.TEST_PAID:
+            return JsonResponse(booking_json(b))
+        ids=list(b.legs.values_list("departure__company_id",flat=True).distinct())
+        list(Company.objects.select_for_update().filter(pk__in=ids).order_by("pk"))
+        now=timezone.now()
+        if b.status!=Booking.Status.HELD or b.expires_at<=now:
+            return error("Réservation expirée ou annulée.",409)
+        legs=list(b.legs.select_related("departure__company","departure__bus","departure__route"))
+        if not legs or any(l.departure.starts_at<=now or l.departure.status!=Departure.Status.PUBLISHED or l.departure.company.status!=Company.Status.VERIFIED or not l.departure.bus.active or not l.departure.route.active for l in legs):
+            return error("Un départ n’est plus disponible.",409)
+        amount=sum(l.total for l in legs)
+        SimulatedPayment.objects.create(booking=b,amount=amount,network=network)
+        b.status=Booking.Status.TEST_PAID
+        b.save(update_fields=["status"])
         return JsonResponse(booking_json(b))

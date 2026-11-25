@@ -238,7 +238,7 @@ def departure_status(request,company,pk):
     if target==D.PUBLISHED and (company.status!=Company.Status.VERIFIED or not d.bus.active or not d.route.active or d.capacity>d.bus.capacity or d.premium_capacity>d.bus.premium_capacity or d.capacity-d.premium_capacity>d.bus.capacity-d.bus.premium_capacity):
         return error("La compagnie, le car et le trajet doivent être actifs et validés.",403)
     if target==D.CANCELLED and active_legs(timezone.now()).filter(departure=d).exists():
-        return error("Des réservations sont en attente. Attendez leur expiration avant d’annuler le départ.",409)
+        return error("Des réservations occupent des places. Impossible d’annuler ce départ.",409)
     d.status=target
     d.save(update_fields=["status"])
     return JsonResponse(departure_json(d))

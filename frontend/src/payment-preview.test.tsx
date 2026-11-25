@@ -7,5 +7,7 @@ const render=(booking:Booking=b)=>renderToStaticMarkup(<PaymentPreview booking={
 describe('Préparation du paiement',()=>{
  it('affiche les catégories, passagers et moyens indicatifs',()=>{const html=render();for(const v of ['Awa Test','Moussa Test','Standard','Premium','Orange Money','Moov Money','Total à payer'])expect(html).toContain(v)});
  it('interdit tout paiement avant intégration',()=>{const html=render();expect(html).toMatch(/<button[^>]*disabled[^>]*>/);expect(html).toContain('Aucun débit possible');expect(html).not.toMatch(/portefeuille|parrainage|code promo/i)});
+ it('affiche clairement la simulation uniquement si autorisée',()=>{const html=render({...b,simulation_enabled:true});expect(html).toContain('Simuler le paiement');expect(html).toContain('MODE TEST');expect(html).not.toMatch(/<button[^>]*disabled[^>]*>/)});
+ it('distingue le succès simulé du paiement réel',()=>{const html=render({...b,status:'TEST_PAID'});expect(html).toContain('Aucun argent débité');expect(html).not.toContain('Confirmer et payer')});
  it('refuse les réservations annulées ou expirées',()=>{for(const booking of [{...b,status:'CANCELLED' as const},{...b,expires_at:'2000-01-01T00:00:00Z'}]){const html=render(booking);expect(html).toContain('ne peut plus être payée');expect(html).not.toContain('Confirmer et payer')}});
 });

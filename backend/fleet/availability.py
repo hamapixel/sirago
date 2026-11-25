@@ -1,9 +1,9 @@
-from django.db.models import OuterRef, Subquery, Sum, Value, IntegerField, F, Case, When
+from django.db.models import OuterRef, Subquery, Sum, Value, IntegerField, F, Case, When, Q
 from django.db.models.functions import Coalesce
 from .models import Booking, BookingLeg
 
 def active_legs(now):
-    return BookingLeg.objects.filter(booking__status=Booking.Status.HELD, booking__expires_at__gt=now)
+    return BookingLeg.objects.filter(Q(booking__status=Booking.Status.HELD, booking__expires_at__gt=now) | Q(booking__status=Booking.Status.TEST_PAID))
 
 def with_remaining(qs, now):
     legs=active_legs(now).filter(departure_id=OuterRef("pk")).order_by().values("departure_id")

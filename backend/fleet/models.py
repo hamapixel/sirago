@@ -67,6 +67,7 @@ class Departure(models.Model):
 class Booking(models.Model):
     class Status(models.TextChoices):
         HELD = "HELD", "En attente de paiement"
+        TEST_PAID = "TEST_PAID", "Paiement simulé"
         CANCELLED = "CANCELLED", "Annulée"
     traveler = models.ForeignKey("accounts.User", on_delete=models.PROTECT, related_name="bookings")
     request_id = models.UUIDField()
@@ -102,3 +103,11 @@ class BookingLeg(models.Model):
             models.CheckConstraint(condition=Q(position__lte=1,unit_price__gte=1,unit_price__lte=1000000), name="fleet_booking_leg_values"),
             models.CheckConstraint(condition=Q(premium_count__lte=10) & (Q(premium_count=0,premium_unit_price=0) | Q(premium_count__gt=0,premium_unit_price__gte=F("unit_price"),premium_unit_price__lte=1000000)),name="fleet_leg_premium_values"),
         ]
+
+
+class SimulatedPayment(models.Model):
+    """Local test record, never a financial transaction."""
+    booking = models.OneToOneField(Booking, on_delete=models.PROTECT, related_name="simulated_payment")
+    amount = models.PositiveIntegerField()
+    network = models.CharField(max_length=20, choices=[("orange_ml", "Orange Money"), ("moov_ml", "Moov Money")])
+    created_at = models.DateTimeField(auto_now_add=True)
