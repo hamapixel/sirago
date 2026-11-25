@@ -1,5 +1,5 @@
 import {useEffect,useState} from 'react';
-export type Trip={id:number;company_id:number;company:string;bus_name:string;origin:string;destination:string;boarding_point:string;arrival_point:string;starts_at:string;ends_at:string;duration_minutes:number;price:number;capacity:number};
+export type Trip={id:number;company_id:number;company:string;bus_name:string;origin:string;destination:string;boarding_point:string;arrival_point:string;starts_at:string;ends_at:string;duration_minutes:number;price:number;capacity:number;remaining:number};
 export type Criteria={origin:string;destination:string;date:string;back:string;round:boolean;count:number};
 export type Filters={company:string;period:string;max_price:string;sort:string};
 export type TripPage={items:Trip[];total:number;page:number;has_next:boolean};

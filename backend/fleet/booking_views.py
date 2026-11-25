@@ -12,6 +12,8 @@ from .models import Booking, BookingLeg, Departure
 from .public_views import public_departures, public_row, bounded_int
 
 def selection(values):
+    if any(type(values.get(k)) not in (str,int) for k in ("out","count") if k in values) or ("ret" in values and type(values["ret"]) not in (str,int)):
+        raise ValueError("Sélection invalide.")
     out=bounded_int(values.get("out", ""),1,2**63-1)
     ret=bounded_int(values["ret"],1,2**63-1) if values.get("ret") else None
     count=bounded_int(values.get("count","1"),1,10)

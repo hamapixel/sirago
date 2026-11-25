@@ -2,6 +2,8 @@ import {useEffect,useState} from 'react';
 import AuthPage from './AuthPage';
 import CompanySpace from './CompanySpace';
 import TravelResults,{LivePreview} from './TravelResults';
+import BookingSpace,{MyBookings} from './BookingSpace';
+import {parseSelection,bookingUrl,authUrl,type Selection} from './booking-api';
 import {useTravel,priceText,type HomeData,type Trip} from './travel-api';
 import {authPost,currentAccount,destination,type Account} from './auth-api';
 import InstallApp from './InstallApp';
@@ -12,33 +14,36 @@ import {Autoplay,Pagination,A11y} from 'swiper/modules';
 import {cities,localToday,validSearch} from './search';
 const slides=[['Ka billet ta fô i sigi yorola.','Réservez votre billet sans vous déplacer.'],['Voyagez en toute simplicité.','Comparez les compagnies et choisissez votre trajet.'],['Votre billet dans votre téléphone.','Retrouvez vos billets numériques.'],['Vos projets changent ?','Reportez votre voyage selon les conditions de votre compagnie.']];
 export default function App(){
- const [from,SFrom]=useState('Bamako'),[to,STo]=useState('Sikasso'),[date,SD]=useState(localToday()),[back,SB]=useState(''),[round,SR]=useState(false),[count,SC]=useState(1),[tab,STab]=useState('home'),[result,SResult]=useState(false),[paused,SP]=useState(false);
+ const [from,SFrom]=useState('Bamako'),[to,STo]=useState('Sikasso'),[date,SD]=useState(localToday()),[back,SB]=useState(''),[round,SR]=useState(false),[count,SC]=useState(1),[tab,STab]=useState(new URLSearchParams(window.location.search).get('view')==='tickets'?'tickets':'home'),[result,SResult]=useState(false),[paused,SP]=useState(false);
  const reduce=window.matchMedia('(prefers-reduced-motion: reduce)').matches;
  const path=window.location.pathname;
  const [account,setAccount]=useState<Account|null>(null),[loading,setLoading]=useState(true),[sessionError,setSessionError]=useState('');
  const preview=path==='/company/';
- const protectedPath=preview||path==='/app/'||path==='/preview/company/';
+ const selection=parseSelection(window.location.search);
+ const booking=path==='/booking/';
+ const protectedPath=booking||preview||path==='/app/'||path==='/preview/company/';
  const auth=path==='/login/'||path==='/register/';
  useEffect(()=>{let active=true;currentAccount().then(a=>{if(active){setAccount(a);setLoading(false)}}).catch(()=>{if(active){setSessionError('Impossible de vérifier votre session. Vérifiez votre connexion.');setLoading(false)}});return()=>{active=false}},[]);
- useEffect(()=>{if(loading||sessionError)return;if(!account&&protectedPath){window.location.replace('/login/');return}if(account&&(auth||path==='/preview/company/'||(preview&&account.role!=='COMPANY')||(path==='/app/'&&account.role!=='TRAVELER')||(path==='/'&&account.role!=='TRAVELER'))){window.location.replace(destination(account))}},[account,loading,sessionError,auth,path,preview,protectedPath]);
+ useEffect(()=>{if(loading||sessionError)return;if(!account&&protectedPath){window.location.replace(booking&&selection?authUrl(false,selection):'/login/');return}if(account&&(auth||path==='/preview/company/'||(preview&&account.role!=='COMPANY')||((path==='/app/'||booking)&&account.role!=='TRAVELER')||(path==='/'&&account.role!=='TRAVELER'))){window.location.replace(auth&&selection&&account.role==='TRAVELER'?bookingUrl(selection):destination(account))}},[account,loading,sessionError,auth,path,preview,protectedPath,booking,selection?.out,selection?.ret,selection?.count]);
  async function signOut(){try{await authPost('logout',{});window.location.assign('/')}catch(e){setSessionError(e instanceof Error?e.message:'Déconnexion impossible.')}}
  const auto=paused||reduce?false:{delay:5000,disableOnInteraction:true,pauseOnMouseEnter:true};
  const key=paused?'paused':'playing';
- const choose=(v:string)=>{STab(v);SResult(false)};
+ const choose=(v:string)=>{if(booking){window.location.assign(v==='tickets'?'/app/?view=tickets':'/app/');return}STab(v);SResult(false)};
  const [initialTrip,setInitialTrip]=useState<Trip|null>(null);
  const criteria={origin:from,destination:to,date,back,round,count};
  const searchValid=validSearch(from,to,date,back,round,count,localToday());
- const homeData=useTravel<HomeData>(!auth&&!preview&&tab==='home'&&!result?'home/':null,0);
+ const homeData=useTravel<HomeData>(!auth&&!preview&&!booking&&tab==='home'&&!result?'home/':null,0);
  const popular=homeData.data?.routes||[],companies=homeData.data?.companies||[];
  function openResults(trip?:Trip){if(searchValid){setInitialTrip(trip||null);SResult(true);window.scrollTo({top:0,behavior:'instant'})}}
+ function continueBooking(out:Trip,ret:Trip|null){const s:Selection={out:out.id,...(ret?{ret:ret.id}:{}),count};window.location.assign(account?.role==='TRAVELER'?bookingUrl(s):authUrl(false,s))}
  function closeResults(){SResult(false);requestAnimationFrame(()=>document.querySelector('.search-section')?.scrollIntoView({block:'start'}))}
 
  if((protectedPath||auth)&&loading)return <main className="layout"><p role="status">Vérification de votre session…</p></main>;
  if((protectedPath||auth)&&sessionError)return <main className="layout"><p role="alert">{sessionError}</p><button className="primary" onClick={()=>window.location.reload()}>Réessayer</button></main>;
- if((protectedPath&&!account)||(account&&(auth||path==='/preview/company/'||(preview&&account.role!=='COMPANY')||(path==='/app/'&&account.role!=='TRAVELER'))))return <main className="layout"><p>Redirection…</p></main>;
+ if((protectedPath&&!account)||(account&&(auth||path==='/preview/company/'||(preview&&account.role!=='COMPANY')||((path==='/app/'||booking)&&account.role!=='TRAVELER'))))return <main className="layout"><p>Redirection…</p></main>;
  return <><header className="header"><div className="header-inner"><a className="brand" href="/"><img src="/logo.svg" alt=""/>SiraGo</a><div className="header-actions"><span className="language">🇲🇱 FR</span>{account?<button type="button" className="outline" onClick={signOut}>Déconnexion</button>:<a href="/login/" className="login">Connexion</a>}<button className="icon-button" aria-label="Notifications" onClick={()=>alert('Notifications disponibles dans une prochaine phase.')}><Bell size={21}/></button></div></div></header>
  <main className={preview?"layout company-layout":"layout"}>
- {sessionError&&<p role="alert" className="auth-error">{sessionError}</p>}{auth?<AuthPage register={path==='/register/'}/>:preview&&account?<CompanySpace account={account} onLogout={signOut}/>:tab==='home'&&result?<TravelResults criteria={criteria} initialTrip={initialTrip} onBack={closeResults}/>:tab==='home'?<>
+ {sessionError&&<p role="alert" className="auth-error">{sessionError}</p>}{auth?<AuthPage register={path==='/register/'} selection={selection}/>:preview&&account?<CompanySpace account={account} onLogout={signOut}/>:booking&&account?<>{selection?<BookingSpace selection={selection} account={account} onHistory={()=>choose('tickets')}/>:<section className="panel empty"><p>Sélection de voyage invalide.</p><a href="/app/" className="primary">Rechercher un voyage</a></section>}</>:tab==='home'&&result?<TravelResults criteria={criteria} initialTrip={initialTrip} onBack={closeResults} onContinue={continueBooking}/>:tab==='home'?<>
  {account?.role==="TRAVELER"&&<p className="welcome-user">Bienvenue, {account.first_name} !</p>}
  <section className="hero" aria-label="Présentation SiraGo"><div className="hero-top"><span>BIENVENUE SUR SIRAGO</span><button onClick={()=>SP(!paused)} className="pause">{paused?'Reprendre':'Pause'}</button></div><Swiper key={key} modules={[Autoplay,Pagination,A11y]} autoplay={auto} pagination={{clickable:true}} loop slidesPerView={1} speed={reduce?0:450}>{slides.map(([title,desc],i)=><SwiperSlide key={title}><div className="hero-slide"><h1>{title}</h1><p>{desc}</p><img src={`/images/slides/slide-0${i+1}.webp`} alt={["Autocar SiraGo sur une route africaine","Intérieur illustratif d’un autocar confortable","Voyageur présentant son billet numérique illustratif","Autocar SiraGo dans un paysage africain"][i]} loading={i===0?'eager':'lazy'} onError={e=>{if(!e.currentTarget.src.endsWith("/coach.svg"))e.currentTarget.src="/coach.svg"}}/></div></SwiperSlide>)}</Swiper></section>
  <InstallApp/>
@@ -48,7 +53,7 @@ export default function App(){
  <section><div className="section-title"><h2>Compagnies partenaires</h2></div>{homeData.error?<p className="panel travel-home-empty">Impossible de charger les compagnies.</p>:homeData.loading?<p className="muted">Chargement des compagnies…</p>:!companies.length?<p className="panel travel-home-empty">Aucune compagnie avec un départ publié pour le moment.</p>:<Swiper key={'partner-'+key+'-'+companies.length} modules={[Autoplay,Pagination,A11y]} autoplay={companies.length>2?auto:false} pagination={{clickable:true}} loop={companies.length>3} spaceBetween={12} slidesPerView={1.15} breakpoints={{640:{slidesPerView:2},1024:{slidesPerView:2}}} className="partners">{companies.map(c=><SwiperSlide key={c.id}><article className="partner"><BusFront size={34}/><strong>{c.name}</strong><small>{c.city} · Compagnie validée</small></article></SwiperSlide>)}</Swiper>}</section>
  <section className="stats benefits">{[[ShieldCheck,'Paiement sécurisé'],[Ticket,'Billet numérique'],[CalendarClock,'Report de voyage'],[CircleHelp,'Assistance']].map(([I,t])=>{const Icon=I as typeof ShieldCheck;return <article className="panel menu" key={String(t)}><Icon size={23}/>{String(t)}<small>À venir</small></article>})}</section>
  {!account&&!loading&&<section className="panel join"><h2>Rejoignez SiraGo</h2><a className="primary" href="/register/">Créer mon compte <ArrowRight size={18}/></a><a className="outline" href="/register/">Inscription compagnie ou voyageur</a></section>}
- </>:tab==='tickets'?<section className="panel empty"><Ticket size={40}/><h1>Mes billets</h1><p>Aucun billet : réservations disponibles dans une prochaine phase.</p><button className="primary" onClick={()=>choose('home')}>Rechercher un voyage</button></section>:<section className="panel empty account-info"><UserRound size={40}/><h1>Mon profil</h1>{account?<><strong>{account.first_name} {account.last_name}</strong><p>{account.phone}</p>{account.email&&<p>{account.email}</p>}<button className="outline" onClick={signOut}>Se déconnecter</button></>:<><p>Connectez-vous pour retrouver vos voyages.</p><a className="primary" href="/register/">Créer mon compte</a><a className="outline" href="/login/">Se connecter</a></>}</section>}
+ </>:tab==='tickets'?<MyBookings account={account} onSearch={()=>choose('home')}/>:<section className="panel empty account-info"><UserRound size={40}/><h1>Mon profil</h1>{account?<><strong>{account.first_name} {account.last_name}</strong><p>{account.phone}</p>{account.email&&<p>{account.email}</p>}<button className="outline" onClick={signOut}>Se déconnecter</button></>:<><p>Connectez-vous pour retrouver vos voyages.</p><a className="primary" href="/register/">Créer mon compte</a><a className="outline" href="/login/">Se connecter</a></>}</section>}
  <footer>Propulsé par BTDIGIT</footer></main>
  {!auth&&!preview&&<nav className="bottom" aria-label="Navigation principale">{preview?<a href="/"><House size={22}/>Accueil</a>:[[House,'Accueil','home'],[Ticket,'Mes billets','tickets'],[UserRound,'Profil','profile']].map(([I,label,v])=>{const Icon=I as typeof House;return <button key={String(v)} className={tab===v?'selected':''} onClick={()=>choose(String(v))} aria-current={tab===v?'page':undefined}><Icon size={23}/>{String(label)}</button>})}</nav>}</>;
 }
