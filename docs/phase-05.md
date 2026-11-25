@@ -20,3 +20,6 @@ Profil responsive avec initiales, coordonnées réelles, accès aux réservation
 
 ### Écran de démarrage
 Logo SVG intégré directement au HTML initial, styles critiques intégrés pour éviter l'écran blanc avant React, continuité avec SplashScreen lors de la vérification de session et des redirections. Aucun délai d'affichage forcé. La vérification de session expire après 10 secondes en cas de réseau bloqué : l'accueil public reste accessible avec message d'erreur, les espaces protégés demandent de réessayer. Animation désactivée si réduction des mouvements demandée ; lien de rechargement après 15 secondes si l'initialisation est bloquée. Fond de manifeste PWA aligné avec l'identité visuelle. Aucune migration ni changement des réservations.
+
+### Fenêtre des notifications
+La cloche ouvre une fenêtre accessible aux couleurs SiraGo, centrée sur ordinateur et en panneau inférieur sur mobile, sans alert() navigateur. Fermeture par bouton, croix, Échap ou clic extérieur ; retour du focus et respect de la réduction des animations. Les notifications réelles ne sont pas activées. Aucun changement de base de données.

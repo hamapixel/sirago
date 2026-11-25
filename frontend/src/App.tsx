@@ -1,6 +1,7 @@
 import {useEffect,useState} from 'react';
 import AuthPage from './AuthPage';
 import SplashScreen from './SplashScreen';
+import NotificationsDialog from './NotificationsDialog';
 import TravelerProfile from './TravelerProfile';
 import CompanySpace from './CompanySpace';
 import TravelResults,{LivePreview} from './TravelResults';
@@ -20,6 +21,7 @@ export default function App(){
  const reduce=window.matchMedia('(prefers-reduced-motion: reduce)').matches;
  const path=window.location.pathname;
  const [account,setAccount]=useState<Account|null>(null),[loading,setLoading]=useState(true),[sessionError,setSessionError]=useState('');
+ const [notificationsOpen,setNotificationsOpen]=useState(false);
  const preview=path==='/company/';
  const selection=parseSelection(window.location.search);
  const booking=path==='/booking/';
@@ -43,7 +45,7 @@ export default function App(){
  if(loading)return <SplashScreen message="Chargement…"/>;
  if((protectedPath||auth)&&sessionError)return <main className="layout"><p role="alert">{sessionError}</p><button className="primary" onClick={()=>window.location.reload()}>Réessayer</button></main>;
  if(!sessionError&&((protectedPath&&!account)||(account&&(auth||path==='/preview/company/'||(preview&&account.role!=='COMPANY')||((path==='/app/'||booking)&&account.role!=='TRAVELER')||(path==='/'&&account.role!=='TRAVELER')))))return <SplashScreen message="Redirection…"/>;
- return <><header className="header"><div className="header-inner"><a className="brand" href="/"><img src="/logo.svg" alt=""/>SiraGo</a><div className="header-actions"><span className="language">🇲🇱 FR</span>{account?<button type="button" className="outline" onClick={signOut}>Déconnexion</button>:<a href="/login/" className="login">Connexion</a>}<button className="icon-button" aria-label="Notifications" onClick={()=>alert('Notifications disponibles dans une prochaine phase.')}><Bell size={21}/></button></div></div></header>
+ return <><header className="header"><div className="header-inner"><a className="brand" href="/"><img src="/logo.svg" alt=""/>SiraGo</a><div className="header-actions"><span className="language">🇲🇱 FR</span>{account?<button type="button" className="outline" onClick={signOut}>Déconnexion</button>:<a href="/login/" className="login">Connexion</a>}<button type="button" className="icon-button" aria-label="Notifications" aria-haspopup="dialog" aria-expanded={notificationsOpen} onClick={()=>setNotificationsOpen(true)}><Bell size={21}/></button></div></div></header>
  <main className={preview?"layout company-layout":"layout"}>
  {sessionError&&<p role="alert" className="auth-error">{sessionError}</p>}{auth?<AuthPage register={path==='/register/'} selection={selection}/>:preview&&account?<CompanySpace account={account} onLogout={signOut}/>:booking&&account?<>{selection?<BookingSpace selection={selection} account={account} onHistory={()=>choose('tickets')}/>:<section className="panel empty"><p>Sélection de voyage invalide.</p><a href="/app/" className="primary">Rechercher un voyage</a></section>}</>:tab==='home'&&result?<TravelResults criteria={criteria} initialTrip={initialTrip} onBack={closeResults} onContinue={continueBooking}/>:tab==='home'?<>
  {account?.role==="TRAVELER"&&<p className="welcome-user">Bienvenue, {account.first_name} !</p>}
@@ -57,5 +59,5 @@ export default function App(){
  {!account&&!loading&&<section className="panel join"><h2>Rejoignez SiraGo</h2><a className="primary" href="/register/">Créer mon compte <ArrowRight size={18}/></a><a className="outline" href="/register/">Créer un compte pro ou voyageur</a></section>}
  </>:tab==='tickets'?<MyBookings account={account} onSearch={()=>choose('home')}/>:<TravelerProfile account={account?.role==='TRAVELER'?account:null} onUpdated={setAccount} onTickets={()=>choose('tickets')} onLogout={signOut}/>}
  <footer>Propulsé par BTDIGIT</footer></main>
- {!auth&&!preview&&<nav className="bottom" aria-label="Navigation principale">{preview?<a href="/"><House size={22}/>Accueil</a>:[[House,'Accueil','home'],[Ticket,'Mes billets','tickets'],[UserRound,'Profil','profile']].map(([I,label,v])=>{const Icon=I as typeof House;return <button key={String(v)} className={tab===v?'selected':''} onClick={()=>choose(String(v))} aria-current={tab===v?'page':undefined}><Icon size={23}/>{String(label)}</button>})}</nav>}</>;
+ {!auth&&!preview&&<nav className="bottom" aria-label="Navigation principale">{preview?<a href="/"><House size={22}/>Accueil</a>:[[House,'Accueil','home'],[Ticket,'Mes billets','tickets'],[UserRound,'Profil','profile']].map(([I,label,v])=>{const Icon=I as typeof House;return <button key={String(v)} className={tab===v?'selected':''} onClick={()=>choose(String(v))} aria-current={tab===v?'page':undefined}><Icon size={23}/>{String(label)}</button>})}</nav>}{notificationsOpen&&<NotificationsDialog onClose={()=>setNotificationsOpen(false)}/>}</>;
 }
