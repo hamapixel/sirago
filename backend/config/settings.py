@@ -21,3 +21,10 @@ SESSION_COOKIE_HTTPONLY = True
 SESSION_COOKIE_SECURE = not DEBUG
 CSRF_COOKIE_SECURE = not DEBUG
 CSRF_TRUSTED_ORIGINS = ["http://localhost:8030", "http://127.0.0.1:8030"] if DEBUG else []
+
+# Local single-process throttling; use a shared cache and edge throttling in production.
+CSRF_FAILURE_VIEW = "accounts.views.csrf_failure"
+SESSION_COOKIE_SAMESITE = "Lax"
+CSRF_COOKIE_SAMESITE = "Lax"
+if DEBUG:
+    CSRF_TRUSTED_ORIGINS += ["http://localhost:8035", "http://127.0.0.1:8035"]
