@@ -1,0 +1,3 @@
+# Phase 01
+Socle de développement : frontend unique React/TypeScript, Django et PostgreSQL. Le logo et l'illustration du car sont des SVG originaux provisoires. Les 3 carrousels sont tactiles (Swiper), principal et partenaires automatiques, avec contrôle pause. Les offres sont exclusivement des exemples fictifs. Les routes de connexion et inscription sont des écrans d'attente ; l'aperçu compagnie n'est pas une zone authentifiée. Phase 02 : inscription et autorisations réelles.
+À vérifier localement : 320, 360, 390, 430, 768, 1024, 1366 et 1920 px ; défilement tactile, retour, dates, contraste, PWA. Pour la production : images finales, icônes PNG PWA, lockfiles, configuration serveur, tests de parcours et sécurité.

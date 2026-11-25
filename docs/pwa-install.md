@@ -1,0 +1,3 @@
+# Installation SiraGo
+Le bouton d'accueil déclenche beforeinstallprompt lorsqu'il est fourni par le navigateur. Sinon il affiche les instructions iOS, Android ou bureau. Il disparaît en mode standalone ou après appinstalled. Une acceptation de la boîte native n'est pas traitée comme une confirmation d'installation.
+Test local : docker compose exec frontend npm run build ; lancer npm run preview sur le port hôte 8035 (arrêter/recréer sirago-pwa-preview si nécessaire). Tester dans Chrome sur localhost, puis fermer/rouvrir l'app installée. Vérifier l'aide iOS sur un vrai iPhone en HTTPS. Le port 8030 sert au développement, pas au test du service worker de production. La disponibilité du prompt reste décidée par le navigateur.

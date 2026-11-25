@@ -1,0 +1,19 @@
+name: Phase 01 checks
+on:
+  pull_request:
+  push:
+    branches: [main, 'feature/**']
+jobs:
+  checks:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - run: cp .env.example .env
+      - run: docker compose up -d --build --wait
+      - run: docker compose exec -T backend python manage.py check
+      - run: docker compose exec -T backend python manage.py test
+      - run: docker compose exec -T backend python manage.py makemigrations --check --dry-run
+      - run: docker compose exec -T frontend npm test
+      - run: docker compose exec -T frontend npm run build
+      - if: always()
+        run: docker compose logs --tail=100
