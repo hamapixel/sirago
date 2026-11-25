@@ -1,9 +1,10 @@
 import {useEffect,useState} from 'react';
 import AuthPage from './AuthPage';
+import CompanySpace from './CompanySpace';
 import {authPost,currentAccount,destination,type Account} from './auth-api';
 import InstallApp from './InstallApp';
 import './install-app.css';
-import {ArrowLeftRight, ArrowRight, Bell, BusFront, CalendarDays, CalendarClock, ChevronRight, CircleHelp, House, MapPin, Minus, Plus, Search, ShieldCheck, Ticket, UserRound, Users, Wallet, ScanLine, Route, Receipt} from 'lucide-react';
+import {ArrowLeftRight, ArrowRight, Bell, BusFront, CalendarDays, CalendarClock, ChevronRight, CircleHelp, House, MapPin, Minus, Plus, Search, ShieldCheck, Ticket, UserRound, Users} from 'lucide-react';
 import {Swiper,SwiperSlide} from 'swiper/react';
 import {Autoplay,Pagination,A11y} from 'swiper/modules';
 import {cities,localToday,validSearch} from './search';
@@ -29,8 +30,8 @@ export default function App(){
  if((protectedPath||auth)&&sessionError)return <main className="layout"><p role="alert">{sessionError}</p><button className="primary" onClick={()=>window.location.reload()}>Réessayer</button></main>;
  if((protectedPath&&!account)||(account&&(auth||path==='/preview/company/'||(preview&&account.role!=='COMPANY')||(path==='/app/'&&account.role!=='TRAVELER'))))return <main className="layout"><p>Redirection…</p></main>;
  return <><header className="header"><div className="header-inner"><a className="brand" href="/"><img src="/logo.svg" alt=""/>SiraGo</a><div className="header-actions"><span className="language">🇲🇱 FR</span>{account?<button type="button" className="outline" onClick={signOut}>Déconnexion</button>:<a href="/login/" className="login">Connexion</a>}<button className="icon-button" aria-label="Notifications" onClick={()=>alert('Notifications disponibles dans une prochaine phase.')}><Bell size={21}/></button></div></div></header>
- <main className="layout">
- {sessionError&&<p role="alert" className="auth-error">{sessionError}</p>}{auth?<AuthPage register={path==='/register/'}/>:preview?<><section className="hero company"><BusFront color="#F6B844"/><h1>{account?.company?.name||"Ma compagnie"}</h1><p>Espace professionnel</p></section><section className={"panel company-status "+(account?.company?.status==="VERIFIED"?"verified":"")}><h2>{account?.company?.status==="VERIFIED"?"Compagnie validée":account?.company?.status==="SUSPENDED"?"Compagnie suspendue":account?.company?.status==="REJECTED"?"Validation refusée":"Validation en attente"}</h2><p>Les modules de gestion des trajets et de vente seront activés en phase 03 et suivantes. Seules les compagnies validées pourront publier.</p></section><h2>Activité du jour</h2><div className="stats">{['Billets','Départs','Recettes','Places'].map(n=><article className="panel" key={n}><small>{n}</small><h2>—</h2></article>)}</div><div className="stats">{[[Route,'Trajets'],[Ticket,'Réservations'],[ScanLine,'Scanner'],[Wallet,'Recettes'],[CalendarClock,'Reports'],[Receipt,'Vendre']].map(([Icon,label])=>{const I=Icon as typeof Route;return <button className="panel menu" key={String(label)} onClick={()=>alert('Fonctionnalité prévue dans une prochaine phase.')}><I size={24}/>{String(label)}</button>})}</div><button className="outline" onClick={signOut}>Se déconnecter</button></>:tab==='home'?<>
+ <main className={preview?"layout company-layout":"layout"}>
+ {sessionError&&<p role="alert" className="auth-error">{sessionError}</p>}{auth?<AuthPage register={path==='/register/'}/>:preview&&account?<CompanySpace account={account} onLogout={signOut}/>:tab==='home'?<>
  {account?.role==="TRAVELER"&&<p className="welcome-user">Bienvenue, {account.first_name} !</p>}
  <section className="hero" aria-label="Présentation SiraGo"><div className="hero-top"><span>BIENVENUE SUR SIRAGO</span><button onClick={()=>SP(!paused)} className="pause">{paused?'Reprendre':'Pause'}</button></div><Swiper key={key} modules={[Autoplay,Pagination,A11y]} autoplay={auto} pagination={{clickable:true}} loop slidesPerView={1} speed={reduce?0:450}>{slides.map(([title,desc],i)=><SwiperSlide key={title}><div className="hero-slide"><h1>{title}</h1><p>{desc}</p><img src={`/images/slides/slide-0${i+1}.webp`} alt={["Autocar SiraGo sur une route africaine","Intérieur illustratif d’un autocar confortable","Voyageur présentant son billet numérique illustratif","Autocar SiraGo dans un paysage africain"][i]} loading={i===0?'eager':'lazy'} onError={e=>{if(!e.currentTarget.src.endsWith("/coach.svg"))e.currentTarget.src="/coach.svg"}}/></div></SwiperSlide>)}</Swiper></section>
  <InstallApp/>
