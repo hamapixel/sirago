@@ -1,7 +1,7 @@
 import {type Trip} from './travel-api';
 export type Selection={out:number;ret?:number;count:number};
 export type Quote={trips:Trip[];count:number;total:number};
-export type Booking={id:number;reference:string;count:number;status:'HELD'|'EXPIRED'|'CANCELLED'|'TEST_PAID';ticket_mode?:'group'|'individual';simulation_enabled?:boolean;simulated_payment?:{amount:number;network:string;created_at:string}|null;expires_at:string;created_at:string;passenger_names:string[];total:number;trips:{id:number;company:string;origin:string;destination:string;starts_at:string;ends_at:string;boarding_point:string;arrival_point:string;bus_name:string;price:number;premium_price:number;premium_positions:number[];total:number}[]};
+export type Booking={id:number;reference:string;count:number;status:'HELD'|'EXPIRED'|'CANCELLED'|'TEST_PAID'|'REPORTED';replacement_id?:number|null;ticket_mode?:'group'|'individual';simulation_enabled?:boolean;simulated_payment?:{amount:number;network:string;created_at:string}|null;expires_at:string;created_at:string;passenger_names:string[];total:number;trips:{id:number;company:string;origin:string;destination:string;starts_at:string;ends_at:string;boarding_point:string;arrival_point:string;bus_name:string;price:number;premium_price:number;premium_positions:number[];total:number}[]};
 export function parseSelection(search:string):Selection|null{
  const p=new URLSearchParams(search);
  const out=Number(p.get('out')),ret=Number(p.get('ret')),count=Number(p.get('count'));
@@ -20,7 +20,7 @@ export async function bookingPost<T>(path:string,values:Record<string,unknown>):
  if(!response.ok)throw new Error(result?.detail||'Réservation indisponible.');
  return result as T;
 }
-export const bookingLabel=(status:Booking['status'])=>status==='HELD'?'En attente de paiement':status==='EXPIRED'?'Expirée':status==='TEST_PAID'?'Paiement simulé':'Annulée';
+export const bookingLabel=(status:Booking['status'])=>status==='HELD'?'En attente de paiement':status==='EXPIRED'?'Expirée':status==='TEST_PAID'?'Paiement simulé':status==='REPORTED'?'Reportée':'Annulée';
 export function attemptKey(s:Selection){
  const key='sirago-booking:'+selectionQuery(s);
  try{const previous=sessionStorage.getItem(key);if(previous)return previous;const fresh=crypto.randomUUID();sessionStorage.setItem(key,fresh);return fresh}catch{return crypto.randomUUID()}

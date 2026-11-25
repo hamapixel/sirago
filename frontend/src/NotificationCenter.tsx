@@ -22,7 +22,7 @@ export function useNotificationCount(enabled:boolean){
  return count;
 }
 export function NotificationItem({item,onRead,busy}:{item:Notice;onRead:(id:number)=>void;busy:boolean}){
- const Icon=item.kind==='DEPARTURE'?CalendarDays:item.kind==='TEST_BOARDING'?ScanLine:item.kind==='CANCELLED'?Bell:Ticket;
+ const Icon=(item.kind==='DEPARTURE'||item.kind==='TEST_REPORT')?CalendarDays:item.kind==='TEST_BOARDING'?ScanLine:item.kind==='CANCELLED'?Bell:Ticket;
  return <article className={'notice-card '+(!item.read_at?'unread':'')}><div className="notice-card-top"><span className="notice-icon"><Icon size={21}/></span><div><strong>{item.title}</strong><small>{dayText(item.created_at)} · {timeText(item.created_at)}</small></div>{!item.read_at&&<span className="notice-dot" aria-label="Non lu"/>}</div><p>{item.message}</p>{item.read_at?<small className="notice-read"><CheckCircle2 size={15}/> Lu</small>:<button className="notice-mark" type="button" disabled={busy} onClick={()=>onRead(item.id)}><CheckCircle2 size={16}/> Marquer comme lu</button>}</article>
 }
 export default function NotificationCenter({signedIn=true}:{signedIn?:boolean}){

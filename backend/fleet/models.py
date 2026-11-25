@@ -68,6 +68,7 @@ class Booking(models.Model):
     class Status(models.TextChoices):
         HELD = "HELD", "En attente de paiement"
         TEST_PAID = "TEST_PAID", "Paiement simulé"
+        REPORTED = "REPORTED", "Reportée"
         CANCELLED = "CANCELLED", "Annulée"
     traveler = models.ForeignKey("accounts.User", on_delete=models.PROTECT, related_name="bookings")
     request_id = models.UUIDField()
@@ -132,3 +133,11 @@ class TestBoarding(models.Model):
 
     class Meta:
         constraints = [models.UniqueConstraint(fields=["leg","passenger"],name="fleet_test_boarding_once")]
+
+
+class TestTicketReport(models.Model):
+    original = models.OneToOneField(Booking, on_delete=models.PROTECT, related_name="outgoing_report")
+    replacement = models.OneToOneField(Booking, on_delete=models.PROTECT, related_name="incoming_report")
+    previous_amount = models.PositiveIntegerField()
+    new_amount = models.PositiveIntegerField()
+    created_at = models.DateTimeField(auto_now_add=True)
