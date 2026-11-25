@@ -5,6 +5,7 @@ import NotificationsDialog from './NotificationsDialog';
 import {useNotificationCount} from './NotificationCenter';
 import TravelerProfile from './TravelerProfile';
 const SupportCenter=lazy(()=>import('./SupportCenter'));
+const SuperadminSpace=lazy(()=>import('./SuperadminSpace'));
 import CompanySpace from './CompanySpace';
 import CompanyAgentSpace from './CompanyAgentSpace';
 import TravelResults,{LivePreview} from './TravelResults';
@@ -27,12 +28,13 @@ export default function App(){
  const [notificationsOpen,setNotificationsOpen]=useState(false);
  const unreadCount=useNotificationCount(!!account&&account.role!=='ADMIN');
  const preview=path==='/company/';
+ const supervision=path==='/superadmin/';
  const selection=parseSelection(window.location.search);
  const booking=path==='/booking/';
- const protectedPath=booking||preview||path==='/app/'||path==='/preview/company/';
+ const protectedPath=booking||preview||supervision||path==='/app/'||path==='/preview/company/';
  const auth=path==='/login/'||path==='/register/';
  useEffect(()=>{let active=true;currentAccount().then(a=>{if(active){setAccount(a);setLoading(false)}}).catch(()=>{if(active){setSessionError('Impossible de vérifier votre session. Vérifiez votre connexion.');setLoading(false)}});return()=>{active=false}},[]);
- useEffect(()=>{if(loading||sessionError)return;if(!account&&protectedPath){window.location.replace(booking&&selection?authUrl(false,selection):'/login/');return}if(account&&(auth||path==='/preview/company/'||(preview&&account.role!=='COMPANY')||((path==='/app/'||booking)&&account.role!=='TRAVELER')||(path==='/'&&account.role!=='TRAVELER'))){window.location.replace(auth&&selection&&account.role==='TRAVELER'?bookingUrl(selection):destination(account))}},[account,loading,sessionError,auth,path,preview,protectedPath,booking,selection?.out,selection?.ret,selection?.count]);
+ useEffect(()=>{if(loading||sessionError)return;if(!account&&protectedPath){window.location.replace(booking&&selection?authUrl(false,selection):'/login/');return}if(account&&(auth||path==='/preview/company/'||(preview&&account.role!=='COMPANY')||(supervision&&account.role!=='ADMIN')||((path==='/app/'||booking)&&account.role!=='TRAVELER')||(path==='/'&&account.role!=='TRAVELER'))){window.location.replace(auth&&selection&&account.role==='TRAVELER'?bookingUrl(selection):destination(account))}},[account,loading,sessionError,auth,path,preview,protectedPath,booking,selection?.out,selection?.ret,selection?.count]);
  async function signOut(){try{await authPost('logout',{});window.location.assign('/')}catch(e){setSessionError(e instanceof Error?e.message:'Déconnexion impossible.')}}
  const auto=paused||reduce?false:{delay:5000,disableOnInteraction:true,pauseOnMouseEnter:true};
  const key=paused?'paused':'playing';
@@ -40,7 +42,7 @@ export default function App(){
  const [initialTrip,setInitialTrip]=useState<Trip|null>(null);
  const criteria={origin:from,destination:to,date,back,round,count};
  const searchValid=validSearch(from,to,date,back,round,count,localToday());
- const homeData=useTravel<HomeData>(!auth&&!preview&&!booking&&tab==='home'&&!result?'home/':null,0);
+ const homeData=useTravel<HomeData>(!auth&&!preview&&!supervision&&!booking&&tab==='home'&&!result?'home/':null,0);
  const popular=homeData.data?.routes||[],companies=homeData.data?.companies||[];
  function openResults(trip?:Trip){if(searchValid){setInitialTrip(trip||null);SResult(true);window.scrollTo({top:0,behavior:'instant'})}}
  function continueBooking(out:Trip,ret:Trip|null){const s:Selection={out:out.id,...(ret?{ret:ret.id}:{}),count};window.location.assign(account?.role==='TRAVELER'?bookingUrl(s):authUrl(false,s))}
@@ -48,7 +50,8 @@ export default function App(){
 
  if(loading)return <SplashScreen message="Chargement…"/>;
  if((protectedPath||auth)&&sessionError)return <main className="layout"><p role="alert">{sessionError}</p><button className="primary" onClick={()=>window.location.reload()}>Réessayer</button></main>;
- if(!sessionError&&((protectedPath&&!account)||(account&&(auth||path==='/preview/company/'||(preview&&account.role!=='COMPANY')||((path==='/app/'||booking)&&account.role!=='TRAVELER')||(path==='/'&&account.role!=='TRAVELER')))))return <SplashScreen message="Redirection…"/>;
+ if(!sessionError&&((protectedPath&&!account)||(account&&(auth||path==='/preview/company/'||(preview&&account.role!=='COMPANY')||(supervision&&account.role!=='ADMIN')||((path==='/app/'||booking)&&account.role!=='TRAVELER')||(path==='/'&&account.role!=='TRAVELER')))))return <SplashScreen message="Redirection…"/>;
+ if(supervision&&account?.role==='ADMIN')return <Suspense fallback={<SplashScreen message="Chargement de l’administration…"/>}><SuperadminSpace onLogout={signOut} sessionError={sessionError}/></Suspense>;
  return <><header className="header"><div className="header-inner"><a className="brand" href="/"><img src="/logo.svg" alt=""/>SiraGo</a><div className="header-actions"><span className="language">🇲🇱 FR</span>{account?<button type="button" className="outline" onClick={signOut}>Déconnexion</button>:<a href="/login/" className="login">Connexion</a>}<button type="button" className="icon-button notification-bell" aria-label={unreadCount?`Notifications, ${unreadCount} non lues`:"Notifications"} aria-haspopup="dialog" aria-expanded={notificationsOpen} onClick={()=>setNotificationsOpen(true)}><Bell size={21}/>{unreadCount>0&&<span className="notification-count" aria-hidden="true">{unreadCount>99?'99+':unreadCount}</span>}</button></div></div></header>
  <main className={preview?"layout company-layout":"layout"}>
  {sessionError&&<p role="alert" className="auth-error">{sessionError}</p>}{auth?<AuthPage register={path==='/register/'} selection={selection}/>:preview&&account?(account.company_role==="CLERK"||account.company_role==="CONTROLLER"?<CompanyAgentSpace account={account} onLogout={signOut}/>:<CompanySpace account={account} onLogout={signOut} onUpdated={setAccount}/>):booking&&account?<>{selection?<BookingSpace selection={selection} account={account} onHistory={()=>choose('tickets')}/>:<section className="panel empty"><p>Sélection de voyage invalide.</p><a href="/app/" className="primary">Rechercher un voyage</a></section>}</>:tab==='home'&&result?<TravelResults criteria={criteria} initialTrip={initialTrip} onBack={closeResults} onContinue={continueBooking}/>:tab==='home'?<>
