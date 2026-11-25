@@ -71,3 +71,61 @@ class ReportTests(BookingFixture,TestCase):
         self.assertEqual(c.post(self.base+"report/",{"departure_id":self.target.pk,"total":18000},content_type="application/json").status_code,403)
         with override_settings(DEBUG=False):
             self.assertEqual(self.report().status_code,404)
+
+    def test_partial_keeps_other_passenger_and_reissues_both(self):
+        options=self.client.get(self.base+"report/options/",{"passengers":"1"}).json()
+        self.assertEqual(options["previous_amount"],8000)
+        self.assertEqual(options["items"][0]["difference"],1000)
+        r=self.report(passengers=[1],total=9000)
+        self.assertEqual(r.status_code,201,r.content)
+        new=r.json()
+        retained=new["retained_booking"]
+        self.assertEqual(new["passenger_names"],["Moussa Test"])
+        self.assertEqual(retained["passenger_names"],["Awa Test"])
+        self.assertEqual(retained["total"],8000)
+        self.assertEqual(self.report(passengers=[1],total=9000).json()["retained_booking"]["id"],retained["id"])
+        self.assertEqual(self.report(passengers=[0],total=9000).status_code,409)
+        self.assertEqual(TestTicketReport.objects.count(),1)
+        self.assertEqual(self.client.get(self.base).json()["retained_id"],retained["id"])
+        rows={d.pk:d.remaining for d in with_remaining(Departure.objects.all(),timezone.now())}
+        self.assertEqual((rows[self.departure.pk],rows[self.target.pk]),(1,1))
+        self.assertEqual(self.client.get(self.base+"tickets/").status_code,409)
+        codes=[self.client.get(f'/api/v1/travel/bookings/{b["id"]}/tickets/').json()["items"][0]["code"] for b in (new,retained)]
+        self.assertEqual(len(set([self.code,*codes])),3)
+        self.client.force_login(self.owner)
+        url="/api/v1/company/boarding/lookup/"
+        self.assertEqual(self.client.post(url,{"code":self.code},content_type="application/json").status_code,404)
+        for code in codes:
+            self.assertEqual(self.client.post(url,{"code":code},content_type="application/json").status_code,200)
+
+    def test_partial_invalid_selection_and_suspended_original(self):
+        for invalid in ([],[0,0],[2],[True],"0"):
+            self.assertEqual(self.report(passengers=invalid,total=9000).status_code,409)
+        self.departure.status="SUSPENDED";self.departure.save(update_fields=["status"])
+        self.assertEqual(self.report(passengers=[0],total=9000).status_code,409)
+        self.assertEqual(Booking.objects.get(pk=self.original).status,"TEST_PAID")
+        self.assertEqual(TestTicketReport.objects.count(),0)
+
+    def test_partial_preserves_premium_and_identical_names(self):
+        from .models import BookingLeg,SimulatedPayment
+        from .ticket_refs import register_refs
+        # Prepare an existing paid reservation with a standard and a premium passenger.
+        bus=self.departure.bus
+        bus.premium_capacity=1;bus.save(update_fields=["premium_capacity"])
+        for d,price in ((self.departure,12000),(self.target,13000)):
+            d.premium_capacity=1;d.premium_price=price;d.save(update_fields=["premium_capacity","premium_price"])
+        b=Booking.objects.get(pk=self.original)
+        b.passenger_names=["Awa Test","Awa Test"];b.save(update_fields=["passenger_names"])
+        leg=b.legs.get()
+        leg.premium_count=1;leg.premium_positions=[1];leg.premium_unit_price=12000
+        leg.save(update_fields=["premium_count","premium_positions","premium_unit_price"])
+        SimulatedPayment.objects.filter(booking=b).update(amount=20000)
+        TestTicketReference.objects.filter(leg=leg).delete()
+        register_refs(b,[leg])
+        r=self.report(passengers=[1],total=13000)
+        self.assertEqual(r.status_code,201,r.content)
+        new=r.json()
+        self.assertEqual(new["trips"][0]["premium_positions"],[0])
+        self.assertEqual(new["retained_booking"]["trips"][0]["premium_positions"],[])
+        self.assertEqual(new["retained_booking"]["total"],8000)
+        self.assertEqual(TestTicketReport.objects.get().previous_amount,12000)

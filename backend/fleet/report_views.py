@@ -1,4 +1,4 @@
-"""Atomic whole-booking rescheduling, local TEST only."""
+"""Atomic full or partial one-way rescheduling, local TEST only."""
 from datetime import date,datetime,time,timedelta
 from uuid import uuid4
 from django.db import transaction
@@ -35,13 +35,39 @@ def eligible(b,now):
     if TestBoarding.objects.filter(leg=leg).exists():raise ValueError("Un passager a déjà embarqué. Report impossible.")
     return leg
 
-def choices(b,leg,now):
-    d=leg.departure
-    return public_departures(now).filter(company_id=d.company_id,route_id=d.route_id,
-        standard_remaining__gte=b.passengers-leg.premium_count,premium_remaining__gte=leg.premium_count).exclude(pk=d.pk).select_related("company","bus","route").order_by("starts_at","id")
+def positions(b,raw):
+    if raw is None:return list(range(b.passengers))
+    if not isinstance(raw,list) or not 1<=len(raw)<=b.passengers or any(type(i) is not int or not 0<=i<b.passengers for i in raw) or len(set(raw))!=len(raw):
+        raise ValueError("Sélection de passagers invalide.")
+    return sorted(raw)
 
-def total(b,leg,d):
-    return (b.passengers-leg.premium_count)*d.price+leg.premium_count*d.premium_price
+def counts(leg,selected):
+    premium=sum(i in leg.premium_positions for i in selected)
+    return len(selected)-premium,premium
+
+def choices(leg,now,selected):
+    d=leg.departure
+    standard,premium=counts(leg,selected)
+    return public_departures(now).filter(company_id=d.company_id,route_id=d.route_id,
+        standard_remaining__gte=standard,premium_remaining__gte=premium).exclude(pk=d.pk).select_related("company","bus","route").order_by("starts_at","id")
+
+def amount_for(leg,selected,standard_price,premium_price):
+    standard,premium=counts(leg,selected)
+    return standard*standard_price+premium*premium_price
+
+def issue(b,leg,d,selected,standard_price,premium_price):
+    premium_positions=[j for j,i in enumerate(selected) if i in leg.premium_positions]
+    new=Booking.objects.create(traveler=b.traveler,request_id=uuid4(),passengers=len(selected),
+        passenger_names=[b.passenger_names[i] if i<len(b.passenger_names) else f"Passager {i+1}" for i in selected],
+        ticket_mode=b.ticket_mode,status=Booking.Status.TEST_PAID,expires_at=d.starts_at)
+    new_leg=BookingLeg.objects.create(booking=new,departure=d,position=0,unit_price=standard_price,premium_count=len(premium_positions),
+        premium_unit_price=premium_price if premium_positions else 0,premium_positions=premium_positions)
+    SimulatedPayment.objects.create(booking=new,amount=new_leg.total,network=b.simulated_payment.network)
+    register_refs(new,[new_leg])
+    return new
+
+def result(row):
+    return {**booking_json(row.replacement),"retained_booking":booking_json(row.retained) if row.retained_id else None}
 
 @never_cache
 @require_GET
@@ -53,14 +79,17 @@ def options(request,pk):
     try:
         now=timezone.now()
         leg=eligible(b,now)
-        qs=choices(b,leg,now)
+        raw=request.GET.get("passengers")
+        selected=positions(b,[int(i) for i in raw.split(",")] if raw is not None else None)
+        previous_amount=amount_for(leg,selected,leg.unit_price,leg.premium_unit_price)
+        qs=choices(leg,now,selected)
         day=request.GET.get("date","")
         if day:
             day=date.fromisoformat(day)
             start=datetime.combine(day,time.min,TZ)
             qs=qs.filter(starts_at__gte=start,starts_at__lt=start+timedelta(days=1))
         rows,meta=page_slice(request,qs)
-        return JsonResponse({"previous_amount":leg.total,"items":[{**public_row(d),"total":total(b,leg,d),"difference":total(b,leg,d)-leg.total} for d in rows],**meta})
+        return JsonResponse({"previous_amount":previous_amount,"items":[{**public_row(d),"total":amount_for(leg,selected,d.price,d.premium_price),"difference":amount_for(leg,selected,d.price,d.premium_price)-previous_amount} for d in rows],**meta})
     except (ValueError,OverflowError,TypeError) as exc:return error(str(exc),409)
 
 @never_cache
@@ -79,31 +108,34 @@ def report(request,pk):
             User.objects.select_for_update().get(pk=request.user.pk)
             b=Booking.objects.select_for_update().filter(pk=pk,traveler=request.user).first()
             if b is None:return error("Réservation introuvable.",404)
-            previous=TestTicketReport.objects.filter(original=b).select_related("replacement").first()
+            selected=positions(b,values.get("passengers"))
+            previous=TestTicketReport.objects.filter(original=b).select_related("replacement","retained").first()
             if previous:
-                if previous.new_amount!=expected or not previous.replacement.legs.filter(departure_id=target).exists():
+                if (previous.selected_positions or list(range(b.passengers)))!=selected or previous.new_amount!=expected or not previous.replacement.legs.filter(departure_id=target).exists():
                     return error("Cette réservation a déjà été reportée.",409)
-                return JsonResponse(booking_json(previous.replacement))
+                return JsonResponse(result(previous))
             # Same company lock as reservation, departure updates and boarding.
             company_ids=list(b.legs.values_list("departure__company_id",flat=True).distinct())
             list(Company.objects.select_for_update().filter(pk__in=company_ids).order_by("pk"))
             now=timezone.now()
             leg=eligible(b,now)
-            d=choices(b,leg,now).filter(pk=target).first()
+            d=choices(leg,now,selected).filter(pk=target).first()
             if not d:return error("Départ ou catégorie de places indisponible.",409)
-            amount=total(b,leg,d)
+            amount=amount_for(leg,selected,d.price,d.premium_price)
             if expected!=amount:return error("Le tarif a changé. Actualisez les départs.",409)
-            new=Booking.objects.create(traveler=b.traveler,request_id=uuid4(),passengers=b.passengers,
-                passenger_names=b.passenger_names,ticket_mode=b.ticket_mode,status=Booking.Status.TEST_PAID,expires_at=d.starts_at)
-            new_leg=BookingLeg.objects.create(booking=new,departure=d,position=0,unit_price=d.price,premium_count=leg.premium_count,
-                premium_unit_price=d.premium_price if leg.premium_count else 0,premium_positions=leg.premium_positions)
-            SimulatedPayment.objects.create(booking=new,amount=amount,network=b.simulated_payment.network)
-            TestTicketReport.objects.create(original=b,replacement=new,previous_amount=leg.total,new_amount=amount)
+            remaining=[i for i in range(b.passengers) if i not in selected]
+            # A retained group must still have a valid published departure.
+            if remaining and not public_departures(now).filter(pk=leg.departure_id).exists():
+                return error("Le départ initial n’est plus disponible. Reportez tous les passagers.",409)
+            new=issue(b,leg,d,selected,d.price,d.premium_price)
+            retained=issue(b,leg,leg.departure,remaining,leg.unit_price,leg.premium_unit_price) if remaining else None
+            row=TestTicketReport.objects.create(original=b,replacement=new,retained=retained,selected_positions=selected,
+                previous_amount=amount_for(leg,selected,leg.unit_price,leg.premium_unit_price),new_amount=amount)
             b.status=Booking.Status.REPORTED
             b.save(update_fields=["status"])
-            register_refs(new,[new_leg])
-            message=f"{d.route.origin} → {d.route.destination} : {b.passengers} passager(s), nouveau départ le {d.starts_at.astimezone(TZ):%d/%m/%Y à %H:%M}. Aucun débit ni remboursement réel."
+            message=f"{d.route.origin} → {d.route.destination} : {len(selected)} passager(s), nouveau départ le {d.starts_at.astimezone(TZ):%d/%m/%Y à %H:%M}. Aucun débit ni remboursement réel."
+            if retained:message+=f" {len(remaining)} passager(s) restent au départ initial, avec de nouveaux billets."
             notify(b.traveler_id,"TEST_REPORT","Billets reportés en mode TEST",message)
             notify(d.company.owner_id,"TEST_REPORT","Report de réservation TEST",message)
-            return JsonResponse(booking_json(new),status=201)
+            return JsonResponse(result(row),status=201)
     except (ValueError,TypeError,OverflowError) as exc:return error(str(exc),409)

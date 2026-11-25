@@ -138,6 +138,8 @@ class TestBoarding(models.Model):
 class TestTicketReport(models.Model):
     original = models.OneToOneField(Booking, on_delete=models.PROTECT, related_name="outgoing_report")
     replacement = models.OneToOneField(Booking, on_delete=models.PROTECT, related_name="incoming_report")
+    retained = models.OneToOneField(Booking, on_delete=models.PROTECT, related_name="retained_report", null=True, blank=True)
+    selected_positions = models.JSONField(default=list, blank=True)
     previous_amount = models.PositiveIntegerField()
     new_amount = models.PositiveIntegerField()
     created_at = models.DateTimeField(auto_now_add=True)
