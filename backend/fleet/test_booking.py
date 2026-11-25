@@ -82,6 +82,47 @@ class BookingTests(BookingFixture,TestCase):
         url=f"/api/v1/company/departures/{self.departure.id}/status/"
         self.assertEqual(self.client.post(url,{"status":"CANCELLED"},content_type="application/json").status_code,409)
         self.assertEqual(len(self.client.get("/api/v1/company/reservations/").json()["items"]),1)
+    def test_detail_owner_and_frozen_price(self):
+        self.client.force_login(self.user)
+        b=self.reserve().json()
+        self.departure.price=9000
+        self.departure.save(update_fields=["price"])
+        url=f"/api/v1/travel/bookings/{b['id']}/"
+        response=self.client.get(url)
+        self.assertEqual(response.status_code,200)
+        detail=response.json()
+        self.assertEqual(detail["total"],16000)
+        self.assertEqual(detail["trips"][0]["price"],8000)
+        self.assertEqual(detail["trips"][0]["boarding_point"],"Gare A")
+        self.assertEqual(detail["trips"][0]["arrival_point"],"Gare B")
+        self.assertEqual(detail["trips"][0]["bus_name"],"Car 01")
+        self.assertIn("ends_at",detail["trips"][0])
+        self.assertIn("created_at",detail)
+        self.assertNotIn("plate",detail["trips"][0])
+        self.assertIn("no-store",response["Cache-Control"])
+        self.client.force_login(self.other)
+        self.assertEqual(self.client.get(url).status_code,404)
+        self.client.force_login(self.owner)
+        self.assertEqual(self.client.get(url).status_code,403)
+        self.client.logout()
+        self.assertEqual(self.client.get(url).status_code,401)
+
+    def test_detail_expired_and_cancelled(self):
+        self.client.force_login(self.user)
+        b=self.reserve().json()
+        url=f"/api/v1/travel/bookings/{b['id']}/"
+        Booking.objects.filter(pk=b["id"]).update(expires_at=timezone.now()-timedelta(seconds=1))
+        self.assertEqual(self.client.get(url).json()["status"],"EXPIRED")
+        self.assertEqual(self.client.post(url+"cancel/").json()["status"],"EXPIRED")
+        fresh=self.reserve(request_id=str(uuid4())).json()
+        url=f"/api/v1/travel/bookings/{fresh['id']}/"
+        self.assertEqual(self.client.post(url+"cancel/").status_code,200)
+        self.assertEqual(self.client.get(url).json()["status"],"CANCELLED")
+
+    def test_detail_invalid_id(self):
+        self.client.force_login(self.user)
+        self.assertEqual(self.client.get("/api/v1/travel/bookings/99999999999999999999/").status_code,404)
+
     def test_csrf(self):
         client=Client(enforce_csrf_checks=True)
         client.force_login(self.user)

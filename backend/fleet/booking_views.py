@@ -48,10 +48,10 @@ def quote(request):
 
 def booking_json(b):
     now=timezone.now()
-    legs=list(b.legs.select_related("departure__route","departure__company").order_by("position"))
-    return {"id":b.id,"reference":str(b.request_id),"count":b.passengers,"status":"EXPIRED" if b.status==Booking.Status.HELD and b.expires_at<=now else b.status,"expires_at":b.expires_at.isoformat(),
+    legs=list(b.legs.select_related("departure__route","departure__company","departure__bus").order_by("position"))
+    return {"id":b.id,"reference":str(b.request_id),"count":b.passengers,"status":"EXPIRED" if b.status==Booking.Status.HELD and b.expires_at<=now else b.status,"expires_at":b.expires_at.isoformat(),"created_at":b.created_at.isoformat(),
             "total":sum(l.unit_price for l in legs)*b.passengers,
-            "trips":[{"id":l.departure_id,"company":l.departure.company.name,"origin":l.departure.route.origin,"destination":l.departure.route.destination,"starts_at":l.departure.starts_at.isoformat(),"price":l.unit_price} for l in legs]}
+            "trips":[{"id":l.departure_id,"company":l.departure.company.name,"origin":l.departure.route.origin,"destination":l.departure.route.destination,"starts_at":l.departure.starts_at.isoformat(),"ends_at":l.departure.ends_at.isoformat(),"boarding_point":l.departure.route.boarding_point,"arrival_point":l.departure.route.arrival_point,"bus_name":l.departure.bus.name,"price":l.unit_price} for l in legs]}
 
 def traveler_error(request):
     if not request.user.is_authenticated:
@@ -111,6 +111,17 @@ def mine(request):
     return JsonResponse({"items":[booking_json(b) for b in rows[:30]],"has_next":len(rows)>30})
 
 @never_cache
+@require_GET
+def detail(request,pk):
+    denied=traveler_error(request)
+    if denied is not None:return denied
+    if not 1<=pk<=2**63-1:
+        return error("Réservation introuvable.",404)
+    b=Booking.objects.filter(pk=pk,traveler=request.user).first()
+    if b is None:return error("Réservation introuvable.",404)
+    return JsonResponse(booking_json(b))
+
+@never_cache
 @csrf_protect
 @require_POST
 def cancel(request,pk):
@@ -119,7 +130,7 @@ def cancel(request,pk):
     with transaction.atomic():
         b=Booking.objects.select_for_update().filter(pk=pk,traveler=request.user).first()
         if not b:return error("Réservation introuvable.",404)
-        if b.status==Booking.Status.HELD:
+        if b.status==Booking.Status.HELD and b.expires_at>timezone.now():
             b.status=Booking.Status.CANCELLED
             b.save(update_fields=["status"])
         return JsonResponse(booking_json(b))

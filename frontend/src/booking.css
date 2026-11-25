@@ -1,1 +1,12 @@
 .booking-space,.booking-checkout,.booking-summary,.booking-success,.auth-trip{display:grid;gap:14px;min-width:0}.booking-back{color:#fff;display:flex;gap:8px;align-items:center;font-size:.9rem}.booking-leg{display:flex;align-items:flex-start;gap:10px;border-bottom:1px solid #dce6e3;padding:10px 0;flex-wrap:wrap}.booking-leg>svg{color:#16836c;flex:none}.booking-leg>div{flex:1;min-width:110px;display:grid;gap:4px}.booking-leg p{font-size:.85rem;color:#506866}.booking-total{display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap}.booking-total span{display:flex;align-items:center;gap:6px;color:#506866}.booking-total strong,.booking-success>svg{color:#16836c}.booking-info{display:flex;align-items:flex-start;gap:10px;background:#e6f4ef;padding:12px;border-radius:12px;color:#14664f;font-size:.9rem}.booking-info svg{flex:none}.booking-success{overflow-wrap:anywhere}.booking-success p svg{vertical-align:middle}.booking-actions{display:flex;gap:8px;flex-wrap:wrap}.booking-actions p{width:100%}.auth-trip h2{display:flex;gap:8px;align-items:center}.booking-checkout .primary{width:100%;justify-content:center}.auth-trip .booking-leg>strong{font-size:.9rem}@media(max-width:400px){.booking-leg{gap:7px}.booking-leg>strong{font-size:.85rem}}
+
+.booking-details{width:100%;max-width:720px;margin-inline:auto}
+.booking-state{font-size:.78rem;font-weight:600;border-radius:8px;padding:6px 9px;max-width:100%;overflow-wrap:anywhere}
+.booking-state.held{background:#fff3da;color:#80540a}
+.booking-state.expired,.booking-state.cancelled{background:#f4e8e8;color:#863c38}
+.booking-danger.outline{color:#a4322c;border-color:#e9c9c7}
+.booking-dialog{width:min(420px,calc(100% - 28px));max-height:calc(100dvh - 30px);overflow:auto;margin:auto;border:1px solid #dce6e3;border-radius:18px;padding:20px;color:#103b38;background:white}
+.booking-dialog::backdrop{background:#102d2b85;backdrop-filter:blur(3px)}
+.booking-dialog p{margin:12px 0 20px}
+.booking-dialog .booking-actions button{flex:1}
+.booking-danger-solid.primary{background:#a4322c}

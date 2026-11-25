@@ -1,7 +1,7 @@
 import {type Trip} from './travel-api';
 export type Selection={out:number;ret?:number;count:number};
 export type Quote={trips:Trip[];count:number;total:number};
-export type Booking={id:number;reference:string;count:number;status:'HELD'|'EXPIRED'|'CANCELLED';expires_at:string;total:number;trips:{id:number;company:string;origin:string;destination:string;starts_at:string;price:number}[]};
+export type Booking={id:number;reference:string;count:number;status:'HELD'|'EXPIRED'|'CANCELLED';expires_at:string;created_at:string;total:number;trips:{id:number;company:string;origin:string;destination:string;starts_at:string;ends_at:string;boarding_point:string;arrival_point:string;bus_name:string;price:number}[]};
 export function parseSelection(search:string):Selection|null{
  const p=new URLSearchParams(search);
  const out=Number(p.get('out')),ret=Number(p.get('ret')),count=Number(p.get('count'));
@@ -26,3 +26,5 @@ export function attemptKey(s:Selection){
  try{const previous=sessionStorage.getItem(key);if(previous)return previous;const fresh=crypto.randomUUID();sessionStorage.setItem(key,fresh);return fresh}catch{return crypto.randomUUID()}
 }
 export function clearAttempt(s:Selection){try{sessionStorage.removeItem('sirago-booking:'+selectionQuery(s))}catch{/* storage unavailable */}}
+
+export function effectiveBookingStatus(b:Pick<Booking,'status'|'expires_at'>,now=Date.now()):Booking['status']{return b.status==='HELD'&&Date.parse(b.expires_at)<=now?'EXPIRED':b.status}
