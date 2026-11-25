@@ -1,6 +1,6 @@
 from uuid import UUID
 from datetime import timedelta
-from django.db import transaction
+from django.db import IntegrityError, transaction
 from django.db.models import Q
 from django.http import JsonResponse
 from django.utils import timezone
@@ -55,4 +55,5 @@ def requests(request):
             if qs.filter(created_at__gte=timezone.now()-timedelta(hours=1)).count()>=5:return error("Limite de cinq demandes par heure atteinte.",429)
             t=SupportRequest.objects.create(requester=request.user,reference=reference,category=category,subject=subject,message=message)
             return JsonResponse(row(t),status=201)
+    except IntegrityError:return error("Référence indisponible. Réessayez avec une nouvelle demande.",409)
     except (ValueError,TypeError,OverflowError) as exc:return error(str(exc))
