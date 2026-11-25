@@ -205,6 +205,21 @@ class BookingTests(BookingFixture,TestCase):
         row=with_remaining(Departure.objects.filter(pk=ret.pk),timezone.now()).get()
         self.assertEqual((row.standard_remaining,row.premium_remaining),(1,1))
 
+    def test_public_search_rejects_inconsistent_physical_capacity(self):
+        self.assertEqual(self.search()["total"],1)
+        bus=self.departure.bus
+        bus.premium_capacity=1
+        bus.save()
+        # Two Standard seats cannot be offered when the bus has one.
+        self.assertEqual(self.search()["total"],0)
+        self.departure.premium_capacity=1
+        self.departure.premium_price=12000
+        self.departure.save()
+        self.assertEqual(self.search()["total"],1)
+        bus.premium_capacity=0
+        bus.save()
+        self.assertEqual(self.search()["total"],0)
+
     def test_invalid_category_selection(self):
         self.client.force_login(self.user)
         for positions in ([[0,0]],[[2]],[[True]],["premium"],[[],[]]):

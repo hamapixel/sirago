@@ -16,7 +16,9 @@ def public_departures(now):
         status=Departure.Status.PUBLISHED, starts_at__gt=now,
         company__status=Company.Status.VERIFIED, bus__active=True, route__active=True,
         bus__company_id=F("company_id"), route__company_id=F("company_id"),
-        capacity__lte=F("bus__capacity"),premium_capacity__lte=F("bus__premium_capacity"),
+        capacity__lte=F("bus__capacity"),
+        premium_capacity__lte=F("bus__premium_capacity"),
+    ).filter(
         capacity__lte=F("bus__capacity")-F("bus__premium_capacity")+F("premium_capacity"),
     ), now)
 
