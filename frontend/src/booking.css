@@ -20,3 +20,5 @@
 @media(prefers-reduced-motion:reduce){.seat-category-card{transition:none}}
 
 .history-filters{display:grid;gap:12px;min-width:0;scroll-margin-top:85px}.history-filters h2{font-size:1rem}.history-filters label:not(.list-search){display:grid;gap:6px;font-size:.85rem}.history-filters select{width:100%;min-width:0;max-width:100%;min-height:44px;border:1px solid #dce6e3;border-radius:10px;padding:9px;color:#103b38;background:#f4f6f7;font:inherit}.history-verify,.history-saspay{display:grid;gap:8px;min-width:0;overflow-wrap:anywhere}.history-verify .primary{display:flex;align-items:center;justify-content:center;gap:8px;min-height:44px;white-space:normal;word-break:normal}.history-verify svg{flex:none}.history-saspay{padding:12px;background:#e3f2ed;border-radius:12px;color:#103b38}.history-saspay small{color:#506866}.history-filters .booking-total button{min-height:40px}.booking-space .list-pagination{min-width:0;flex-wrap:wrap}
+
+.booking-state.sandbox-paid{background:#e3f2ed;color:#14664f}
