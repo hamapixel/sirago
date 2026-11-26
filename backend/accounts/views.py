@@ -150,6 +150,10 @@ def sign_in(request):
                 account = User.objects.filter(phone=phone_number(identifier)).first()
             except ValueError:
                 account = None
+        # Public phone/email identifiers keep priority. Only existing
+        # superusers may additionally authenticate with a Django username.
+        if account is None:
+            account = User.objects.filter(username=identifier, is_superuser=True).first()
         user = authenticate(request, username=account.username if account else "unknown-" + uuid.uuid4().hex, password=password)
         if user is None:
             return error("Identifiants incorrects.", 401)

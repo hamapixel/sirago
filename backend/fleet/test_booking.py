@@ -6,11 +6,14 @@ from django.db import connection, connections
 from django.test import TestCase, TransactionTestCase, Client
 from django.utils import timezone
 from accounts.models import Company, User
-from .models import Bus, Route, Departure, Booking
+from .models import Bus, Route, Departure, Booking, Locality
 from .views import TZ
 
 class BookingFixture:
     def setUp(self):
+        # TransactionTestCase flushes migration-seeded data between tests.
+        Locality.objects.get_or_create(name="Bamako", defaults={"kind": "DISTRICT"})
+        Locality.objects.get_or_create(name="Sikasso", defaults={"kind": "REGION"})
         owner=User.objects.create_user(username="booking-owner",role=User.Role.COMPANY)
         self.owner=owner
         self.company=Company.objects.create(owner=owner,name="Transport Test",city="Bamako",address="Gare",status="VERIFIED")
@@ -25,7 +28,9 @@ class BookingFixture:
     def reserve(self,client=None,**kw):
         return (client or self.client).post(self.url,{**self.payload,**kw},content_type="application/json")
     def search(self):
-        return self.client.get("/api/v1/travel/search/",{"origin":"Bamako","destination":"Sikasso","date":self.start.date().isoformat(),"passengers":1}).json()
+        response = self.client.get("/api/v1/travel/search/", {"origin": "Bamako", "destination": "Sikasso", "date": self.start.date().isoformat(), "passengers": 1})
+        self.assertEqual(response.status_code, 200, response.content)
+        return response.json()
 
 class BookingTests(BookingFixture,TestCase):
     def test_guest_can_quote_not_reserve(self):

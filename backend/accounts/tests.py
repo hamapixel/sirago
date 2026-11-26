@@ -133,3 +133,46 @@ class AuthTests(TestCase):
         self.post("register/traveler",self.payload)
         self.assertEqual(self.post("company/profile",{"first_name":"A","last_name":"B"}).status_code,403)
         self.assertEqual(self.post("company/password",{}).status_code,403)
+
+    def test_superuser_can_login_directly_with_django_username(self):
+        password = "Admin!Test2026"
+        admin = User.objects.create_superuser(username="supervisor", password=password)
+        client = Client(enforce_csrf_checks=True)
+        values = {"identifier": admin.username, "password": password}
+        url = "/api/v1/auth/login/"
+        self.assertEqual(client.post(url, values, content_type="application/json").status_code, 403)
+        token = client.get("/api/v1/auth/csrf/").json()["csrfToken"]
+        response = client.post(url, values, content_type="application/json", HTTP_X_CSRFTOKEN=token)
+        self.assertEqual(response.status_code, 200, response.content)
+        self.assertEqual(response.json()["role"], "ADMIN")
+        self.assertEqual(client.get("/api/v1/auth/me/").json()["role"], "ADMIN")
+        self.assertEqual(client.get("/api/v1/auth/supervision/").status_code, 200)
+
+    def test_superuser_username_wrong_password_or_inactive_is_rejected(self):
+        password = "Admin!Test2026"
+        admin = User.objects.create_superuser(username="supervisor", password=password)
+        self.assertEqual(self.post("login", {"identifier": admin.username, "password": "wrong"}).status_code, 401)
+        admin.is_active = False
+        admin.save(update_fields=["is_active"])
+        self.assertEqual(self.post("login", {"identifier": admin.username, "password": password}).status_code, 401)
+        self.assertEqual(self.client.get("/api/v1/auth/me/").status_code, 401)
+
+    def test_regular_and_staff_accounts_cannot_use_username_fallback(self):
+        password = "Admin!Test2026"
+        for username, staff in (("ordinary-user", False), ("staff-user", True)):
+            User.objects.create_user(username=username, password=password, is_staff=staff)
+            self.assertEqual(self.post("login", {"identifier": username, "password": password}).status_code, 401)
+        self.assertEqual(self.client.get("/api/v1/auth/me/").status_code, 401)
+
+    def test_phone_and_email_keep_priority_over_admin_username(self):
+        password = "Traveler!Test2026"
+        traveler = User.objects.create_user(username="traveler-id", email="person@example.com",
+                                           phone="+22370000001", password=password)
+        User.objects.create_superuser(username="person@example.com", password="Admin!Test2026")
+        User.objects.create_superuser(username="70000001", password="Admin!Test2026")
+        for identifier in (traveler.email, "70000001"):
+            result = self.post("login", {"identifier": identifier, "password": password})
+            self.assertEqual(result.status_code, 200, result.content)
+            self.assertEqual(result.json()["role"], "TRAVELER")
+            self.post("logout", {})
+            self.assertEqual(self.post("login", {"identifier": identifier, "password": "Admin!Test2026"}).status_code, 401)
