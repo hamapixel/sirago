@@ -71,6 +71,10 @@ def profile(user):
         company = agent.company if agent else Company.objects.filter(owner=user).first()
         if company:
             result["company"] = {"name": company.name, "status": company.status, "city": company.city}
+            if company.logo:
+                result["company"]["logo"] = company.logo
+            if company.banner:
+                result["company"]["banner"] = company.banner
             result["company_role"] = agent.role if agent else "OWNER"
     return result
 
@@ -191,7 +195,7 @@ def company_account(request):
     company = Company.objects.filter(owner=request.user).first()
     if not company:
         return error("Compagnie introuvable.", 403)
-    return JsonResponse({"name": company.name, "status": company.status, "city": company.city, "address": company.address, "registration_number": company.registration_number})
+    return JsonResponse({"name": company.name, "status": company.status, "city": company.city, "address": company.address, "registration_number": company.registration_number, **({"logo": company.logo} if company.logo else {}), **({"banner": company.banner} if company.banner else {})})
 
 def traveler_profile_error(request):
     if not request.user.is_authenticated:

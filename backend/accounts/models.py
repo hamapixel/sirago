@@ -22,6 +22,8 @@ class Company(models.Model):
     city = models.CharField(max_length=100)
     address = models.CharField(max_length=250)
     registration_number = models.CharField(max_length=100, blank=True)
+    logo = models.TextField(blank=True, default="", editable=False)
+    banner = models.TextField(blank=True, default="", editable=False)
     status = models.CharField(max_length=16, choices=Status.choices, default=Status.PENDING)
     created_at = models.DateTimeField(auto_now_add=True)
 

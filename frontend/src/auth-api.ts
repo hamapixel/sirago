@@ -1,4 +1,4 @@
-export type Account = {username?:string;first_name:string;last_name:string;phone:string|null;email:string;role:'TRAVELER'|'COMPANY'|'ADMIN';company_role?:'OWNER'|'CLERK'|'CONTROLLER';company:null|{name:string;status:'PENDING'|'VERIFIED'|'REJECTED'|'SUSPENDED';city:string}};
+export type Account = {username?:string;first_name:string;last_name:string;phone:string|null;email:string;role:'TRAVELER'|'COMPANY'|'ADMIN';company_role?:'OWNER'|'CLERK'|'CONTROLLER';company:null|{name:string;status:'PENDING'|'VERIFIED'|'REJECTED'|'SUSPENDED';city:string;logo?:string;banner?:string}};
 export function destination(account:Account){return account.role==='ADMIN'?'/superadmin/':account.role==='COMPANY'?'/company/':'/app/'}
 export async function currentAccount():Promise<Account|null>{
  const controller=new AbortController();

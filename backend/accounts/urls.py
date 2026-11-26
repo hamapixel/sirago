@@ -1,5 +1,5 @@
 from django.urls import path
-from . import views, agent_views, notifications, support_views, supervision, commission_views, commission_ledger, settlement_views, financial_report
+from . import branding, views, agent_views, notifications, support_views, supervision, commission_views, commission_ledger, settlement_views, financial_report
 urlpatterns = [
     path("csrf/", views.csrf),
     path("supervision/", supervision.overview),
@@ -34,6 +34,7 @@ urlpatterns = [
     path("password/", views.change_traveler_password),
     path("company/", views.company_account),
     path("company/profile/", views.update_company_profile),
+    path("company/branding/", branding.update),
     path("company/password/", views.change_company_password),
     path("company/agents/", agent_views.agents),
     path("company/agents/<bounded_int:pk>/", agent_views.agent_update),
