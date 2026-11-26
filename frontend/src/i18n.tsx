@@ -556,6 +556,90 @@ const words:Record<string,{en:string;bm:string}>={
   "Report selon les conditions de la compagnie.": {
     "en": "Reschedule under the company’s conditions.",
     "bm": "Taama don yɛlɛma ni baarada sariya ye."
+  },
+  "Langue": {
+    "en": "Language",
+    "bm": "Kan"
+  },
+  "Cars": {
+    "en": "Coaches",
+    "bm": "Bisiw"
+  },
+  "Départs": {
+    "en": "Departures",
+    "bm": "Boliw"
+  },
+  "Scanner": {
+    "en": "Scanner",
+    "bm": "QR lajɛlan"
+  },
+  "Paiement SasPay": {
+    "en": "SasPay payment",
+    "bm": "SasPay wari sara"
+  },
+  "Billet numérique": {
+    "en": "Digital ticket",
+    "bm": "Telefɔni biyɛtini"
+  },
+  "Report de voyage": {
+    "en": "Reschedule trip",
+    "bm": "Taama don yɛlɛma"
+  },
+  "BILLET": {
+    "en": "TICKET",
+    "bm": "BIYƐTINI"
+  },
+  "Simulation — Non valable pour voyager": {
+    "en": "Simulation — Not valid for travel",
+    "bm": "Kɔrɔbɔ — A tɛ se ka taama ni a ye."
+  },
+  "Paiement SasPay confirmé (simulation)": {
+    "en": "SasPay payment confirmed (simulation)",
+    "bm": "SasPay wari sara sɛmɛntiyalen (kɔrɔbɔ)"
+  },
+  "Paiement SasPay à examiner (simulation)": {
+    "en": "SasPay payment to review (simulation)",
+    "bm": "SasPay wari sara lajɛli (kɔrɔbɔ)"
+  },
+  "Paiement SasPay à vérifier": {
+    "en": "Verify SasPay payment",
+    "bm": "SasPay wari sara lajɛ"
+  },
+  "Paiement tardif (simulation)": {
+    "en": "Late payment (simulation)",
+    "bm": "Wari sara kɔfɛ (kɔrɔbɔ)"
+  },
+  "Paramètres": {
+    "en": "Settings",
+    "bm": "Labɛnni"
+  },
+  "Mes réservations": {
+    "en": "My bookings",
+    "bm": "N ka biyɛti taɲininiw"
+  },
+  "Modifier mon profil": {
+    "en": "Edit my profile",
+    "bm": "N kunnafoni yɛlɛma"
+  },
+  "Aide & support": {
+    "en": "Help & support",
+    "bm": "Dɛmɛ"
+  },
+  "Informations légales": {
+    "en": "Legal information",
+    "bm": "Sariya kunnafoni"
+  },
+  "Changer le mot de passe": {
+    "en": "Change password",
+    "bm": "Gundo daɲɛ yɛlɛma"
+  },
+  "Transactions": {
+    "en": "Transactions",
+    "bm": "Wari ko"
+  },
+  "À propos": {
+    "en": "About",
+    "bm": "Kunnafoni"
   }
 };
 const listeners=new Set<()=>void>();

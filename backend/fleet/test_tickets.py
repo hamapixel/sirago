@@ -98,3 +98,18 @@ class TicketTests(BookingFixture,TestCase):
         self.assertEqual([(t["category"],t["count"],t["amount"]) for t in items],[("Standard",3,24000),("Premium",2,24000)])
         self.assertNotEqual(items[0]["code"],items[1]["code"])
         self.assertEqual(items[0]["names"].count("Awa Test"),2)
+
+    def test_small_collective_pdf_keeps_both_names_on_one_page(self):
+        import re
+        from uuid import uuid4
+        self.client.post(self.base+"cancel/")
+        r = self.reserve(ticket_mode="group", request_id=str(uuid4()))
+        self.assertEqual(r.status_code, 201, r.content)
+        self.base = f'/api/v1/travel/bookings/{r.json()["id"]}/'
+        self.ticket_url = self.base+"tickets/"
+        self.pay()
+        items = self.client.get(self.ticket_url).json()["items"]
+        self.assertEqual(items[0]["names"], ["Awa Test", "Moussa Test"])
+        pdf = self.client.get(self.ticket_url+"0/0/pdf/")
+        self.assertEqual(pdf.status_code, 200)
+        self.assertEqual(len(re.findall(rb"/Type\s*/Page\b", pdf.content)), 1)

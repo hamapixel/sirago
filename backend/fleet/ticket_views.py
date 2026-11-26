@@ -98,7 +98,7 @@ def make_pdf(t):
     p.setFillColor(HexColor(green))
     p.roundRect(9, h-92, w-18, 83, 10, fill=1, stroke=0)
     label("SiraGo", 19, h-28, 16, "#FFFFFF", True)
-    label("BILLET TEST", w-82, h-26, 8, "#F6B844", True)
+    label("BILLET", w-57, h-26, 8, "#F6B844", True)
     label("COMPAGNIE DE TRANSPORT", 19, h-40, 6.8, "#C6E6DC", True)
     box(t["company"], 19, h-43, w-38, 26, 12, "#FFFFFF", True)
     box(" · ".join(filter(None, (t.get("company_city"), t.get("bus_name")))),
@@ -141,11 +141,11 @@ def make_pdf(t):
                 p.rect(x+col_index*unit, y+(len(matrix)-1-row)*unit, unit, unit, fill=1, stroke=0)
     box("QR code individuel" if t["count"] == 1 else "QR code collectif",
         117, h-284, w-133, 20, 10, green, True)
-    label("Contrôle TEST", 117, h-310, 8, muted)
+    label("Contrôle", 117, h-310, 8, muted)
     box(t["code"], 117, h-316, w-133, 45, 8, muted)
     p.setFillColor(HexColor("#FFF0E0"))
     p.roundRect(16, 25, w-32, 20, 6, fill=1, stroke=0)
-    label("TEST - Non valable pour voyager", 24, 32, 9, "#963B0D", True)
+    label("Simulation - Non valable pour voyager", 24, 32, 9, "#963B0D", True)
     label("Propulsé par BTDIGIT", 18, 12, 7.5, muted)
     p.showPage()
     if t["count"] > 1 and not inline_names:

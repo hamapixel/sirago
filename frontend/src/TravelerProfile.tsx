@@ -1,4 +1,4 @@
-import {t as tr} from './i18n';
+import {t as tr,LanguageSelect,useLanguage} from './i18n';
 import {lazy,Suspense,useState,useRef,useEffect,type FormEvent,type ReactNode} from 'react';
 import {ArrowLeft,Bell,ChevronRight,Globe,Headset,History,Info,LockKeyhole,LogOut,Mail,Phone,Settings,ShieldCheck,Ticket,UserRound,UserRoundPen} from 'lucide-react';
 import {authPost,type Account} from './auth-api';
@@ -15,6 +15,7 @@ function Item({icon,label,detail,onClick}:{icon:ReactNode;label:string;detail?:s
 }
 const titles:Record<Page,string>={home:'Mon profil',settings:'Paramètres',edit:'Modifier mon profil',password:'Mot de passe',transactions:'Transactions',language:'Langue',notifications:'Notifications',support:'Aide & support',about:'À propos',legal:'Informations légales'};
 export default function TravelerProfile({account,onUpdated,onTickets,onLogout}:Props){
+ const lang=useLanguage();
  const [page,setPage]=useState<Page>('home'),[first,setFirst]=useState(account?.first_name||''),[last,setLast]=useState(account?.last_name||'');
  const [current,setCurrent]=useState(''),[password,setPassword]=useState(''),[confirmation,setConfirmation]=useState('');
  const [busy,setBusy]=useState(false),[error,setError]=useState(''),[success,setSuccess]=useState(''),[confirmLogout,setConfirmLogout]=useState(false);
@@ -37,14 +38,14 @@ export default function TravelerProfile({account,onUpdated,onTickets,onLogout}:P
  async function logout(){if(pending.current)return;pending.current=true;setBusy(true);try{await onLogout()}finally{pending.current=false;setBusy(false);setConfirmLogout(false)}}
  if(!account)return <section className="panel empty account-info"><UserRound size={40}/><h1>{tr("Mon profil")}</h1><p>Connectez-vous pour retrouver vos voyages.</p><a className="primary" href="/register/">Créer mon compte</a><a className="outline" href="/login/">{tr("Se connecter")}</a></section>;
  return <section className="traveler-profile">
- <div className="profile-heading">{page!=='home'&&<button type="button" className="profile-back" aria-label={tr("Retour")} onClick={back} disabled={busy}><ArrowLeft size={22}/></button>}<h1 ref={heading} tabIndex={-1}>{titles[page]}</h1><UserRound size={23}/></div>
+ <div className="profile-heading">{page!=='home'&&<button type="button" className="profile-back" aria-label={tr("Retour")} onClick={back} disabled={busy}><ArrowLeft size={22}/></button>}<h1 ref={heading} tabIndex={-1}>{tr(titles[page])}</h1><UserRound size={23}/></div>
  {page==='home'&&<>
  <div className="profile-identity"><div className="profile-avatar">{initials(account.first_name,account.last_name)}</div><div><h2>{account.first_name} {account.last_name}</h2><small>Voyageur SiraGo</small>{account.phone&&<p><Phone size={15}/>{account.phone}</p>}{account.email&&<p><Mail size={15}/>{account.email}</p>}</div></div>
  <h2 className="profile-section-title">Mon compte</h2><div className="panel profile-menu">
  <Item icon={<Ticket size={22}/>} label="Mes réservations" onClick={onTickets}/>
  <Item icon={<History size={22}/>} label="Transactions" detail="Paiement à venir" onClick={()=>navigate('transactions')}/>
  <Item icon={<Settings size={22}/>} label="Paramètres" onClick={()=>navigate('settings')}/>
- <Item icon={<Globe size={22}/>} label="Langue" detail="Français" onClick={()=>navigate('language')}/>
+ <Item icon={<Globe size={22}/>} label={tr("Langue")} detail={lang==='fr'?'Français':lang==='en'?'English':'Bamanankan'} onClick={()=>navigate('language')}/>
  <Item icon={<Bell size={22}/>} label={tr("Notifications")} onClick={()=>navigate('notifications')}/>
  <Item icon={<Headset size={22}/>} label="Aide & support" onClick={()=>navigate('support')}/>
  </div><button type="button" className="outline profile-logout" onClick={()=>setConfirmLogout(true)}><LogOut size={19}/> {tr("Déconnexion")}</button>
@@ -62,7 +63,7 @@ export default function TravelerProfile({account,onUpdated,onTickets,onLogout}:P
  {error&&<p className="auth-error" role="alert">{error}</p>}{success&&<p className="profile-success" role="status">{success}</p>}
  <button className="primary" disabled={busy||(page==='edit'?(!validProfileName(first)||!validProfileName(last)):(!current||!passwordValid(password,confirmation)))}>{busy?'Enregistrement…':'Enregistrer'}</button></form>}
  {page==='transactions'&&<div className="panel profile-message"><History size={30}/><h2>Paiements à venir</h2><p>L’historique sera disponible après activation des paiements.</p><button className="outline" onClick={onTickets}>Mes réservations</button></div>}
- {page==='language'&&<div className="panel profile-message"><Globe size={30}/><h2>Français</h2><p>Langue actuellement disponible.</p></div>}
+ {page==='language'&&<div className="panel profile-message"><Globe size={30}/><h2>{tr("Langue")}</h2><LanguageSelect/></div>}
  {page==='notifications'&&<NotificationCenter signedIn={!!account}/>}
  {page==='support'&&<Suspense fallback={<p role="status">Chargement de l’assistance…</p>}><SupportCenter/></Suspense>}
  {page==='about'&&<div className="panel profile-message"><img src="/logo.svg" width="64" height="64" alt=""/><h2>SiraGo</h2><p>Ka billet ta fô i sigi yorola.</p><p>{tr("Réservez votre billet sans vous déplacer.")}</p><small>Propulsé par BTDIGIT</small></div>}

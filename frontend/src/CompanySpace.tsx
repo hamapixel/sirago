@@ -79,7 +79,7 @@ export default function CompanySpace({account,onLogout,onUpdated}:{account:Accou
  {mobile&&<button className="company-overlay" aria-label="Fermer le menu" onClick={()=>setMobile(false)}/>}
  <aside className={'company-sidebar '+(mobile?'mobile-open':'')} aria-label="Menu compagnie">
  <div className="company-side-title"><img src="/logo.svg" alt="" width="36" height="36"/><span>SiraGo Pro</span><button className="icon-button collapse-toggle" aria-label={collapsed?"Déployer le menu":"Réduire le menu"} aria-expanded={!collapsed} onClick={()=>setCollapsed(v=>!v)}><Menu size={20}/></button><button className="icon-button mobile-close" aria-label="Fermer le menu" onClick={()=>setMobile(false)}><X/></button></div>
- {nav.map(({id,label,Icon})=><button type="button" title={label} key={id} className={'company-nav '+(tab===id?'selected':'')} aria-current={tab===id?'page':undefined} onClick={()=>navigate(id)}><Icon size={20}/><span>{t(label)}</span></button>)}
+ {nav.map(({id,label,Icon})=><button type="button" title={t(label)} aria-label={t(label)} key={id} className={'company-nav '+(tab===id?'selected':'')} aria-current={tab===id?'page':undefined} onClick={()=>navigate(id)}><Icon size={20}/><span>{t(label)}</span></button>)}
  <button className="company-nav logout" onClick={onLogout}><LogOut size={20}/><span>{t("Déconnexion")}</span></button>
  </aside>
  <div className="company-main">
@@ -105,7 +105,7 @@ export default function CompanySpace({account,onLogout,onUpdated}:{account:Accou
  </div>{tab==='departures'?<Pagination page={page} size={10} total={departureTotal} onChange={p=>{setSelected([]);setLoading(true);setPage(p)}} disabled={loading||busy}/>:tab==='buses'?<Pagination page={busPage.page} size={busPage.size} total={busPage.total} onChange={busPage.setPage} disabled={busy}/>:<Pagination page={routePage.page} size={routePage.size} total={routePage.total} onChange={routePage.setPage} disabled={busy}/>} 
  </>}
  </div>
- <nav className="company-bottom" aria-label="Navigation compagnie">{nav.filter(n=>n.id!=='reservations'&&n.id!=='routes'&&n.id!=='finance').map(({id,label,Icon})=><button key={id} className={tab===id?'selected':''} onClick={()=>navigate(id)} aria-label={label} aria-current={tab===id?'page':undefined}><Icon size={21}/><span>{id==='home'?'Accueil':id==='buses'?'Cars':id==='departures'?'Départs':id==='boarding'?'Scanner':'Profil'}</span></button>)}</nav>
+ <nav className="company-bottom" aria-label="Navigation compagnie">{nav.filter(n=>n.id!=='reservations'&&n.id!=='routes'&&n.id!=='finance').map(({id,label,Icon})=><button key={id} className={tab===id?'selected':''} onClick={()=>navigate(id)} aria-label={t(label)} aria-current={tab===id?'page':undefined}><Icon size={21}/><span>{t(id==='home'?'Accueil':id==='buses'?'Cars':id==='departures'?'Départs':id==='boarding'?'Scanner':'Profil')}</span></button>)}</nav>
  {confirmation&&<CompanyConfirm confirmation={confirmation} busy={busy} onClose={()=>{if(!busy)setConfirmation(null)}}/>}
  </section>
 }
