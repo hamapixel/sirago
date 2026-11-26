@@ -30,6 +30,8 @@ class TicketTests(BookingFixture,TestCase):
         self.assertTrue(a["code"].startswith("SRG-TEST-"))
         self.assertEqual(a["name"],"Awa Test")
         self.assertEqual(a["amount"],8000)
+        self.assertEqual(a["company_city"], self.company.city)
+        self.assertEqual(a["bus_name"], self.departure.bus.name)
         self.assertEqual(r.json(),self.client.get(self.ticket_url).json())
         self.assertIn("no-store",r["Cache-Control"])
     def test_pdf_and_bounds(self):
@@ -37,6 +39,12 @@ class TicketTests(BookingFixture,TestCase):
         r=self.client.get(self.ticket_url+"0/1/pdf/")
         self.assertEqual(r.status_code,200)
         self.assertTrue(r.content.startswith(b"%PDF"))
+        import re
+        from reportlab.lib.pagesizes import A6
+        match = re.search(rb"/MediaBox\s*\[\s*0\s+0\s+([\d.]+)\s+([\d.]+)\s*\]", r.content)
+        self.assertIsNotNone(match)
+        self.assertAlmostEqual(float(match.group(1)), A6[0], places=2)
+        self.assertAlmostEqual(float(match.group(2)), A6[1], places=2)
         self.assertIn("SRG-TEST-",r["Content-Disposition"])
         self.assertIn("no-store",r["Cache-Control"])
         self.assertEqual(self.client.get(self.ticket_url+"0/2/pdf/").status_code,404)

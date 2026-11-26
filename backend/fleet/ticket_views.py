@@ -7,9 +7,11 @@ from django.http import JsonResponse, HttpResponse
 from django.views.decorators.cache import never_cache
 from django.views.decorators.http import require_GET
 from reportlab.pdfgen import canvas
-from reportlab.lib.pagesizes import A5
+from reportlab.lib.pagesizes import A6
+from reportlab.lib.styles import ParagraphStyle
+from reportlab.platypus import Paragraph
+from xml.sax.saxutils import escape
 from reportlab.lib.colors import HexColor
-from reportlab.pdfbase.pdfmetrics import stringWidth
 from .booking_views import simulation_enabled, traveler_error
 from .models import Booking
 from .ticket_refs import ticket_groups, ticket_code
@@ -31,7 +33,7 @@ def ticket_booking(request,pk):
     return b,None
 
 def legs_for(b):
-    return b.legs.select_related("departure__route","departure__company").order_by("position")
+    return b.legs.select_related("departure__route","departure__company","departure__bus").order_by("position")
 
 def ticket_data(b,l,indices):
     i=indices[0]
@@ -47,7 +49,7 @@ def ticket_data(b,l,indices):
         "name":names[0],"names":names,"count":len(indices),"unit_price":unit,
         "category":"Premium" if premium else "Standard",
         "amount":unit*len(indices),
-        "company":d.company.name,"origin":d.route.origin,"destination":d.route.destination,
+        "company":d.company.name,"company_city":d.company.city,"bus_name":d.bus.name,"origin":d.route.origin,"destination":d.route.destination,
         "starts_at":d.starts_at.isoformat(),"ends_at":d.ends_at.isoformat(),
         "boarding_point":d.route.boarding_point,"arrival_point":d.route.arrival_point,
         "qr":["".join("1" if v else "0" for v in row) for row in qr.get_matrix()]}
@@ -60,71 +62,101 @@ def tickets(request,pk):
     return JsonResponse({"items":[ticket_data(b,l,g) for l in legs_for(b) for g in ticket_groups(b,l)]})
 
 def make_pdf(t):
-    buf=BytesIO()
-    p=canvas.Canvas(buf,pagesize=A5)
-    w,h=A5
-    green="#103B38"
+    """A6 boarding card. A group ticket keeps its complete passenger annex."""
+    buf = BytesIO()
+    p = canvas.Canvas(buf, pagesize=A6)
+    w, h = A6
+    green = "#103B38"
+    mint = "#16836C"
+    muted = "#506866"
     p.setTitle("SiraGo - Billet TEST")
-    def label(value,x,y,size=11,color=green,bold=False,max_width=None):
-        font="Helvetica-Bold" if bold else "Helvetica"
-        value=str(value)
-        width=max_width or w-x-26
-        while size>5 and stringWidth(value,font,size)>width:size-=.5
+
+    def label(value, x, y, size=9, color=green, bold=False):
+        p.setFont("Helvetica-Bold" if bold else "Helvetica", size)
         p.setFillColor(HexColor(color))
-        p.setFont(font,size)
-        p.drawString(x,y,value)
+        p.drawString(x, y, str(value))
+
+    def box(value, x, top, width, height, size=10, color=green, bold=False):
+        # Wrap long fields within their own allocated region instead of clipping.
+        font = "Helvetica-Bold" if bold else "Helvetica"
+        value = escape(" ".join(str(value).split()))
+        while True:
+            style = ParagraphStyle("ticket", fontName=font, fontSize=size,
+                                   leading=size * 1.15, textColor=HexColor(color),
+                                   splitLongWords=True)
+            paragraph = Paragraph(value, style)
+            _, used = paragraph.wrap(width, height)
+            if used <= height or size <= 3:
+                break
+            size -= .25
+        paragraph.drawOn(p, x, top - used)
+
     def line(y):
         p.setStrokeColor(HexColor("#DCE6E3"))
-        p.line(30,y,w-30,y)
+        p.line(16, y, w-16, y)
+
     p.setFillColor(HexColor(green))
-    p.roundRect(16,h-155,w-32,137,15,fill=1,stroke=0)
-    label("SiraGo",32,h-49,25,"#FFFFFF",True)
-    label("Ka billet ta fô i sigi yorola.",32,h-72,11,"#F6B844")
-    label(t["origin"]+" - "+t["destination"],32,h-106,17,"#FFFFFF",True)
-    label(t["company"],32,h-129,12,"#FFFFFF")
-    tz=ZoneInfo("Africa/Bamako")
-    start=datetime.fromisoformat(t["starts_at"]).astimezone(tz)
-    end=datetime.fromisoformat(t["ends_at"]).astimezone(tz)
-    label("Départ",32,h-180,10)
-    label("Arrivée",w/2+8,h-180,10)
-    label(start.strftime("%H:%M"),32,h-205,23,green,True)
-    label(end.strftime("%H:%M"),w/2+8,h-205,23,green,True)
-    label(t["origin"],32,h-224,12,green,True,w/2-45)
-    label(t["destination"],w/2+8,h-224,12,green,True,w/2-42)
-    label(t["boarding_point"],32,h-237,8,green,False,w/2-45)
-    label(t["arrival_point"],w/2+8,h-237,8,green,False,w/2-42)
-    line(h-247)
-    label("Passager" if t["count"]==1 else "Billet collectif",32,h-263,10)
-    label(t["name"] if t["count"]==1 else f'{t["count"]} passagers - liste en annexe',32,h-279,12,green,True)
-    label("Catégorie",32,h-298,10)
-    label("Montant",w/2+8,h-298,10)
-    label(t["category"],32,h-315,12,"#94640C" if t["category"]=="Premium" else green,True)
-    label(f'{t["amount"]:,}'.replace(","," ")+" FCFA",w/2+8,h-315,12,green,True)
-    label("Date : "+start.strftime("%d/%m/%Y"),32,h-333,11)
-    line(h-343)
-    matrix=t["qr"];side=112;unit=side/len(matrix);x=(w-side)/2;y=h-466
+    p.roundRect(9, h-92, w-18, 83, 10, fill=1, stroke=0)
+    label("SiraGo", 19, h-28, 16, "#FFFFFF", True)
+    label("BILLET TEST", w-82, h-26, 8, "#F6B844", True)
+    label("COMPAGNIE DE TRANSPORT", 19, h-40, 6.8, "#C6E6DC", True)
+    box(t["company"], 19, h-43, w-38, 26, 12, "#FFFFFF", True)
+    box(" · ".join(filter(None, (t.get("company_city"), t.get("bus_name")))),
+        19, h-71, w-38, 17, 8, "#F6D38D")
+
+    tz = ZoneInfo("Africa/Bamako")
+    start = datetime.fromisoformat(t["starts_at"]).astimezone(tz)
+    end = datetime.fromisoformat(t["ends_at"]).astimezone(tz)
+    left, right = 18, w/2+7
+    col = w/2-26
+    for x, title, dt, city, station in (
+        (left, "Départ", start, t["origin"], t["boarding_point"]),
+        (right, "Arrivée", end, t["destination"], t["arrival_point"]),
+    ):
+        label(title, x, h-107, 8, muted)
+        label(dt.strftime("%H:%M"), x, h-127, 18, green, True)
+        label(dt.strftime("%d/%m/%Y"), x, h-139, 8, muted)
+        box(city, x, h-142, col, 21, 11, green, True)
+        box(station, x, h-165, col, 30, 8.5, muted)
+    line(h-198)
+    label("Passager" if t["count"] == 1 else "Billet collectif", left, h-211, 8, muted)
+    box(t["name"] if t["count"] == 1 else f'{t["count"]} passagers - liste en annexe',
+        left, h-214, w-36, 25, 11, green, True)
+    label("Catégorie", left, h-248, 8, muted)
+    label("Montant", right, h-248, 8, muted)
+    label(t["category"], left, h-262, 11, "#94640C" if t["category"] == "Premium" else green, True)
+    label(f'{t["amount"]:,}'.replace(",", " ") + " FCFA", right, h-262, 11, green, True)
+    line(h-271)
+    matrix = t["qr"]
+    side = 95
+    unit = side / len(matrix)
+    x, y = 13, h-370
     p.setFillColor(HexColor("#FFFFFF"))
-    p.rect(x,y,side,side,fill=1,stroke=0)
+    p.rect(x, y, side, side, fill=1, stroke=0)
     p.setFillColor(HexColor("#000000"))
-    for row,values in enumerate(matrix):
-        for col,v in enumerate(values):
-            if v=="1":p.rect(x+col*unit,y+(len(matrix)-1-row)*unit,unit,unit,fill=1,stroke=0)
-    label("QR code individuel" if t["count"]==1 else "QR code collectif",w/2-52,h-480,11,green,True)
-    label(t["code"],32,h-496,8)
+    for row, values in enumerate(matrix):
+        for col_index, v in enumerate(values):
+            if v == "1":
+                p.rect(x+col_index*unit, y+(len(matrix)-1-row)*unit, unit, unit, fill=1, stroke=0)
+    box("QR code individuel" if t["count"] == 1 else "QR code collectif",
+        117, h-284, w-133, 20, 10, green, True)
+    label("Contrôle TEST", 117, h-310, 8, muted)
+    box(t["code"], 117, h-316, w-133, 45, 8, muted)
     p.setFillColor(HexColor("#FFF0E0"))
-    p.roundRect(30,h-527,w-60,23,6,fill=1,stroke=0)
-    label("TEST - Non valable pour voyager",39,h-519,11,"#963B0D",True)
-    label("Propulsé par BTDIGIT",32,33,10,"#506866")
+    p.roundRect(16, 25, w-32, 20, 6, fill=1, stroke=0)
+    label("TEST - Non valable pour voyager", 24, 32, 9, "#963B0D", True)
+    label("Propulsé par BTDIGIT", 18, 12, 7.5, muted)
     p.showPage()
-    if t["count"]>1:
-        for offset in range(0,t["count"],24):
-            label("SiraGo - Liste des passagers TEST",30,h-40,16,green,True)
-            label(t["code"],30,h-60,9)
-            label(t["category"]+" - "+str(t["count"])+" passagers",30,h-80,11)
-            label(f'Prix unitaire : {t["unit_price"]} FCFA',30,h-98,10)
-            for j,name in enumerate(t["names"][offset:offset+24],start=offset+1):
-                label(f"{j}. {name}",30,h-123-(j-offset-1)*18,10)
-            label("TEST - Non valable pour voyager",30,30,10,"#963B0D",True)
+    if t["count"] > 1:
+        for offset in range(0, t["count"], 11):
+            label("SiraGo - Passagers TEST", 17, h-25, 15, green, True)
+            box(t["company"], 17, h-31, w-34, 25, 10, green, True)
+            box(t["code"], 17, h-58, w-34, 20, 8, muted)
+            label(t["category"]+" - "+str(t["count"])+" passagers", 17, h-89, 9)
+            label(f'Prix unitaire : {t["unit_price"]} FCFA', 17, h-102, 9)
+            for j, name in enumerate(t["names"][offset:offset+11], start=offset+1):
+                box(f"{j}. {name}", 17, h-115-(j-offset-1)*24, w-34, 23, 10)
+            label("TEST - Non valable pour voyager", 17, 24, 9, "#963B0D", True)
             p.showPage()
     p.save()
     return buf.getvalue()

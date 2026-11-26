@@ -5,3 +5,35 @@
 .ticket-report-groups{display:grid;gap:9px;min-width:0}.ticket-report-groups h2{font-size:1rem}.ticket-report-groups button.outline{display:grid;gap:5px;text-align:left;justify-content:start;min-width:0;white-space:normal;overflow-wrap:anywhere}.ticket-report-groups button[aria-pressed=true]{background:#e3f2ed;border-color:#16836c;color:#14664f}
 
 .ticket-report-action{display:grid;gap:7px;min-width:0;width:100%}.ticket-report-action .outline{width:100%;min-width:0;min-height:46px;display:flex;align-items:center;justify-content:center;gap:9px;border-color:#16836c;color:#14664f;background:#f3faf6;white-space:normal;word-break:normal;overflow-wrap:normal;text-align:center}.ticket-report-action .outline>svg{flex:none}.ticket-report-action .outline:disabled{border-color:#dce6e3;background:#f4f6f7;color:#506866;opacity:1}.ticket-report-action small{font-size:.8rem;color:#506866;line-height:1.5;overflow-wrap:anywhere}
+
+/* Compact digital boarding card. QR quiet zone comes from the server matrix. */
+.digital-ticket-list{grid-template-columns:repeat(auto-fit,minmax(min(100%,290px),1fr));gap:16px}
+.digital-ticket{max-width:340px;border-radius:17px;box-shadow:0 8px 28px #103b3810}
+.digital-ticket-head{background:linear-gradient(140deg,#103b38,#146b58);padding:14px 16px;gap:9px}
+.digital-ticket-brand,.digital-ticket-brand>div{display:flex;align-items:center;gap:7px}
+.digital-ticket-brand strong{font-size:1.18rem;color:white}
+.digital-ticket-brand .digital-ticket-kind{font-size:.63rem;letter-spacing:.05em;display:flex;align-items:center;gap:4px;color:#f6d38d;border:1px solid #ffffff42;border-radius:8px;padding:5px 6px}
+.digital-ticket-operator{border-top:1px solid #ffffff38;padding-top:9px;display:grid;gap:3px;min-width:0}
+.digital-ticket-operator small{font-size:.62rem;letter-spacing:.075em;color:#c6e6dc}
+.digital-ticket-operator h2{font-size:1.05rem;font-weight:750;color:white}
+.digital-ticket-operator span{font-size:.75rem}
+.digital-ticket-head .digital-ticket-journey{color:#ffdd94;font-size:.86rem;font-weight:650}
+.digital-ticket-body{padding:13px 15px;gap:11px}
+.digital-ticket-route{gap:6px}
+.digital-ticket-route>div,.digital-ticket-fields>div{gap:3px}
+.digital-ticket-route strong{font-size:1.35rem}
+.digital-ticket-route b{font-size:.88rem}
+.digital-ticket-body small{font-size:.75rem;line-height:1.4}
+.digital-ticket-fields{padding:10px 0;gap:9px 10px;font-size:.85rem}
+.digital-ticket-qr{grid-template-columns:minmax(0,116px) minmax(0,1fr);align-items:center;gap:8px;text-align:left}
+.digital-ticket-qr svg{width:100%;max-width:116px}
+.digital-ticket-qr-copy{display:grid;gap:5px;min-width:0;overflow-wrap:anywhere;font-size:.83rem}
+.digital-ticket-code{font-size:.67rem!important;word-break:break-all}
+.digital-ticket-test{display:block;text-align:center;padding:6px 8px;border-radius:8px}
+.digital-ticket-actions{padding-top:9px;gap:7px}
+.digital-ticket-actions a,.digital-ticket-actions button{display:flex;align-items:center;justify-content:center;gap:6px;min-height:44px;font-size:.77rem}
+.digital-ticket-actions svg{width:16px;height:16px;flex:none}
+.ticket-success{border-color:#cce5dc;background:#f3faf6}
+.ticket-list-title{display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:6px}
+.ticket-list-title h2{font-size:1rem}
+@media(max-width:350px){.digital-ticket-body{padding:12px}.digital-ticket-qr{grid-template-columns:minmax(0,106px) minmax(0,1fr)}.digital-ticket-head{padding:12px}.digital-ticket-actions{gap:5px}}
