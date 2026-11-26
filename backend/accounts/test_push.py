@@ -73,7 +73,7 @@ class PushTests(TestCase):
         n=notify(self.a.pk,"RESERVATION","Réservation","Nom privé et montant")
         self.assertEqual(PushDelivery.objects.count(),1)
         self.assertTrue(deliver_one(None,"dummy","mailto:test@example.org"))
-        self.assertEqual(json.loads(send.call_args.kwargs["data"]),{"path":"/app/","id":n.pk})
+        self.assertEqual(json.loads(send.call_args.kwargs["data"]),{"path":"/app/","id":n.pk,"kind":"RESERVATION"})
         self.assertFalse(PushDelivery.objects.exists())
 
     @patch("accounts.management.commands.send_web_push.webpush")
@@ -92,3 +92,10 @@ class PushTests(TestCase):
         self.assertTrue(deliver_one(None,"dummy","mailto:test@example.org"))
         self.assertEqual(PushDelivery.objects.get().attempts,1)
         self.assertEqual(Notification.objects.filter(recipient=self.a).count(),1)
+
+    @patch("accounts.management.commands.send_web_push.webpush")
+    def test_worker_boarding_event_is_typed_and_private(self,send):
+        self.assertEqual(self.post("subscribe",self.payload).status_code,200)
+        n=notify(self.a.pk,"TEST_BOARDING","Private name","Private route and amount")
+        self.assertTrue(deliver_one(None,"dummy","mailto:test@example.org"))
+        self.assertEqual(json.loads(send.call_args.kwargs["data"]),{"path":"/app/","id":n.pk,"kind":"TEST_BOARDING"})

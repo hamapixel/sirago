@@ -29,6 +29,15 @@ def valid_subscription(sub):
         return False
     return not CompanyAgent.objects.filter(user=user).exclude(company__status=Company.Status.VERIFIED).exists()
 
+# Only event codes leave the server; never forward a stored title or message.
+PUSH_KINDS = frozenset({
+    "RESERVATION", "CANCELLED", "DEPARTURE", "TEST_PAYMENT", "TEST_BOOKING",
+    "TEST_BOARDING", "TEST_REPORT", "SUPPORT", "SUPPORT_NEW", "COMPANY_REVIEW",
+})
+
+def push_payload(notice, path):
+    return {"path":path, "id":notice.pk, "kind":notice.kind if notice.kind in PUSH_KINDS else "GENERAL"}
+
 def deliver_one(session, private_key, subject):
     now=timezone.now()
     with transaction.atomic():
@@ -51,7 +60,7 @@ def deliver_one(session, private_key, subject):
         try:
             validate_endpoint(sub.endpoint)
             webpush(subscription_info={"endpoint":sub.endpoint,"keys":{"p256dh":sub.p256dh,"auth":sub.auth}},
-                data=json.dumps({"path":path,"id":notice.pk}),
+                data=json.dumps(push_payload(notice,path)),
                 vapid_private_key=private_key,vapid_claims={"sub":subject},
                 ttl=300,timeout=5,requests_session=session,headers={"Urgency":"normal"})
         except Exception as exc:
