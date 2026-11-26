@@ -7,7 +7,8 @@ Cette phase ne déploie pas encore SiraGo et n'autorise ni encaissement ni rever
 ## 08A — Audit et durcissement (premier lot)
 - [ ] Inventorier les endpoints publics, authentifiés, agents, compagnies et superadmin ; vérifier permissions, CSRF, isolation intercompagnies, IDOR, validation des entrées et limites de pagination.
 - [ ] Tester concurrence des réservations, expiration des blocages, émission et embarquement idempotents, et séparation TEST/LIVE.
-- [ ] Vérifier le profil config/production.py déjà présent ; cache partagé et limitation des abus, journalisation sans secrets, protection Django Admin, revue des accès et MFA.
+- [ ] Vérifier le profil config/production.py ; cache partagé et limitation des abus, journalisation sans secrets, protection Django Admin, revue des accès et MFA.
+  - Premier lot : profil production exigeant Redis, validation de l'URL sans divulgation de secrets, refus explicite des options SasPay TEST ; tests unitaires ajoutés. Le compose local reste inchangé. Provisionnement Redis, test multi-worker, limitation au proxy et MFA restent ouverts.
 - [ ] Auditer dépendances Python et npm, documenter les correctifs et exécuter la suite de tests.
 - [ ] Vérifier la CI ; ne pas considérer les tests seuls comme un audit de pénétration.
 

@@ -34,6 +34,26 @@ def production_settings(env):
             valid=False
         if not valid:
             fail("Production: origine CSRF invalide ou non autorisée.")
+    for flag in ("SIRAGO_ENABLE_SASPAY_SANDBOX", "SIRAGO_ENABLE_SASPAY_TICKETS",
+                 "SIRAGO_SASPAY_LOCAL_RETURN"):
+        if env.get(flag) == "1":
+            fail("Production: les options SasPay de test doivent être désactivées.")
+    # A local-memory cache would reset counters across workers and restarts.
+    redis_url = env.get("SIRAGO_REDIS_URL", "")
+    try:
+        u = urlsplit(redis_url)
+        valid_redis = (
+            bool(redis_url) and not any(ch.isspace() for ch in redis_url)
+            and u.scheme in ("redis", "rediss") and bool(u.hostname)
+            and (u.port is None or 1 <= u.port <= 65535)
+            and (not u.path or re.fullmatch(r"/[0-9]+", u.path) is not None)
+            and not u.query and not u.fragment
+        )
+    except ValueError:
+        valid_redis = False
+    if not valid_redis:
+        # Never include the URL: it may contain credentials.
+        fail("Production: configurez SIRAGO_REDIS_URL avec une URL Redis valide.")
     # Proxy trust is deliberately explicit: the edge must strip client-supplied headers.
     trust=env.get("DJANGO_TRUST_HTTPS_PROXY")=="1"
     return {
@@ -47,4 +67,12 @@ def production_settings(env):
         "SECURE_CONTENT_TYPE_NOSNIFF":True,"SECURE_REFERRER_POLICY":"same-origin",
         "X_FRAME_OPTIONS":"DENY","SIRAGO_ENABLE_SIMULATED_PAYMENTS":False,
         "STATIC_ROOT":env.get("DJANGO_STATIC_ROOT","/app/staticfiles"),
+        "CACHES": {
+            "default": {
+                "BACKEND": "django.core.cache.backends.redis.RedisCache",
+                "LOCATION": redis_url,
+                "KEY_PREFIX": "sirago-production",
+                "OPTIONS": {"socket_connect_timeout": 2, "socket_timeout": 2},
+            },
+        },
     }
