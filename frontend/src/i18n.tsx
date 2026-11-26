@@ -789,6 +789,46 @@ const words:Record<string,{en:string;bm:string}>={
   "Réservation créée le": {
     "en": "Booking created on",
     "bm": "Biyɛti taɲinini don"
+  },
+  "Voir plus": {
+    "en": "See more",
+    "bm": "Dɔwɛrɛw lajɛ"
+  },
+  "Voir moins": {
+    "en": "See less",
+    "bm": "Dɔɔnin lajɛ"
+  },
+  "Réserver maintenant": {
+    "en": "Book now",
+    "bm": "Biyɛti ta sisan"
+  },
+  "places disponibles": {
+    "en": "seats available",
+    "bm": "Sigiyɔrɔw bɛ yen"
+  },
+  "Places insuffisantes": {
+    "en": "Not enough seats",
+    "bm": "Sigiyɔrɔw man ca"
+  },
+  "passager": {
+    "en": "passenger",
+    "bm": "Taga baga"
+  },
+  "passagers": {
+    "en": "passengers",
+    "bm": "Taga bagaw"
+  },
+  "Total minimum": {
+    "en": "Minimum total",
+    "bm": "Wari hakɛ dɔgɔman"
+  },
+  "Aucun trajet publié.": {
+    "en": "No published trips.",
+    "bm": "Taama fɔlen tɛ yen."
+  },
+  "Chargement des trajets…": {
+    "en": "Loading trips…",
+    "bm": "Taamaw bɛ don…"
   }
 };
 const listeners=new Set<()=>void>();

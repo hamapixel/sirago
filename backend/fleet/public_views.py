@@ -1,6 +1,6 @@
 from datetime import date, datetime, time, timedelta
 import unicodedata
-from django.db.models import F, Min, Q, Count
+from django.db.models import F, Min, Q, Count, Subquery
 from django.http import JsonResponse
 from django.utils import timezone
 from django.utils.dateparse import parse_datetime
@@ -94,11 +94,20 @@ def search(request):
 @never_cache
 @require_GET
 def home(request):
-    qs=public_departures(timezone.now()).filter(remaining__gt=0)
+    now=timezone.now()
+    last=datetime.combine(now.astimezone(TZ).date()+timedelta(days=366),time.min,TZ)
+    qs=public_departures(now).filter(remaining__gt=0,starts_at__lt=last)
     popular=list(qs.values("route__origin","route__destination").annotate(price=Min("from_price")).order_by("route__origin","route__destination")[:12])
+    # One next available departure per company and city pair. Different companies
+    # serving the same cities are intentionally kept separate.
+    first_ids=qs.order_by("company_id","route__origin","route__destination","starts_at","id").distinct("company_id","route__origin","route__destination").values("pk")
+    featured=list(qs.filter(pk__in=Subquery(first_ids)).select_related("company","route","bus").defer("company__banner").order_by("starts_at","id")[:12])
+    logos={str(d.company_id):d.company.logo for d in featured if d.company.logo.startswith("data:image/jpeg;base64,")}
     partners=list(qs.values("company_id","company__name","company__city").distinct().order_by("company__name","company_id")[:30])
     return JsonResponse({
         "routes":[{"origin":r["route__origin"],"destination":r["route__destination"],"price":r["price"]} for r in popular],
+        "departures":[public_row(d) for d in featured],
+        "company_logos":logos,
         "companies":[{"id":r["company_id"],"name":r["company__name"],"city":r["company__city"]} for r in partners],
     })
 

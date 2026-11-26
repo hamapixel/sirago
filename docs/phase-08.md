@@ -71,3 +71,5 @@ Voir aussi [production-checklist.md](production-checklist.md). Le compose.yaml e
 - Notifications : centre partagé pour les trois rôles, badge et rafraîchissement sur retour au premier plan, événements Superadmin (inscription compagnie, assistance), Web Push opt-in par session avec file persistante et worker isolé. Migration 0008. VAPID, HTTPS et recette appareils réels indispensables ; push désactivé par défaut. Aucun SMS.
 
 - Détails des réservations compagnie : vue par segment, noms des passagers, catégorie et état d'embarquement, itinéraire, prix figés pour le responsable uniquement. Guichetier autorisé sans montants, contrôleur refusé, isolation par compagnie, aucune donnée de paiement privée ni QR exporté. Aucun changement de schéma.
+
+- Accueil voyageur : cartes de départs réels par compagnie et trajet (prochain départ disponible dans les 365 jours), logo enregistré ou pictogramme, horaires et gares, prix par catégorie disponible, réservation directe du départ en aller simple pour le nombre de passagers choisi. Les disponibilités et prix restent revalidés par le flux de réservation. Aucun changement de schéma.
