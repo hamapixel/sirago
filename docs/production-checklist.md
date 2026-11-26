@@ -39,3 +39,7 @@ Django Admin utilise un site et un formulaire de connexion dédiés : seuls les 
 
 ## Lot infrastructure 08B
 Le fichier compose.production.yaml est désormais disponible. Suivre docs/phase-08b.md ; aucun déploiement effectif ni validation Docker/TLS n'est encore attesté. Le gateway bloque Django Admin par défaut. Les dépendances supplémentaires doivent être auditées après construction.
+
+## Audit des dépendances — 26 novembre 2026
+Les résultats locaux transmis indiquent 90 tests ciblés réussis et zéro vulnérabilité npm pour les dépendances de production. pip-audit a signalé 12 entrées (6 identifiants distincts) pour pip 25.0.1. Les deux Dockerfiles backend fixent désormais pip à 26.3, version indiquée disponible dans le rapport. Reconstruire les images et relancer l'audit avant validation; aucun résultat de nouvel audit n'est encore attesté.
+Pour auditer uniquement les paquets de l'image sans mélanger ceux du scanner : `docker compose run --rm --no-deps backend sh -c "python -m venv /tmp/security-audit && /tmp/security-audit/bin/pip install --upgrade pip pip-audit && /tmp/security-audit/bin/pip-audit --path /usr/local/lib/python3.12/site-packages"`. Auditer également l'image de production après construction, ainsi que l'ensemble des dépendances npm (y compris le build).
