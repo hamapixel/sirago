@@ -1,13 +1,16 @@
 import {useEffect,useState} from 'react';
 export type Trip={id:number;company_id:number;company:string;bus_name:string;origin:string;destination:string;boarding_point:string;arrival_point:string;starts_at:string;ends_at:string;duration_minutes:number;price:number;capacity:number;remaining:number;standard_remaining:number;premium_remaining:number;premium_price:number;from_price:number};
 export type Criteria={origin:string;destination:string;date:string;back:string;round:boolean;count:number};
-export type Filters={company:string;period:string;max_price:string;sort:string};
-export type TripPage={items:Trip[];total:number;page:number;has_next:boolean};
-export type HomeData={routes:{origin:string;destination:string;price:number}[];companies:{id:number;name:string;city:string}[]};
+export type Filters={company:string;company_id?:string;period:string;max_price:string;sort:string};
+export type TripPage={items:Trip[];total:number;page:number;has_next:boolean;companies?:{id:number;name:string;departures:number}[]};
+export type PartnerCompany={id:number;name:string;city:string};
+export type PartnerPage=TripPage&{company:PartnerCompany;next_date:string|null};
+export type HomeData={routes:{origin:string;destination:string;price:number}[];companies:PartnerCompany[]};
 export const defaultFilters:Filters={company:'',period:'',max_price:'',sort:'price'};
 export function tripPath(c:Criteria,filters:Filters=defaultFilters,page=1,returnLeg=false,after=''){
  const params=new URLSearchParams({origin:returnLeg?c.destination:c.origin,destination:returnLeg?c.origin:c.destination,date:returnLeg?c.back:c.date,passengers:String(c.count),page:String(page),sort:filters.sort});
  for(const key of ['company','period','max_price'] as const)if(filters[key].trim())params.set(key,filters[key].trim());
+ if(filters.company_id)params.set('company_id',filters.company_id);
  if(returnLeg&&after)params.set('after',after);
  return 'search/?'+params.toString();
 }
@@ -38,3 +41,5 @@ export const dayText=(iso:string)=>new Intl.DateTimeFormat('fr-FR',{dateStyle:'f
 export const compatible=(out:Trip,back:Trip)=>Date.parse(back.starts_at)>=Date.parse(out.ends_at);
 
 export const minimumTripTotal=(t:Trip,count:number)=>{const premium=Math.max(0,count-t.standard_remaining);return (count-premium)*t.price+premium*t.premium_price};
+
+export function partnerPath(id:number,date:string,query:string,count:number,page:number){return 'partners/'+id+'/?'+new URLSearchParams({date,q:query.trim(),passengers:String(count),page:String(page)}).toString()}

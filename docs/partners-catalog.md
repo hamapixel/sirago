@@ -1,0 +1,3 @@
+# Catalogue partenaire
+Sans date sélectionnée : tous les départs futurs disponibles sur les 365 prochains jours, paginés par 20 et groupés par trajet sur la page. Les boutons indiquent la date et l'heure ; la date complète est visible avant réservation. Le filtre date est facultatif. Aucune récurrence n'est inventée. Les départs suspendus, complets, passés, brouillons et non éligibles restent exclus.
+Les écrans compagnie, partenaire, profil, réservation et authentification sont chargés via imports dynamiques. Les composants légers des cartes restent séparés. Vite conserve ses chunks CSS/JS automatiques et le service worker PWA peut les précacher. Mesurer les tailles après compilation locale avant validation.

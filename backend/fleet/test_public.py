@@ -76,3 +76,84 @@ class PublicSearchTests(TestCase):
         now=timezone.now().astimezone(TZ)
         self.departure(starts_at=now-timedelta(minutes=1),ends_at=now+timedelta(hours=1))
         self.assertEqual(self.search(date=now.date().isoformat()).json()["total"],0)
+
+    def test_company_choices_are_scoped_to_available_departures(self):
+        self.bus.driver_first_name="Moussa"
+        self.bus.driver_last_name="Diallo"
+        self.bus.driver_phone="+22370123456"
+        self.bus.save()
+        self.departure()
+        self.departure(status="SUSPENDED")
+        self.departure(starts_at=self.start+timedelta(days=1),ends_at=self.start+timedelta(days=1,hours=7))
+        owner=User.objects.create_user(username="second-public-owner",role=User.Role.COMPANY)
+        second=Company.objects.create(owner=owner,name="Autre Transport",city="Bamako",address="Gare",status=Company.Status.VERIFIED)
+        bus=Bus.objects.create(company=second,name="Car 02",plate="AA 002",capacity=60)
+        route=Route.objects.create(company=second,origin="Bamako",destination="Sikasso",boarding_point="Gare A",arrival_point="Gare B",duration_minutes=420,price=8000)
+        self.departure(company=second,bus=bus,route=route)
+        data=self.search().json()
+        self.assertEqual(data["total"],2)
+        self.assertEqual({c["id"]:c["departures"] for c in data["companies"]},{self.company.pk:1,second.pk:1})
+        data=self.search(company_id=second.pk).json()
+        self.assertEqual(data["total"],1)
+        self.assertEqual(data["items"][0]["company_id"],second.pk)
+        self.assertEqual(len(data["companies"]),2)
+        for item in self.search().json()["items"]:
+            for key in ("driver_phone","driver_first_name","driver_last_name"):
+                self.assertNotIn(key,item)
+
+    def partner(self, **kw):
+        return self.client.get(f"/api/v1/travel/partners/{self.company.pk}/",{"date":self.params["date"],**kw})
+
+    def test_partner_only_eligible_departures(self):
+        d=self.departure()
+        self.departure(status="SUSPENDED")
+        self.departure(status="DRAFT")
+        self.departure(starts_at=self.start+timedelta(days=1),ends_at=self.start+timedelta(days=1,hours=7))
+        r=self.partner()
+        self.assertEqual(r.status_code,200,r.content)
+        self.assertEqual(r.json()["company"],{"id":self.company.pk,"name":self.company.name,"city":self.company.city})
+        self.assertEqual([row["id"] for row in r.json()["items"]],[d.pk])
+        self.assertEqual(self.partner(q="SIK").json()["total"],1)
+        self.assertEqual(self.partner(q="Kayes").json()["total"],0)
+        self.assertEqual(self.partner(passengers=61).json()["total"],0)
+        self.assertNotIn("driver_phone",r.json()["items"][0])
+        self.assertNotIn("address",r.json()["company"])
+
+    def test_partner_next_date_and_validation(self):
+        self.departure()
+        r=self.partner(date=timezone.now().astimezone(TZ).date().isoformat())
+        self.assertEqual(r.json()["next_date"],self.params["date"])
+        self.assertEqual(self.partner(passengers=0).status_code,400)
+        self.assertEqual(self.partner(date="bad").status_code,400)
+        self.assertEqual(self.partner(page=0).status_code,400)
+        self.company.status=Company.Status.SUSPENDED
+        self.company.save()
+        self.assertEqual(self.partner().status_code,404)
+
+    def test_partner_pagination(self):
+        for i in range(21):
+            self.departure(price=8000+i)
+        r=self.partner().json()
+        self.assertEqual((len(r["items"]),r["total"],r["has_next"]),(20,21,True))
+        self.assertEqual(len(self.partner(page=2).json()["items"]),1)
+
+    def test_partner_all_dates_default(self):
+        a=self.departure()
+        b=self.departure(starts_at=self.start+timedelta(days=2),ends_at=self.start+timedelta(days=2,hours=7))
+        self.departure(status="SUSPENDED")
+        r=self.partner(date="").json()
+        self.assertEqual({t["id"] for t in r["items"]},{a.pk,b.pk})
+        self.assertEqual(r["total"],2)
+        self.assertIsNone(r["next_date"])
+
+    def test_localities_seed_and_new_route_search(self):
+        from .models import Locality
+        self.assertEqual(Locality.objects.filter(kind="REGION").count(),19)
+        self.assertTrue(Locality.objects.filter(name="Bamako",kind="DISTRICT").exists())
+        self.assertTrue(Locality.objects.filter(name="Kati").exists())
+        self.assertTrue(Locality.objects.filter(name="Kalabancoro").exists())
+        self.route.destination="Gao"
+        self.route.save()
+        self.departure()
+        self.assertEqual(self.search(destination="Gao").json()["total"],1)
+        self.assertEqual(self.search(destination="Ville inconnue").status_code,400)

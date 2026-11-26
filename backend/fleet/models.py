@@ -2,10 +2,20 @@ from django.db import models
 from django.db.models import Q, F
 from accounts.models import Company
 
+class Locality(models.Model):
+    name = models.CharField(max_length=100, unique=True)
+    kind = models.CharField(max_length=12, choices=[("DISTRICT","District"),("REGION","Région / chef-lieu"),("CERCLE","Cercle"),("LOCALITY","Localité")])
+
+    def __str__(self):
+        return self.name
+
 class Bus(models.Model):
     company = models.ForeignKey(Company, on_delete=models.PROTECT, related_name="buses")
     name = models.CharField(max_length=100)
     plate = models.CharField(max_length=40)
+    driver_first_name = models.CharField(max_length=100, blank=True, default="")
+    driver_last_name = models.CharField(max_length=100, blank=True, default="")
+    driver_phone = models.CharField(max_length=20, blank=True, default="")
     capacity = models.PositiveIntegerField()
     premium_capacity = models.PositiveIntegerField(default=0)
     active = models.BooleanField(default=True)
@@ -162,3 +172,32 @@ class SandboxWebhookReceipt(models.Model):
     transaction_id = models.UUIDField(unique=True)
     received_at = models.DateTimeField(auto_now_add=True)
     matched_at = models.DateTimeField(null=True, blank=True)
+
+
+class SandboxCommission(models.Model):
+    """Frozen test allocation per leg. Recognized only when the checkout issues tickets."""
+    checkout = models.ForeignKey(SandboxCheckout, on_delete=models.PROTECT, related_name="commission_lines")
+    leg = models.OneToOneField(BookingLeg, on_delete=models.PROTECT, related_name="sandbox_commission")
+    company = models.ForeignKey("accounts.Company", on_delete=models.PROTECT)
+    gross = models.PositiveIntegerField()
+    rate_bps = models.PositiveSmallIntegerField(null=True)
+    commission = models.PositiveIntegerField(null=True)
+    company_share = models.PositiveIntegerField(null=True)
+
+    class Meta:
+        constraints = [
+            models.CheckConstraint(condition=Q(gross__gt=0), name="sandbox_commission_gross_positive"),
+            models.CheckConstraint(condition=Q(rate_bps__isnull=True,commission__isnull=True,company_share__isnull=True) | Q(rate_bps__isnull=False,rate_bps__lte=1000,commission__isnull=False,company_share__isnull=False,gross=F("commission")+F("company_share")), name="sandbox_commission_balanced"),
+        ]
+
+
+class SandboxSettlement(models.Model):
+    """Immutable simulated transfer record. Never sends funds."""
+    company = models.ForeignKey("accounts.Company", on_delete=models.PROTECT, related_name="sandbox_settlements")
+    actor = models.ForeignKey("accounts.User", on_delete=models.PROTECT)
+    reference = models.UUIDField(unique=True)
+    amount = models.PositiveBigIntegerField()
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        constraints = [models.CheckConstraint(condition=Q(amount__gt=0), name="sandbox_settlement_positive")]

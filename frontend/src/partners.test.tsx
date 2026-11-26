@@ -1,0 +1,15 @@
+import {it,expect} from 'vitest';
+import {renderToStaticMarkup} from 'react-dom/server';
+import {PartnerRoute,groupPartnerTrips} from './PartnerSpace';
+import {PartnerCard} from './PartnerCard';
+import {partnerInfo,partnerMapUrl,partnerPhones} from './partners';
+import {partnerPath,type Trip} from './travel-api';
+const company={id:1,name:'Diarra Transport',city:'Bamako'};
+const trip:Trip={id:1,company_id:1,company:company.name,bus_name:'Car 01',origin:'Bamako',destination:'Sikasso',boarding_point:'Gare A',arrival_point:'Gare B',starts_at:'2026-12-01T06:00:00Z',ends_at:'2026-12-01T13:00:00Z',duration_minutes:420,price:8000,capacity:60,remaining:60,standard_remaining:60,premium_remaining:0,premium_price:0,from_price:8000};
+it('affiche une carte partenaire accessible et cliquable sans coordonnées inventées',()=>{const html=renderToStaticMarkup(<PartnerCard company={company} onOpen={()=>{}}/>);expect(html).toContain('<button');expect(html).toContain('Diarra Transport');expect(html).toContain('Bamako');expect(html).not.toContain('tel:');expect(partnerInfo(company)?.name).toBe(company.name)});
+it('utilise seulement les coordonnées ou adresses publiques configurées',()=>{expect(partnerMapUrl(partnerInfo(company))).toBe('');expect(partnerMapUrl({...company,address:'Gare publique'})).toContain('Gare%20publique');expect(partnerMapUrl({...company,location:{latitude:12.5,longitude:-8}})).toContain('12.5%2C-8');expect(partnerPhones({...company,phones:['+223 70 12 34 56','123']})).toEqual(['+22370123456'])});
+it('regroupe les horaires par trajet sans inventer un horaire',()=>{const groups=groupPartnerTrips([trip,{...trip,id:2,starts_at:'2026-12-01T08:00:00Z'},{...trip,id:3,destination:'Mopti'}]);expect(groups.map(([,rows])=>rows.length)).toEqual([2,1])});
+it('présente les horaires et masque le tarif Premium non proposé',()=>{const html=renderToStaticMarkup(<PartnerRoute trips={[trip,{...trip,id:2,starts_at:'2026-12-01T08:00:00Z'}]} count={1} onBook={()=>{}}/>);expect(html).toContain('06:00');expect(html).toContain('08:00');expect(html).toContain('Réserver maintenant');expect(html).not.toContain('Premium');expect(html).toContain('Standard')});
+it('transmet les critères réels au serveur',()=>{const url=partnerPath(7,'2026-12-01','Ségou',3,2);expect(url.startsWith('partners/7/?')).toBe(true);const p=new URLSearchParams(url.split('?')[1]);expect(p.get('q')).toBe('Ségou');expect(p.get('passengers')).toBe('3');expect(p.get('page')).toBe('2')});
+
+it('conserve la date vide pour tous les départs et affiche les dates réelles',()=>{expect(new URLSearchParams(partnerPath(1,'','',1,1).split('?')[1]).get('date')).toBe('');const html=renderToStaticMarkup(<PartnerRoute trips={[trip,{...trip,id:2,starts_at:'2026-12-02T06:00:00Z'}]} count={1} onBook={()=>{}}/>);expect(html).toContain('1 déc.');expect(html).toContain('2 déc.')});

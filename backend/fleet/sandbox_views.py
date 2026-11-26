@@ -13,6 +13,7 @@ from .models import Booking, Departure, SandboxCheckout
 from .booking_views import traveler_error, booking_json
 from .saspay import sandbox_enabled, sandbox_tickets_enabled, create_booking_checkout, verify_booking_checkout, SasPayError
 from .sandbox_reconcile import reconcile
+from .commissions import freeze_commissions
 
 def allowed(request):
     denied=traveler_error(request)
@@ -40,6 +41,7 @@ def create(request,pk):
             return error("Réservation ou départ indisponible.",409)
         # Durable marker commits before the remote call: ambiguous failures are never retried.
         attempt=SandboxCheckout.objects.create(booking=b,amount=sum(l.total for l in legs))
+        freeze_commissions(attempt,legs)
     try:
         sid,url=create_booking_checkout(os.environ.get("SASPAY_API_KEY",""),b,attempt.amount)
     except SasPayError:
