@@ -4,6 +4,9 @@ import os
 import re
 from urllib.parse import urlsplit
 from django.db import transaction, IntegrityError
+from django.contrib.sessions.models import Session
+from django.core.cache import cache
+from django.utils import timezone
 from django.http import JsonResponse
 from django.views.decorators.cache import never_cache
 from django.views.decorators.csrf import csrf_protect
@@ -66,6 +69,12 @@ def subscribe(request):
     _,denied=accessible(request)
     if denied is not None:return denied
     if not public_key():return error("Notifications externes non configurées.",503)
+    rate_key=f'push:subscribe:{request.user.pk}'
+    if not cache.add(rate_key,1,600):
+        try:
+            if cache.incr(rate_key)>20:return error('Trop de tentatives.',429)
+        except ValueError:
+            cache.add(rate_key,1,600)
     try:
         values=data(request)
         endpoint=validate_endpoint(values.get("endpoint"))
@@ -82,6 +91,8 @@ def subscribe(request):
                 return error("Abonnement incompatible. Réactivez les alertes.",409)
             if existing and existing.recipient_id==request.user.pk and existing.session_key==session_key:
                 return JsonResponse({"enabled":True})
+            active_sessions=Session.objects.filter(expire_date__gt=timezone.now()).values('session_key')
+            PushSubscription.objects.filter(recipient=request.user).exclude(session_key__in=active_sessions).delete()
             if PushSubscription.objects.filter(recipient=request.user).exclude(endpoint=endpoint).count()>=5:
                 return error("Limite de cinq appareils atteinte.",409)
             if existing:existing.delete()

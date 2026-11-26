@@ -1,6 +1,7 @@
 import {useEffect,useState,useRef} from 'react';
 import {BellRing,BellOff,Smartphone} from 'lucide-react';
 import {authPost} from './auth-api';
+import {t,useLanguage} from './i18n';
 type State='loading'|'unavailable'|'unsupported'|'denied'|'off'|'on'|'error';
 export function vapidBytes(value:string):Uint8Array<ArrayBuffer>{
  const raw=atob(value.replace(/-/g,'+').replace(/_/g,'/')+'='.repeat((4-value.length%4)%4));
@@ -9,6 +10,7 @@ export function vapidBytes(value:string):Uint8Array<ArrayBuffer>{
  return result;
 }
 export default function PushPreferences(){
+ useLanguage();
  const [state,setState]=useState<State>('loading'),[key,setKey]=useState(''),[busy,setBusy]=useState(false),[error,setError]=useState('');
  const pending=useRef(false);
  const [revision,setRevision]=useState(0);
@@ -55,5 +57,5 @@ export default function PushPreferences(){
   finally{pending.current=false;setBusy(false)}
  }
  const detail:Record<State,string>={loading:'Vérification de cet appareil…',unavailable:'Disponible après configuration du serveur et de la PWA.',unsupported:'Sur iPhone, installez SiraGo sur l’écran d’accueil. Utilisez un navigateur compatible et HTTPS.',denied:'Autorisez les notifications dans les réglages de votre téléphone ou navigateur.',off:'Recevez vos alertes même lorsque SiraGo est fermé.',on:'Alertes autorisées sur cet appareil.',error:'Impossible de vérifier les alertes externes.'};
- return <article className="push-preferences"><span className="push-device-icon">{state==='on'?<BellRing size={23}/>:<Smartphone size={23}/>}</span><div><strong>Notifications sur cet appareil</strong><small>{detail[state]}</small></div>{(state==='on'||state==='off')&&<button type="button" className={state==='on'?'outline':'primary'} disabled={busy} onClick={()=>void change()}>{state==='on'?<BellOff size={17}/>:<BellRing size={17}/>} {busy?'Patientez…':state==='on'?'Désactiver':'Activer'}</button>}{state==='error'&&<button className="outline" type="button" onClick={()=>setRevision(r=>r+1)}>Réessayer</button>}{error&&<p className="auth-error" role="alert">{error}</p>}</article>
+ return <article className="push-preferences"><span className="push-device-icon">{state==='on'?<BellRing size={23}/>:<Smartphone size={23}/>}</span><div><strong>{t('Notifications sur cet appareil')}</strong><small>{detail[state]}</small></div>{(state==='on'||state==='off')&&<button type="button" className={state==='on'?'outline':'primary'} disabled={busy} onClick={()=>void change()}>{state==='on'?<BellOff size={17}/>:<BellRing size={17}/>} {busy?'Patientez…':state==='on'?t('Désactiver'):t('Activer')}</button>}{state==='error'&&<button className="outline" type="button" onClick={()=>setRevision(r=>r+1)}>Réessayer</button>}{error&&<p className="auth-error" role="alert">{error}</p>}</article>
 }

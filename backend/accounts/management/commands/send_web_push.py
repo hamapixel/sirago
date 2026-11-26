@@ -2,6 +2,7 @@
 import json
 import os
 import time
+import logging
 from datetime import timedelta
 from django.contrib.auth import SESSION_KEY, HASH_SESSION_KEY
 from django.contrib.sessions.backends.db import SessionStore
@@ -31,10 +32,13 @@ def valid_subscription(sub):
 def deliver_one(session, private_key, subject):
     now=timezone.now()
     with transaction.atomic():
-        delivery=PushDelivery.objects.select_for_update(skip_locked=True).filter(next_attempt__lte=now).order_by("next_attempt","pk").first()
+        candidate=PushDelivery.objects.filter(next_attempt__lte=now).order_by("next_attempt","pk").values("pk","subscription_id").first()
+        if not candidate:return False
+        # Consistent lock order with unsubscribe and logout: subscription first.
+        sub=PushSubscription.objects.select_for_update(skip_locked=True).filter(pk=candidate["subscription_id"]).first()
+        if not sub:return False
+        delivery=PushDelivery.objects.select_for_update(skip_locked=True).filter(pk=candidate["pk"],subscription=sub).first()
         if not delivery:return False
-        sub=PushSubscription.objects.select_related("recipient").filter(pk=delivery.subscription_id).first()
-        if not sub:return True
         notice=delivery.notification
         if notice.read_at or notice.recipient_id!=sub.recipient_id or notice.created_at<now-timedelta(hours=1):
             delivery.delete()
@@ -60,6 +64,7 @@ def deliver_one(session, private_key, subject):
                 delivery.attempts+=1
                 delivery.next_attempt=now+timedelta(seconds=60*delivery.attempts)
                 delivery.save(update_fields=["attempts","next_attempt"])
+            logging.getLogger(__name__).warning('Web Push delivery failed (status=%s)',status or 'network')
             # Never log endpoint, keys, provider response or passenger data.
         else:
             delivery.delete()

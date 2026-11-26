@@ -640,6 +640,38 @@ const words:Record<string,{en:string;bm:string}>={
   "À propos": {
     "en": "About",
     "bm": "Kunnafoni"
+  },
+  "Toutes": {
+    "en": "All",
+    "bm": "Bɛɛ"
+  },
+  "Non lues": {
+    "en": "Unread",
+    "bm": "Kalanbaliw"
+  },
+  "Tout marquer comme lu": {
+    "en": "Mark all as read",
+    "bm": "Bɛɛ taamasiyɛn ko a kalanna"
+  },
+  "Marquer comme lu": {
+    "en": "Mark as read",
+    "bm": "A taamasiyɛn ko a kalanna"
+  },
+  "Actualiser les notifications": {
+    "en": "Refresh notifications",
+    "bm": "Kibaruya kura"
+  },
+  "Notifications sur cet appareil": {
+    "en": "Notifications on this device",
+    "bm": "Kibaruya nin telefɔni in kan"
+  },
+  "Activer": {
+    "en": "Enable",
+    "bm": "A daminɛ"
+  },
+  "Désactiver": {
+    "en": "Disable",
+    "bm": "A dabila"
   }
 };
 const listeners=new Set<()=>void>();
