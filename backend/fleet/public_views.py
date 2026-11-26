@@ -1,5 +1,5 @@
 from datetime import date, datetime, time, timedelta
-from django.db.models import F, Min, Q
+from django.db.models import F, Min, Q, Count
 from django.http import JsonResponse
 from django.utils import timezone
 from django.utils.dateparse import parse_datetime
@@ -73,18 +73,19 @@ def search(request):
         qs=public_departures(now).filter(route__origin=origin,route__destination=destination,
             starts_at__gte=start+timedelta(hours=low),starts_at__lt=start+timedelta(hours=high),
             remaining__gte=passengers,from_price__lte=max_price).filter(Q(standard_remaining__gte=passengers)|Q(premium_price__lte=max_price))
-        if company:
-            qs=qs.filter(company__name__icontains=company)
         if q.get("after"):
             after=parse_datetime(q["after"])
             if after is None or timezone.is_naive(after):
                 raise ValueError("Horaire de correspondance invalide.")
             qs=qs.filter(starts_at__gte=after)
+        options=list(qs.order_by().values("company_id","company__name").annotate(departures=Count("id")).order_by("company__name","company_id"))
+        if company:qs=qs.filter(company__name__icontains=company)
+        if q.get("company_id"):qs=qs.filter(company_id=bounded_int(q["company_id"],1,2**63-1))
         qs=qs.annotate(duration=F("ends_at")-F("starts_at")).select_related("company","route","bus").order_by(*orders[sort])
         total=qs.count()
         offset=(page-1)*20
         rows=list(qs[offset:offset+20])
-        return JsonResponse({"items":[public_row(d) for d in rows],"total":total,"page":page,"has_next":offset+len(rows)<total})
+        return JsonResponse({"items":[public_row(d) for d in rows],"total":total,"page":page,"has_next":offset+len(rows)<total,"companies":[{"id":c["company_id"],"name":c["company__name"],"departures":c["departures"]} for c in options]})
     except (ValueError, OverflowError):
         return error("Vérifiez la date, les passagers et les filtres de recherche.")
 

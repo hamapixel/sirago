@@ -12,7 +12,7 @@ from django.views.decorators.cache import never_cache
 from django.views.decorators.csrf import csrf_protect
 from django.views.decorators.http import require_http_methods
 from accounts.models import Company, User, CompanyAgent
-from accounts.views import data, field, error
+from accounts.views import data, field, error, phone_number
 from .models import Bus, Route, Departure
 from .availability import active_legs, with_remaining
 
@@ -73,7 +73,7 @@ def flag(v, key, default=True):
     return x
 
 def bus_json(b):
-    return {"id":b.id,"name":b.name,"plate":b.plate,"capacity":b.capacity,"premium_capacity":b.premium_capacity,"active":b.active}
+    return {"id":b.id,"name":b.name,"plate":b.plate,"capacity":b.capacity,"premium_capacity":b.premium_capacity,"active":b.active,"driver_first_name":b.driver_first_name,"driver_last_name":b.driver_last_name,"driver_phone":b.driver_phone}
 
 def route_json(r):
     return {"id":r.id,"origin":r.origin,"destination":r.destination,"boarding_point":r.boarding_point,"arrival_point":r.arrival_point,"duration_minutes":r.duration_minutes,"price":r.price,"active":r.active}
@@ -113,6 +113,12 @@ def buses(request,company,pk=None):
     active=flag(v,"active")
     if pk is not None and future_departures(b.departures).exists() and (not active or capacity!=b.capacity or premium!=b.premium_capacity):
         return error("Annulez les départs à venir avant de désactiver le car ou modifier sa capacité.",409)
+    driver = {key: field({key: v.get(key, getattr(b,key))},key,20 if key=="driver_phone" else 100,required=False) for key in ("driver_first_name","driver_last_name","driver_phone")}
+    if any(driver.values()):
+        if not all(driver.values()):
+            raise ValueError("Renseignez le prénom, le nom et le téléphone du chauffeur.")
+        driver["driver_phone"]=phone_number(driver["driver_phone"])
+    for key,value in driver.items():setattr(b,key,value)
     b.name,b.plate,b.capacity,b.premium_capacity,b.active=name,plate,capacity,premium,active
     b.save()
     return JsonResponse(bus_json(b),status=201 if pk is None else 200)
@@ -268,7 +274,10 @@ def publish_batch(request,company):
         return error("Méthode non autorisée.",405)
     if company.status != Company.Status.VERIFIED:
         return error("Votre compagnie doit être validée.",403)
-    ids = data(request).get("ids")
+    payload = data(request)
+    ids = payload.get("ids")
+    target = payload.get("status", D.PUBLISHED)
+    if target not in (D.PUBLISHED,D.SUSPENDED):return error("Statut invalide.")
     if not isinstance(ids,list) or not 1 <= len(ids) <= 50 or any(type(i) is not int or not 1 <= i <= 2**63-1 for i in ids):
         return error("Sélectionnez entre 1 et 50 départs.")
     if len(set(ids)) != len(ids):
@@ -277,13 +286,19 @@ def publish_batch(request,company):
     if len(rows) != len(ids):
         return error("Un départ sélectionné est introuvable.",404)
     now = timezone.now()
-    if any(d.status != D.DRAFT or d.starts_at <= now for d in rows):
-        return error("Seuls les brouillons futurs peuvent être publiés ensemble. Aucun départ publié.",409)
-    if any(not d.bus.active or not d.route.active or d.capacity > d.bus.capacity or d.premium_capacity>d.bus.premium_capacity or d.capacity-d.premium_capacity>d.bus.capacity-d.bus.premium_capacity or d.bus.company_id != company.id or d.route.company_id != company.id for d in rows):
+    allowed = (D.DRAFT,D.SUSPENDED) if target==D.PUBLISHED else (D.PUBLISHED,)
+    if any(d.status not in allowed or d.starts_at <= now for d in rows):
+        return error("Sélection de départs futurs invalide. Aucun changement.",409)
+    if target==D.PUBLISHED and any(not d.bus.active or not d.route.active or d.capacity > d.bus.capacity or d.premium_capacity>d.bus.premium_capacity or d.capacity-d.premium_capacity>d.bus.capacity-d.bus.premium_capacity or d.bus.company_id != company.id or d.route.company_id != company.id for d in rows):
         return error("Un car ou trajet sélectionné est invalide ou inactif. Aucun départ publié.",409)
     # company_endpoint holds the company row lock throughout validation and update.
-    count = company.departures.filter(pk__in=ids).update(status=D.PUBLISHED)
-    return JsonResponse({"published":count})
+    count = company.departures.filter(pk__in=ids).update(status=target)
+    for d in rows:
+        if target==D.SUSPENDED or d.status==D.SUSPENDED:
+            label="Départ suspendu" if target==D.SUSPENDED else "Départ republié"
+            for recipient in active_legs(now).filter(departure=d).values_list("booking__traveler_id",flat=True).distinct():
+                notify(recipient,"DEPARTURE",label,f"{d.route.origin} → {d.route.destination}, {d.starts_at.astimezone(TZ):%d/%m/%Y %H:%M}.")
+    return JsonResponse({"published" if target==D.PUBLISHED else "suspended":count})
 
 @company_endpoint
 def reservations(request,company):

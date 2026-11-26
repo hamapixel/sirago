@@ -76,3 +76,27 @@ class PublicSearchTests(TestCase):
         now=timezone.now().astimezone(TZ)
         self.departure(starts_at=now-timedelta(minutes=1),ends_at=now+timedelta(hours=1))
         self.assertEqual(self.search(date=now.date().isoformat()).json()["total"],0)
+
+    def test_company_choices_are_scoped_to_available_departures(self):
+        self.bus.driver_first_name="Moussa"
+        self.bus.driver_last_name="Diallo"
+        self.bus.driver_phone="+22370123456"
+        self.bus.save()
+        self.departure()
+        self.departure(status="SUSPENDED")
+        self.departure(starts_at=self.start+timedelta(days=1),ends_at=self.start+timedelta(days=1,hours=7))
+        owner=User.objects.create_user(username="second-public-owner",role=User.Role.COMPANY)
+        second=Company.objects.create(owner=owner,name="Autre Transport",city="Bamako",address="Gare",status=Company.Status.VERIFIED)
+        bus=Bus.objects.create(company=second,name="Car 02",plate="AA 002",capacity=60)
+        route=Route.objects.create(company=second,origin="Bamako",destination="Sikasso",boarding_point="Gare A",arrival_point="Gare B",duration_minutes=420,price=8000)
+        self.departure(company=second,bus=bus,route=route)
+        data=self.search().json()
+        self.assertEqual(data["total"],2)
+        self.assertEqual({c["id"]:c["departures"] for c in data["companies"]},{self.company.pk:1,second.pk:1})
+        data=self.search(company_id=second.pk).json()
+        self.assertEqual(data["total"],1)
+        self.assertEqual(data["items"][0]["company_id"],second.pk)
+        self.assertEqual(len(data["companies"]),2)
+        for item in self.search().json()["items"]:
+            for key in ("driver_phone","driver_first_name","driver_last_name"):
+                self.assertNotIn(key,item)
