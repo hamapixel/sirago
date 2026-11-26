@@ -8,7 +8,8 @@ Cette phase ne déploie pas encore SiraGo et n'autorise ni encaissement ni rever
 - [ ] Inventorier les endpoints publics, authentifiés, agents, compagnies et superadmin ; vérifier permissions, CSRF, isolation intercompagnies, IDOR, validation des entrées et limites de pagination.
 - [ ] Tester concurrence des réservations, expiration des blocages, émission et embarquement idempotents, et séparation TEST/LIVE.
 - [ ] Vérifier le profil config/production.py ; cache partagé et limitation des abus, journalisation sans secrets, protection Django Admin, revue des accès et MFA.
-  - Premier lot : profil production exigeant Redis, validation de l'URL sans divulgation de secrets, refus explicite des options SasPay TEST ; tests unitaires ajoutés. Le compose local reste inchangé. Provisionnement Redis, test multi-worker, limitation au proxy et MFA restent ouverts.
+  - Premier lot : profil production exigeant Redis, validation de l'URL sans divulgation de secrets, refus explicite des options SasPay TEST ; tests unitaires ajoutés. Le compose local reste inchangé. Validation locale : 179 tests Django, 131 Vitest, build et migrations OK ; CI verte sur bc48d61. Provisionnement Redis, test multi-worker, limitation au proxy et MFA restent ouverts.
+  - Deuxième lot : bornage des paramètres numériques des routes API avant dispatch, tests de routage et HTTP, tests PostgreSQL de concurrence (rejeu simultané et dernière place Premium). L'audit des champs JSON, permissions et entrées hors URL continue ; la CI de ce lot doit être validée.
 - [ ] Auditer dépendances Python et npm, documenter les correctifs et exécuter la suite de tests.
 - [ ] Vérifier la CI ; ne pas considérer les tests seuls comme un audit de pénétration.
 

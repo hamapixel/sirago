@@ -32,3 +32,5 @@ Le profil active cookies Secure, redirection HTTPS, HSTS initial 3600 secondes (
 Référence : https://docs.djangoproject.com/en/5.2/howto/deployment/checklist/
 
 Les options SasPay Sandbox, émission TEST et retour local sont refusées au démarrage du profil production lorsqu'elles sont activées. Les tests de configuration ne prouvent pas la disponibilité de Redis ni le comportement multi-processus ; ces vérifications sont requises en préproduction.
+
+Les paramètres numériques des chemins API (identifiants et indices de billets) sont limités à 19 chiffres et à la plage positive ou nulle du bigint signé. Les valeurs hors plage sont rejetées avant dispatch par une 404. Cela ne remplace ni les vérifications de propriété, ni la validation des corps JSON et paramètres de requête. Les indices de billet commençant à zéro restent valides.

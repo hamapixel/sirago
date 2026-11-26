@@ -249,3 +249,63 @@ class ConcurrentBookingTests(BookingFixture,TransactionTestCase):
             results=list(executor.map(run,clients))
         self.assertEqual(sorted(results),[201,409])
         self.assertEqual(Booking.objects.count(),1)
+
+    def test_parallel_retry_creates_only_one_booking(self):
+        if connection.vendor != "postgresql":
+            self.skipTest("PostgreSQL row locks required")
+        clients = [Client(), Client()]
+        for client in clients:
+            client.force_login(self.user)
+        barrier = Barrier(2)
+
+        def run(client):
+            try:
+                barrier.wait(timeout=10)
+                response = self.reserve(client)
+                return response.status_code, response.json().get("id")
+            finally:
+                connections.close_all()
+
+        with ThreadPoolExecutor(max_workers=2) as executor:
+            results = list(executor.map(run, clients))
+        self.assertEqual(sorted(code for code, _ in results), [200, 201])
+        self.assertEqual(Booking.objects.count(), 1)
+        booking = Booking.objects.get()
+        self.assertEqual({pk for _, pk in results}, {booking.pk})
+        self.assertEqual(booking.legs.count(), 1)
+        self.assertEqual(self.search()["total"], 0)
+
+    def test_parallel_reservations_cannot_oversell_premium(self):
+        if connection.vendor != "postgresql":
+            self.skipTest("PostgreSQL row locks required")
+        bus = self.departure.bus
+        bus.premium_capacity = 1
+        bus.save(update_fields=["premium_capacity"])
+        self.departure.premium_capacity = 1
+        self.departure.premium_price = 12000
+        self.departure.save(update_fields=["premium_capacity", "premium_price"])
+        clients = [Client(), Client()]
+        clients[0].force_login(self.user)
+        clients[1].force_login(self.other)
+        barrier = Barrier(2)
+
+        def run(client):
+            try:
+                barrier.wait(timeout=10)
+                return self.reserve(
+                    client, count=1, passenger_names=["Awa Test"],
+                    premium_positions=[[0]], total=12000,
+                    request_id=str(uuid4()),
+                ).status_code
+            finally:
+                connections.close_all()
+
+        with ThreadPoolExecutor(max_workers=2) as executor:
+            results = list(executor.map(run, clients))
+        self.assertEqual(sorted(results), [201, 409])
+        self.assertEqual(Booking.objects.count(), 1)
+        from .availability import with_remaining
+        departure = with_remaining(
+            Departure.objects.filter(pk=self.departure.pk), timezone.now()
+        ).get()
+        self.assertEqual((departure.standard_remaining, departure.premium_remaining), (1, 0))
