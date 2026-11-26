@@ -67,3 +67,5 @@ Voir aussi [production-checklist.md](production-checklist.md). Le compose.yaml e
 
 - Validation bf08877 : 204 tests Django, 138 Vitest, build et migrations OK. Manifeste premium (écran et PDF A4) ajouté, permissions et avertissements de simulation conservés.
 - 08B : compose de préproduction dédié, images Gunicorn/Nginx, migrations séparées, Redis/PostgreSQL sur réseau interne, santé DB/cache et sauvegarde quotidienne. Lockfile validé à versionner avant build ; TLS, restauration, MFA, protection proxy et Uptime Kuma restent à vérifier/configurer. Voir docs/phase-08b.md.
+
+- Notifications : centre partagé pour les trois rôles, badge et rafraîchissement sur retour au premier plan, événements Superadmin (inscription compagnie, assistance), Web Push opt-in par session avec file persistante et worker isolé. Migration 0008. VAPID, HTTPS et recette appareils réels indispensables ; push désactivé par défaut. Aucun SMS.
