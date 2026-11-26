@@ -7,4 +7,5 @@ import 'swiper/css';
 import 'swiper/css/pagination';
 import './responsive.css';
 import './premium-finish.css';
+import './mobile-brand.css';
 createRoot(document.getElementById('root')!).render(<React.StrictMode><App/></React.StrictMode>);

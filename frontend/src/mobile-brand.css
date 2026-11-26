@@ -1,0 +1,73 @@
+/* Compact native language picker, shared by all three spaces. */
+.language-pill{position:relative;display:inline-flex;align-items:center;justify-content:center;flex:none;min-width:64px;height:40px;border:1px solid #c8ded7;border-radius:999px;background:#f4f9f7;color:#103b38}
+.language-pill-face{display:flex;align-items:center;justify-content:center;gap:4px;padding:0 7px;white-space:nowrap;font-size:.78rem;pointer-events:none}
+.language-flag{display:block;width:19px;height:14px;border-radius:2px;box-shadow:0 0 0 1px #103b3814;flex:none}
+.language-pill .sirago-language{position:absolute;inset:0;width:100%;height:100%;min-width:0;max-width:none;min-height:0;opacity:0;cursor:pointer;margin:0;padding:0;border:0}
+.language-pill:focus-within{outline:2px solid #16836c;outline-offset:2px}
+.profile-message .language-pill{min-width:90px}
+.header .brand{white-space:nowrap}
+.header .brand img,.super-top .brand img{border:1px solid #e3b34f;border-radius:10px;box-shadow:0 2px 6px #103b3820;flex:none}
+.header .login{font-weight:650;white-space:nowrap}
+.header .header-logout svg{display:none}
+.auth-layout footer{display:flex;align-items:center;justify-content:center;gap:12px}
+.auth-layout footer::before,.auth-layout footer::after{content:"";height:1px;width:34px;background:#bdd4cc}
+@media(max-width:767px){
+ .header .header-inner{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:5px;padding:7px max(10px,env(safe-area-inset-right,0px)) 7px max(10px,env(safe-area-inset-left,0px));min-width:0}
+ .header .brand{font-size:1.1rem;letter-spacing:-.045em;gap:5px;min-width:0}
+ .header .brand img{width:32px;height:32px}
+ .header .header-actions{gap:5px;min-width:0;flex-wrap:nowrap}
+ .header .header-actions .login{font-size:.77rem;min-height:44px;display:flex;align-items:center}
+ .header .header-actions .icon-button{width:38px;min-width:38px;min-height:44px;padding:0}
+ .header .header-actions .header-logout{min-width:40px;padding:5px 7px;white-space:nowrap}
+ .header .language-pill,.super-top .language-pill{height:38px;min-width:59px}
+ .language-pill-face{gap:3px;padding:0 6px}
+ .auth-layout{padding-top:10px;padding-bottom:calc(24px + env(safe-area-inset-bottom,0px));gap:18px}
+ .auth-layout:has(.auth-login){background:radial-gradient(ellipse at 50% 80%,#e8f3ef 0%,transparent 70%)}
+ .auth-shell{gap:12px}
+ .auth-banner{position:relative;isolation:isolate;overflow:hidden;background:radial-gradient(ellipse at 95% 100%,#16745d 0%,transparent 55%),linear-gradient(150deg,#075647,#062f2c 62%);padding:15px 10px 17px;border-radius:19px;gap:4px;box-shadow:0 7px 20px #103b3810}
+ .auth-banner::before,.auth-banner::after{content:"";position:absolute;width:115px;height:115px;border:1px solid #e8ba53;border-radius:50%;background:#239f851b;z-index:-1;pointer-events:none}
+ .auth-banner::before{top:-80px;left:-37px}.auth-banner::after{bottom:-86px;right:-24px}
+ .auth-banner .auth-brand-mark{width:48px;height:48px}
+ .auth-banner h1{font-size:1.65rem;font-weight:850;letter-spacing:-.04em}
+ .auth-banner strong{font-size:.88rem;color:#f6cf75}
+ .auth-banner p{font-size:.77rem}
+ .auth-login .auth-form{padding:16px 14px;border-radius:19px;box-shadow:0 10px 25px #103b3810;gap:14px}
+ .auth-login .auth-heading h2{font-size:1.3rem;font-weight:800;letter-spacing:-.035em;color:#103b38}
+ .auth-login .auth-heading{display:block}
+ .auth-login .auth-heading::after{content:"";display:block;width:30px;height:3px;background:linear-gradient(90deg,#e3a42e,#f6cf75);border-radius:3px;margin-top:6px}
+ .auth-login .auth-fields{gap:13px}
+ .auth-login .auth-fields label{font-size:.83rem}
+ .auth-login .auth-fields input:not([type=checkbox]){background:#edf4f2;border-color:#c8ded7;border-radius:11px;min-height:46px;font-size:16px}
+ .auth-login .auth-input-icon,.auth-login .auth-password{position:relative;display:flex;align-items:center;gap:0;min-width:0}
+ .auth-login .auth-input-icon>svg,.auth-login .auth-lock{position:absolute;left:12px;color:#34534f;pointer-events:none}
+ .auth-login .auth-input-icon input,.auth-login .auth-password input{padding-left:39px}
+ .auth-login .auth-password input{padding-right:46px}
+ .auth-login .auth-password .icon-button{position:absolute;right:3px;min-width:42px;min-height:42px;padding:0}
+ .auth-login .primary{background:linear-gradient(110deg,#127861,#053c34);border:1px solid #e9b84e;box-shadow:0 5px 12px #103b3826;font-weight:750;min-height:46px;border-radius:12px}
+ .auth-login .primary:disabled{box-shadow:none;opacity:.55}
+ .auth-login .auth-switch{font-size:.79rem;line-height:1.5}
+ .auth-login .auth-back{font-size:.78rem}
+ .auth-layout footer{font-size:.75rem}
+ /* Superadmin keeps all controls, while the profile is also available in its menu. */
+ .super-top .super-brand-row,.super-top .super-top-actions{gap:4px}
+ .super-top .brand small{display:none}
+ .super-top .super-icon{width:36px;flex-basis:36px;height:40px}
+ .super-top .super-account-button{display:none}
+}
+@media(max-width:390px){
+ .header .header-logout span{display:none}
+ .header .header-logout svg{display:block}
+ .header .brand{font-size:1rem}
+ .header .header-actions{gap:3px}
+ .header .header-actions .icon-button{width:34px;min-width:34px}
+ .super-top .brand{font-size:.93rem;gap:4px}
+ .super-top .brand img{width:28px;height:28px}
+ .super-top .super-icon{width:32px;flex-basis:32px}
+}
+@media(max-width:330px){
+ .header .brand img{width:28px;height:28px}
+ .header .brand{gap:4px}
+ .header .header-actions .login{font-size:.72rem}
+ .language-pill-face{font-size:.72rem}
+ .super-top{padding-inline:6px;gap:3px}
+}

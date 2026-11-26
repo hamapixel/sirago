@@ -1,4 +1,5 @@
 import {useEffect,useSyncExternalStore} from 'react';
+import {ChevronDown} from 'lucide-react';
 export type Language='fr'|'en'|'bm';
 const words:Record<string,{en:string;bm:string}>={
   "Accueil": {
@@ -672,6 +673,58 @@ const words:Record<string,{en:string;bm:string}>={
   "Désactiver": {
     "en": "Disable",
     "bm": "A dabila"
+  },
+  "Bienvenue sur SiraGo": {
+    "en": "Welcome to SiraGo",
+    "bm": "I ni ce SiraGo la"
+  },
+  "Téléphone, email ou identifiant admin": {
+    "en": "Phone, email or admin username",
+    "bm": "Telefɔni, imɛli walima ɲɛmɔgɔ tɔgɔ"
+  },
+  "Compte voyageur": {
+    "en": "Traveler account",
+    "bm": "Taga baga jate"
+  },
+  "Connexion pour réserver": {
+    "en": "Sign in to book",
+    "bm": "Don ka biyɛti ta"
+  },
+  "Connectez-vous pour réserver.": {
+    "en": "Sign in to book your trip.",
+    "bm": "Don ka i ka biyɛti ta."
+  },
+  "Créer mon compte": {
+    "en": "Create my account",
+    "bm": "N ka jate da"
+  },
+  "Pas encore de compte ?": {
+    "en": "New here?",
+    "bm": "I ka jate tɛ wa?"
+  },
+  "Vous avez déjà un compte ?": {
+    "en": "Already have an account?",
+    "bm": "I ka jate bɛ wa?"
+  },
+  "Retour à l’accueil": {
+    "en": "Back to home",
+    "bm": "Segi so"
+  },
+  "Afficher le mot de passe": {
+    "en": "Show password",
+    "bm": "Gundo daɲɛ jira"
+  },
+  "Masquer le mot de passe": {
+    "en": "Hide password",
+    "bm": "Gundo daɲɛ dogo"
+  },
+  "Veuillez patienter…": {
+    "en": "Please wait…",
+    "bm": "Makɔnɔ dɔɔnin…"
+  },
+  "Continuer": {
+    "en": "Continue",
+    "bm": "A ka tɛmɛ"
   }
 };
 const listeners=new Set<()=>void>();
@@ -682,4 +735,12 @@ export function t(text:string){return translateText(text,language)}
 function subscribe(fn:()=>void){listeners.add(fn);return()=>{listeners.delete(fn)}}
 export function useLanguage(){return useSyncExternalStore(subscribe,()=>language,()=>'fr' as Language)}
 export function setLanguage(lang:Language){language=lang;try{localStorage.setItem('sirago-language',lang)}catch{};if(typeof document!=='undefined')document.documentElement.lang=lang;listeners.forEach(fn=>fn())}
-export function LanguageSelect(){const lang=useLanguage();useEffect(()=>{document.documentElement.lang=lang},[lang]);return <select className="sirago-language" aria-label="Langue / Language / Kan" value={lang} onChange={e=>setLanguage(e.target.value as Language)}><option value="fr">FR · Français</option><option value="en">EN · English</option><option value="bm">BM · Bamanankan</option></select>}
+export function LanguageFlag({lang}:{lang:Language}){
+ const bands=lang==='fr'?['#244aa5','#fff','#ed2939']:['#14a653','#f7cf35','#e33d42'];
+ return <svg className="language-flag" viewBox="0 0 24 18" aria-hidden="true" focusable="false">{lang==='en'?<><rect width="24" height="18" fill="#17376b"/><path d="M0 0L24 18M24 0L0 18" stroke="#fff" strokeWidth="4"/><path d="M0 0L24 18M24 0L0 18" stroke="#ce2639" strokeWidth="1.5"/><path d="M12 0V18M0 9H24" stroke="#fff" strokeWidth="6"/><path d="M12 0V18M0 9H24" stroke="#ce2639" strokeWidth="3.5"/></>:bands.map((color,i)=><rect key={i} x={i*8} width="8" height="18" fill={color}/>)}</svg>
+}
+export function LanguageSelect(){
+ const lang=useLanguage();
+ useEffect(()=>{document.documentElement.lang=lang},[lang]);
+ return <span className="language-pill"><span className="language-pill-face" aria-hidden="true"><LanguageFlag lang={lang}/><strong>{lang.toUpperCase()}</strong><ChevronDown size={13}/></span><select className="sirago-language" aria-label="Langue / Language / Kan" value={lang} onChange={e=>setLanguage(e.target.value as Language)}><option value="fr">🇫🇷 Français</option><option value="en">🇬🇧 English</option><option value="bm">🇲🇱 Bamanankan</option></select></span>
+}
