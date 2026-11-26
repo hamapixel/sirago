@@ -13,3 +13,6 @@ Les tests automatisés utilisent des réponses simulées. Aucun appel réel n'es
 
 ## Réservations — première intégration
 Activer explicitement SIRAGO_ENABLE_SASPAY_SANDBOX=1 en local. Une tentative durable par réservation, montant calculé par Django, référence dans metadata et expiration au plus tard à la fin du blocage. En cas de réponse incertaine, aucun retry automatique. Vérification manuelle par API détail + statut, sans webhook ni conversion en billet ou recette. Les places restent bloquées uniquement jusqu’à l’expiration initiale ; un paiement tardif n’émet aucun billet. La simulation locale ne peut plus être utilisée sur une réservation associée à un Checkout. Une demande incertaine nécessite une revue manuelle dans SasPay. Identité fictive envoyée au fournisseur. Les options proposées par le checkout sont celles de SasPay, non limitées aux trois réseaux mobiles. Cette étape ne doit pas être utilisée en production.
+
+## Historique voyageur
+Pagination serveur de 10 par défaut, recherche multi-mots sur les réservations du compte, filtres de statut incluant SasPay. Les confirmations restent exclusivement côté serveur : bouton de vérification depuis la liste et les détails, sans nouvelle session ni billet. Un paiement Sandbox confirmé n'est pas une recette réelle. Aucun webhook ni changement de disponibilité à cette étape.

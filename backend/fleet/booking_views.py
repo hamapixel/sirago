@@ -78,7 +78,7 @@ def simulation_enabled():
 
 def booking_json(b):
     now=timezone.now()
-    legs=list(b.legs.select_related("departure__route","departure__company","departure__bus").order_by("position"))
+    legs=b.history_legs if hasattr(b,"history_legs") else list(b.legs.select_related("departure__route","departure__company","departure__bus").order_by("position"))
     return {"id":b.id,"reference":str(b.request_id),"count":b.passengers,"status":"EXPIRED" if b.status==Booking.Status.HELD and b.expires_at<=now else b.status,"expires_at":b.expires_at.isoformat(),"created_at":b.created_at.isoformat(),
             "passenger_names":b.passenger_names,"ticket_mode":b.ticket_mode,"replacement_id":b.outgoing_report.replacement_id if b.status==Booking.Status.REPORTED and hasattr(b,"outgoing_report") else None,"retained_id":b.outgoing_report.retained_id if b.status==Booking.Status.REPORTED and hasattr(b,"outgoing_report") else None,"total":sum(l.total for l in legs),
             "simulation_enabled":simulation_enabled(),
@@ -144,13 +144,12 @@ def reserve(request):
 def mine(request):
     denied=traveler_error(request)
     if denied is not None:return denied
+    from .booking_history import history
     try:
-        page=bounded_int(request.GET.get("page","1"),1,10000)
-    except ValueError:
-        return error("Page invalide.")
-    offset=(page-1)*30
-    rows=list(Booking.objects.filter(traveler=request.user).order_by("-id")[offset:offset+31])
-    return JsonResponse({"items":[booking_json(b) for b in rows[:30]],"has_next":len(rows)>30})
+        rows,meta=history(request,timezone.now())
+    except (ValueError,OverflowError):
+        return error("Recherche, statut ou pagination invalide.")
+    return JsonResponse({"items":[booking_json(b) for b in rows],**meta})
 
 @never_cache
 @require_GET

@@ -36,3 +36,17 @@ export function validPassengerNames(names:string[],count:number){return names.le
 export const defaultPremiumPositions=(t:Trip,count:number)=>Array.from({length:Math.max(0,count-t.standard_remaining)},(_,i)=>count-1-i).sort((a,b)=>a-b);
 export const categoryTotal=(t:Trip,count:number,positions:number[])=>t.price*(count-positions.length)+t.premium_price*positions.length;
 export const validCategories=(t:Trip,count:number,positions:number[])=>positions.length<=t.premium_remaining&&count-positions.length<=t.standard_remaining&&new Set(positions).size===positions.length&&positions.every(p=>Number.isInteger(p)&&p>=0&&p<count);
+
+export const historyFilters=[['','Toutes les réservations'],['HELD','En attente de paiement'],['SASPAY_PENDING','SasPay à vérifier'],['SASPAY_PAID','SasPay confirmé (TEST)'],['TEST_PAID','Billets de test émis'],['EXPIRED','Expirées'],['CANCELLED','Annulées'],['REPORTED','Reportées'],['LATE_PAID','Paiements tardifs'],['REVIEW','Sessions à examiner']] as const;
+export function historyPath(query:string,status:string,page:number){return 'bookings/?'+new URLSearchParams({q:query.trim(),status,page:String(page),page_size:'10'})}
+export function historyLabel(b:Booking,now=Date.now()){
+ const a=b.sandbox_checkout;
+ if(a?.status==='PAID')return 'Paiement SasPay confirmé (TEST)';
+ if(a?.status==='LATE_PAID')return 'Paiement tardif (TEST)';
+ if(a?.status==='PENDING')return 'Paiement SasPay à vérifier';
+ if(a?.status==='EXPIRED')return 'Session SasPay expirée';
+ if(a?.status==='CANCELLED')return 'Session SasPay annulée';
+ if(a&&['UNKNOWN','CREATING'].includes(a.status))return 'Session SasPay à examiner';
+ return bookingLabel(effectiveBookingStatus(b,now));
+}
+export const canVerifySasPay=(b:Booking)=>!!b.sandbox_checkout_enabled&&b.sandbox_checkout?.status==='PENDING';
