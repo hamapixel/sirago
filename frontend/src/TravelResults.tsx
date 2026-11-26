@@ -2,7 +2,7 @@ import {useState} from 'react';
 import {ArrowLeft,ArrowRight,BusFront,ShieldCheck,SlidersHorizontal,Search,CheckCircle2,MapPin} from 'lucide-react';
 import {useTravel,tripPath,defaultFilters,priceText,timeText,dayText,durationText,minimumTripTotal,compatible,type Trip,type TripPage,type Criteria,type Filters} from './travel-api';
 import './travel.css';
-import {PartnerLogo} from './PartnerSpace';
+import {PartnerLogo} from './PartnerCard';
 import {partnerInfo} from './partners';
 
 export function TripCard({trip,count,onChoose}:{trip:Trip;count:number;onChoose:()=>void}){

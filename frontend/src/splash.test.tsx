@@ -31,3 +31,5 @@ describe('Démarrage SiraGo',()=>{
   await pending;
  });
 });
+
+it('utilise un anneau circulaire lumineux sans rallonger le démarrage',()=>{const html=readFileSync('index.html','utf8');expect(html).toContain('rotate(360deg)');expect(html).toContain('border-radius:50%');expect(html).not.toContain('translateX(163%)')});

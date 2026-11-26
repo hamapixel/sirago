@@ -16,7 +16,8 @@ from accounts.views import data, field, error, phone_number
 from .models import Bus, Route, Departure
 from .availability import active_legs, with_remaining
 
-CITIES = ["Bamako","Sikasso","Kayes","Ségou","Koutiala","Bougouni","Mopti","San","Kita"]
+from .localities import valid_localities
+CITIES = ["Bamako","Kayes","Koulikoro","Sikasso","Ségou","Mopti","Tombouctou","Gao","Kidal","Taoudenni","Ménaka","Nioro du Sahel","Kita","Dioïla","Nara","Bougouni","Koutiala","San","Douentza","Bandiagara","Bafoulabé","Yélimané","Kéniéba","Ambidédi","Aourou","Diamou","Oussoubidiagna","Ségala","Sadiola","Banamba","Kangaba","Kati","Kolokani","Nyamina","Siby","Néguéla","Kadiolo","Dandéresso","Kignan","Kléla","Lobougoula","Loulouni","Niéna","Bla","Barouéli","Niono","Macina","Dioro","Farako","Nampala","Sokolo","Markala","Sarro","Djenné","Ténenkou","Youwarou","Konna","Korientzé","Sofara","Toguéré-Coumbé","Goundam","Diré","Niafunké","Gourma-Rharous","Bintagoungou","Saraféré","Bambara Maoudé","Léré","Gossi","Tonka","Ber","Gargando","Bourem","Ansongo","Almoustrat","Bamba","Ouattagouna","Soni Aliber","Djebock","Talataye","Tessit","N'Tillit","Gabéro","Ersane","Tabankort","Tin-Aouker","Kassambéré","Abeïbara","Tin-Essako","Tessalit","Achibogho","Anéfif","Timétrine","Aguel-Hoc","Takalote","Araouane","Foum-Elba","Boudje-Béha","Al-Ourche","Achouratt","Tidermène","Inékar","Andéramboukane","Anouzagrène","Diéma","Diangounté","Sandaré","Troungoumbé","Béma","Sagabari","Sébékoro","Toukoto","Séféto","Kolondiéba","Yanfolila","Yorosso","Tominian","Boré","Hombori","N'Gouma","Mondoro","Boni","Koro","Bankass","Kendié","Ningari","Dialassagou","Sangha","Kani","Sokoura","Kalabancoro","Baguinéda","Moribabougou","Mountougoula","Dialakorodji","Sangarébougou","Ouélessébougou","Fana","Massigui","Zantiébougou","Garalo","Sélingué","Koury","Kimparana","Yangasso","Pelengana","Sévaré","Finkolo"]
 TZ = ZoneInfo("Africa/Bamako")
 D = Departure.Status
 
@@ -135,7 +136,7 @@ def routes(request,company,pk=None):
         return error("Trajet introuvable.",404)
     origin=field(v,"origin",100)
     destination=field(v,"destination",100)
-    if origin not in CITIES or destination not in CITIES or origin==destination:
+    if not valid_localities(origin,destination):
         raise ValueError("Sélectionnez deux villes différentes.")
     boarding=field(v,"boarding_point",200)
     arrival=field(v,"arrival_point",200)

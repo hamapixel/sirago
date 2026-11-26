@@ -1,17 +1,19 @@
 import {lazy,Suspense,useEffect,useState} from 'react';
-import AuthPage from './AuthPage';
+const AuthPage=lazy(()=>import('./AuthPage'));
 import SplashScreen from './SplashScreen';
-import NotificationsDialog from './NotificationsDialog';
+const NotificationsDialog=lazy(()=>import('./NotificationsDialog'));
 import {useNotificationCount} from './NotificationCenter';
-import TravelerProfile from './TravelerProfile';
+const TravelerProfile=lazy(()=>import('./TravelerProfile'));
 const SupportCenter=lazy(()=>import('./SupportCenter'));
 const SuperadminSpace=lazy(()=>import('./SuperadminSpace'));
-import CompanySpace from './CompanySpace';
-import CompanyAgentSpace from './CompanyAgentSpace';
-import TravelResults from './TravelResults';
+const CompanySpace=lazy(()=>import('./CompanySpace'));
+const CompanyAgentSpace=lazy(()=>import('./CompanyAgentSpace'));
+const TravelResults=lazy(()=>import('./TravelResults'));
 import {CityField} from './CityField';
-import PartnerSpace,{PartnerCard} from './PartnerSpace';
-import BookingSpace,{MyBookings} from './BookingSpace';
+import {PartnerCard} from './PartnerCard';
+const PartnerSpace=lazy(()=>import('./PartnerSpace'));
+const BookingSpace=lazy(()=>import('./BookingSpace'));
+const MyBookings=lazy(()=>import('./BookingSpace').then(m=>({default:m.MyBookings})));
 import {parseSelection,bookingUrl,authUrl,type Selection} from './booking-api';
 import {useTravel,priceText,type HomeData,type Trip,type PartnerCompany} from './travel-api';
 import {authPost,currentAccount,destination,type Account} from './auth-api';
@@ -59,8 +61,8 @@ export default function App(){
  if(!sessionError&&((protectedPath&&!account)||(account&&(auth||path==='/preview/company/'||(preview&&account.role!=='COMPANY')||(supervision&&account.role!=='ADMIN')||((path==='/app/'||booking)&&account.role!=='TRAVELER')||(path==='/'&&account.role!=='TRAVELER')))))return <SplashScreen message="Redirection…"/>;
  if(supervision&&account?.role==='ADMIN')return <Suspense fallback={<SplashScreen message="Chargement de l’administration…"/>}><SuperadminSpace onLogout={signOut} sessionError={sessionError}/></Suspense>;
  return <><header className="header"><div className="header-inner"><a className="brand" href="/"><img src="/logo.svg" alt=""/>SiraGo</a><div className="header-actions"><span className="language">🇲🇱 FR</span>{account?<button type="button" className="outline" onClick={signOut}>Déconnexion</button>:<a href="/login/" className="login">Connexion</a>}<button type="button" className="icon-button notification-bell" aria-label={unreadCount?`Notifications, ${unreadCount} non lues`:"Notifications"} aria-haspopup="dialog" aria-expanded={notificationsOpen} onClick={()=>setNotificationsOpen(true)}><Bell size={21}/>{unreadCount>0&&<span className="notification-count" aria-hidden="true">{unreadCount>99?'99+':unreadCount}</span>}</button></div></div></header>
- <main className={preview?"layout company-layout":"layout"}>
- {sessionError&&<p role="alert" className="auth-error">{sessionError}</p>}{auth?<AuthPage register={path==='/register/'} selection={selection}/>:preview&&account?(account.company_role==="CLERK"||account.company_role==="CONTROLLER"?<CompanyAgentSpace account={account} onLogout={signOut}/>:<CompanySpace account={account} onLogout={signOut} onUpdated={setAccount}/>):booking&&account?<>{selection?<BookingSpace selection={selection} account={account} onHistory={()=>choose('tickets')}/>:<section className="panel empty"><p>Sélection de voyage invalide.</p><a href="/app/" className="primary">Rechercher un voyage</a></section>}</>:tab==='home'&&partner?<PartnerSpace key={partner.id} company={partner} initialDate={date} initialCount={count} onBack={closePartner} onBook={bookPartner}/>:tab==='home'&&result?<TravelResults criteria={criteria} initialTrip={initialTrip} onBack={closeResults} onContinue={continueBooking}/>:tab==='home'?<>
+ <main className={preview?"layout company-layout":"layout"}><Suspense fallback={<div className="sirago-inline-loading" role="status"><span className="sirago-splash-loader" aria-hidden="true"/>Chargement…</div>}>
+ {sessionError&&<p role="alert" className="auth-error">{sessionError}</p>}{auth?<AuthPage register={path==='/register/'} selection={selection}/>:preview&&account?(account.company_role==="CLERK"||account.company_role==="CONTROLLER"?<CompanyAgentSpace account={account} onLogout={signOut}/>:<CompanySpace account={account} onLogout={signOut} onUpdated={setAccount}/>):booking&&account?<>{selection?<BookingSpace selection={selection} account={account} onHistory={()=>choose('tickets')}/>:<section className="panel empty"><p>Sélection de voyage invalide.</p><a href="/app/" className="primary">Rechercher un voyage</a></section>}</>:tab==='home'&&partner?<PartnerSpace key={partner.id} company={partner} initialCount={count} onBack={closePartner} onBook={bookPartner}/>:tab==='home'&&result?<TravelResults criteria={criteria} initialTrip={initialTrip} onBack={closeResults} onContinue={continueBooking}/>:tab==='home'?<>
  {account?.role==="TRAVELER"&&<p className="welcome-user">Bienvenue, {account.first_name} !</p>}
  <section className="hero" aria-label="Présentation SiraGo"><div className="hero-top"><span>SIRAGO</span><button onClick={()=>SP(!paused)} className="pause">{paused?'Reprendre':'Pause'}</button></div><Swiper key={key} modules={[Autoplay,Pagination,A11y]} autoplay={auto} pagination={{clickable:true}} loop slidesPerView={1} speed={reduce?0:450}>{slides.map(([title,desc],i)=><SwiperSlide key={title}><div className="hero-slide"><h1>{title}</h1><p>{desc}</p><img src={`/images/slides/slide-0${i+1}.webp`} alt={["Autocar SiraGo sur une route africaine","Intérieur illustratif d’un autocar confortable","Voyageur présentant son billet numérique illustratif","Autocar SiraGo dans un paysage africain"][i]} loading={i===0?'eager':'lazy'} onError={e=>{if(!e.currentTarget.src.endsWith("/coach.svg"))e.currentTarget.src="/coach.svg"}}/></div></SwiperSlide>)}</Swiper></section>
  <InstallApp/>
@@ -71,6 +73,6 @@ export default function App(){
  <section className="stats benefits">{[[ShieldCheck,'Paiement SasPay','Mode test'],[Ticket,'Billet numérique','TEST'],[CalendarClock,'Report de voyage','TEST'],[CircleHelp,'Assistance','Centre d’aide']].map(([I,t,status])=>{const Icon=I as typeof ShieldCheck;return t==='Assistance'?<button type="button" className="panel menu" key={String(t)} onClick={()=>{choose('support');window.scrollTo({top:0,behavior:'instant'})}}><Icon size={23}/>{String(t)}<small>{String(status)}</small></button>:<article className="panel menu" key={String(t)}><Icon size={23}/>{String(t)}<small>{String(status)}</small></article>})}</section>
  {!account&&!loading&&<section className="panel join"><h2>Rejoignez SiraGo</h2><a className="primary" href="/register/">Créer mon compte <ArrowRight size={18}/></a></section>}
  </>:tab==='support'?<section className="booking-space"><button className="outline" onClick={()=>choose('home')}>Retour à l’accueil</button><Suspense fallback={<p role="status">Chargement de l’assistance…</p>}><SupportCenter signedIn={!!account}/></Suspense></section>:tab==='tickets'?<MyBookings account={account} onSearch={()=>choose('home')}/>:<TravelerProfile account={account?.role==='TRAVELER'?account:null} onUpdated={setAccount} onTickets={()=>choose('tickets')} onLogout={signOut}/>}
- <footer>Propulsé par BTDIGIT</footer></main>
- {!auth&&!preview&&<nav className="bottom" aria-label="Navigation principale">{preview?<a href="/"><House size={22}/>Accueil</a>:[[House,'Accueil','home'],[Ticket,'Mes billets','tickets'],[UserRound,'Profil','profile']].map(([I,label,v])=>{const Icon=I as typeof House;return <button key={String(v)} className={tab===v?'selected':''} onClick={()=>choose(String(v))} aria-current={tab===v?'page':undefined}><Icon size={23}/>{String(label)}</button>})}</nav>}{notificationsOpen&&<NotificationsDialog signedIn={!!account} onClose={()=>setNotificationsOpen(false)}/>}</>;
+ </Suspense><footer>Propulsé par BTDIGIT</footer></main>
+ {!auth&&!preview&&<nav className="bottom" aria-label="Navigation principale">{preview?<a href="/"><House size={22}/>Accueil</a>:[[House,'Accueil','home'],[Ticket,'Mes billets','tickets'],[UserRound,'Profil','profile']].map(([I,label,v])=>{const Icon=I as typeof House;return <button key={String(v)} className={tab===v?'selected':''} onClick={()=>choose(String(v))} aria-current={tab===v?'page':undefined}><Icon size={23}/>{String(label)}</button>})}</nav>}{notificationsOpen&&<Suspense fallback={<div className="sirago-inline-loading" role="status"><span className="sirago-splash-loader" aria-hidden="true"/>Chargement…</div>}><NotificationsDialog signedIn={!!account} onClose={()=>setNotificationsOpen(false)}/></Suspense>}</>;
 }

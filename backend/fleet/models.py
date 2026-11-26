@@ -2,6 +2,13 @@ from django.db import models
 from django.db.models import Q, F
 from accounts.models import Company
 
+class Locality(models.Model):
+    name = models.CharField(max_length=100, unique=True)
+    kind = models.CharField(max_length=12, choices=[("DISTRICT","District"),("REGION","Région / chef-lieu"),("CERCLE","Cercle"),("LOCALITY","Localité")])
+
+    def __str__(self):
+        return self.name
+
 class Bus(models.Model):
     company = models.ForeignKey(Company, on_delete=models.PROTECT, related_name="buses")
     name = models.CharField(max_length=100)

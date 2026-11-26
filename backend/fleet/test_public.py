@@ -136,3 +136,24 @@ class PublicSearchTests(TestCase):
         r=self.partner().json()
         self.assertEqual((len(r["items"]),r["total"],r["has_next"]),(20,21,True))
         self.assertEqual(len(self.partner(page=2).json()["items"]),1)
+
+    def test_partner_all_dates_default(self):
+        a=self.departure()
+        b=self.departure(starts_at=self.start+timedelta(days=2),ends_at=self.start+timedelta(days=2,hours=7))
+        self.departure(status="SUSPENDED")
+        r=self.partner(date="").json()
+        self.assertEqual({t["id"] for t in r["items"]},{a.pk,b.pk})
+        self.assertEqual(r["total"],2)
+        self.assertIsNone(r["next_date"])
+
+    def test_localities_seed_and_new_route_search(self):
+        from .models import Locality
+        self.assertEqual(Locality.objects.filter(kind="REGION").count(),19)
+        self.assertTrue(Locality.objects.filter(name="Bamako",kind="DISTRICT").exists())
+        self.assertTrue(Locality.objects.filter(name="Kati").exists())
+        self.assertTrue(Locality.objects.filter(name="Kalabancoro").exists())
+        self.route.destination="Gao"
+        self.route.save()
+        self.departure()
+        self.assertEqual(self.search(destination="Gao").json()["total"],1)
+        self.assertEqual(self.search(destination="Ville inconnue").status_code,400)
