@@ -1,9 +1,11 @@
-import {useState,useRef,useEffect,type FormEvent,type ReactNode} from 'react';
+import {lazy,Suspense,useState,useRef,useEffect,type FormEvent,type ReactNode} from 'react';
 import {ArrowLeft,Bell,ChevronRight,Globe,Headset,History,Info,LockKeyhole,LogOut,Mail,Phone,Settings,ShieldCheck,Ticket,UserRound,UserRoundPen} from 'lucide-react';
 import {authPost,type Account} from './auth-api';
 import {passwordValid} from './auth-validation';
 import {initials,validProfileName} from './profile-validation';
 import './profile.css';
+import NotificationCenter from './NotificationCenter';
+const SupportCenter=lazy(()=>import('./SupportCenter'));
 
 type Page='home'|'settings'|'edit'|'password'|'transactions'|'language'|'notifications'|'support'|'about'|'legal';
 type Props={account:Account|null;onUpdated:(account:Account)=>void;onTickets:()=>void;onLogout:()=>Promise<void>};
@@ -60,8 +62,8 @@ export default function TravelerProfile({account,onUpdated,onTickets,onLogout}:P
  <button className="primary" disabled={busy||(page==='edit'?(!validProfileName(first)||!validProfileName(last)):(!current||!passwordValid(password,confirmation)))}>{busy?'Enregistrement…':'Enregistrer'}</button></form>}
  {page==='transactions'&&<div className="panel profile-message"><History size={30}/><h2>Paiements à venir</h2><p>L’historique sera disponible après activation des paiements.</p><button className="outline" onClick={onTickets}>Mes réservations</button></div>}
  {page==='language'&&<div className="panel profile-message"><Globe size={30}/><h2>Français</h2><p>Langue actuellement disponible.</p></div>}
- {page==='notifications'&&<div className="panel profile-message"><Bell size={30}/><h2>Notifications à venir</h2><p>Les alertes de voyage seront activées ultérieurement.</p></div>}
- {page==='support'&&<div className="panel profile-faq"><h2>Questions fréquentes</h2><details><summary>Comment réserver ?</summary><p>Recherchez un trajet, choisissez un départ et confirmez les passagers.</p></details><details><summary>Pourquoi ma réservation expire ?</summary><p>Les places sont bloquées 15 minutes au maximum avant paiement.</p></details><details><summary>Comment annuler ?</summary><p>Ouvrez une réservation en attente depuis Mes billets et choisissez Annuler.</p></details><button className="outline" onClick={onTickets}>Mes réservations</button><small>Le service d’assistance directe n’est pas encore activé.</small></div>}
+ {page==='notifications'&&<NotificationCenter signedIn={!!account}/>}
+ {page==='support'&&<Suspense fallback={<p role="status">Chargement de l’assistance…</p>}><SupportCenter/></Suspense>}
  {page==='about'&&<div className="panel profile-message"><img src="/logo.svg" width="64" height="64" alt=""/><h2>SiraGo</h2><p>Ka billet ta fô i sigi yorola.</p><p>Réservez votre billet sans vous déplacer.</p><small>Propulsé par BTDIGIT</small></div>}
  {page==='legal'&&<div className="panel profile-message"><ShieldCheck size={30}/><h2>Version de développement</h2><p>Les conditions définitives et la politique de confidentialité seront publiées avant le lancement.</p></div>}
  {confirmLogout&&<dialog ref={dialog} className="booking-dialog" aria-labelledby="profile-logout-title" onCancel={e=>{e.preventDefault();if(!busy)setConfirmLogout(false)}}><h2 id="profile-logout-title">Se déconnecter ?</h2><p>Vos réservations restent enregistrées.</p><div className="profile-dialog-actions"><button className="outline" autoFocus disabled={busy} onClick={()=>setConfirmLogout(false)}>Retour</button><button className="primary" disabled={busy} onClick={logout}>Déconnexion</button></div></dialog>}

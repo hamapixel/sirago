@@ -9,5 +9,5 @@ describe('Inscription',()=>{
  it('explique une confirmation différente',()=>expect(passwordChecks('Sirago123','Sirago124')).toEqual({length:true,matching:false}));
  it('ne valide pas deux champs vides',()=>expect(passwordChecks('','')).toEqual({length:false,matching:false}));
  it('refuse une longueur supérieure à 128',()=>expect(passwordValid('a'.repeat(129),'a'.repeat(129))).toBe(false));
- it('redirige selon le rôle serveur',()=>{expect(destination({role:'TRAVELER'} as Account)).toBe('/app/');expect(destination({role:'COMPANY'} as Account)).toBe('/company/');expect(destination({role:'ADMIN'} as Account)).toBe('/admin/')});
+ it('redirige selon le rôle serveur',()=>{expect(destination({role:'TRAVELER'} as Account)).toBe('/app/');expect(destination({role:'COMPANY'} as Account)).toBe('/company/');expect(destination({role:'ADMIN'} as Account)).toBe('/superadmin/')});
 });

@@ -1,13 +1,17 @@
+from accounts.notifications import notify
 from datetime import date, datetime, time, timedelta
 from functools import wraps
 from zoneinfo import ZoneInfo
 from django.db import IntegrityError, transaction
+from django.db.models import Q, TextField
+from django.db.models.functions import Cast
+from .listing import search_term, page_slice
 from django.http import JsonResponse
 from django.utils import timezone
 from django.views.decorators.cache import never_cache
 from django.views.decorators.csrf import csrf_protect
 from django.views.decorators.http import require_http_methods
-from accounts.models import Company, User
+from accounts.models import Company, User, CompanyAgent
 from accounts.views import data, field, error
 from .models import Bus, Route, Departure
 from .availability import active_legs, with_remaining
@@ -31,7 +35,20 @@ def company_endpoint(fn):
                 qs = Company.objects
                 if request.method == "POST":
                     qs = qs.select_for_update()
-                company = qs.filter(owner=request.user).first()
+                agent = CompanyAgent.objects.filter(user=request.user).first()
+                if agent:
+                    company = qs.filter(pk=agent.company_id,status=Company.Status.VERIFIED).first()
+                    if not company:return error("Compagnie indisponible.",403)
+                    # Recheck under company lock after concurrent disable or role change.
+                    agent = CompanyAgent.objects.filter(pk=agent.pk,user__is_active=True).first()
+                    if not agent:return error("Agent désactivé.",403)
+                    allowed = fn.__module__ == 'fleet.boarding_views' and fn.__name__ in ('lookup','validate','history')
+                    allowed = allowed or (request.method=='GET' and fn.__module__=='fleet.manifest_views' and fn.__name__ in ('manifest','manifest_pdf'))
+                    allowed = allowed or (request.method=='GET' and fn.__module__=='fleet.views' and (fn.__name__=='departures' or (fn.__name__=='reservations' and agent.role==CompanyAgent.Role.CLERK)))
+                    if not allowed:return error("Permission insuffisante.",403)
+                    request.company_agent=agent
+                else:
+                    company = qs.filter(owner=request.user).first()
                 if not company:
                     return error("Compagnie introuvable.",403)
                 if request.method == "POST" and company.status not in (Company.Status.PENDING, Company.Status.VERIFIED):
@@ -177,16 +194,12 @@ def departures(request,company,pk=None):
             qs = qs.filter(starts_at__gte=datetime.combine(first,time.min,TZ))
         if last:
             qs = qs.filter(starts_at__lt=datetime.combine(last+timedelta(days=1),time.min,TZ))
-        # Bounded page, including historical departures.
-        try:
-            page=int(request.GET.get("page","1"))
-        except ValueError:
-            page=0
-        if not 1<=page<=100000:
-            return error("Page invalide.")
-        start=(page-1)*50
-        rows=list(qs[start:start+51])
-        return JsonResponse({"items":[departure_json(d) for d in rows[:50]],"page":page,"has_next":len(rows)>50})
+        term=search_term(request)
+        if term:
+            for word in term.split():
+                qs=qs.filter(Q(route__origin__icontains=word)|Q(route__destination__icontains=word)|Q(bus__name__icontains=word)|Q(bus__plate__icontains=word)|Q(route__boarding_point__icontains=word))
+        rows,meta=page_slice(request,qs,default_size=50)
+        return JsonResponse({"items":[departure_json(d) for d in rows],**meta})
     v=data(request)
     existing=company.departures.filter(pk=pk).first() if pk is not None else None
     if pk is not None and existing is None:
@@ -238,9 +251,15 @@ def departure_status(request,company,pk):
     if target==D.PUBLISHED and (company.status!=Company.Status.VERIFIED or not d.bus.active or not d.route.active or d.capacity>d.bus.capacity or d.premium_capacity>d.bus.premium_capacity or d.capacity-d.premium_capacity>d.bus.capacity-d.bus.premium_capacity):
         return error("La compagnie, le car et le trajet doivent être actifs et validés.",403)
     if target==D.CANCELLED and active_legs(timezone.now()).filter(departure=d).exists():
-        return error("Des réservations sont en attente. Attendez leur expiration avant d’annuler le départ.",409)
+        return error("Des réservations occupent des places. Impossible d’annuler ce départ.",409)
+    previous=d.status
     d.status=target
     d.save(update_fields=["status"])
+    if target in (D.SUSPENDED,D.CANCELLED) or (previous==D.SUSPENDED and target==D.PUBLISHED):
+        label={D.SUSPENDED:"Départ suspendu",D.CANCELLED:"Départ annulé",D.PUBLISHED:"Départ republié"}[target]
+        recipients=active_legs(timezone.now()).filter(departure=d).values_list("booking__traveler_id",flat=True).distinct()
+        for recipient in recipients:
+            notify(recipient,"DEPARTURE",label,f"{d.route.origin} → {d.route.destination}, {d.starts_at.astimezone(TZ):%d/%m/%Y %H:%M}. Vérifiez les informations de votre réservation.")
     return JsonResponse(departure_json(d))
 
 @company_endpoint
@@ -272,5 +291,11 @@ def reservations(request,company):
         return error("Méthode non autorisée.",405)
     from .models import BookingLeg, Booking
     now=timezone.now()
-    rows=BookingLeg.objects.filter(departure__company=company).select_related("booking","departure__route").order_by("-id")[:100]
-    return JsonResponse({"items":[{"id":l.id,"reference":str(l.booking.request_id),"origin":l.departure.route.origin,"destination":l.departure.route.destination,"starts_at":l.departure.starts_at.isoformat(),"count":l.booking.passengers,"total":l.total,"premium_count":l.premium_count,"status":"EXPIRED" if l.booking.status==Booking.Status.HELD and l.booking.expires_at<=now else l.booking.status,"expires_at":l.booking.expires_at.isoformat()} for l in rows]})
+    qs=BookingLeg.objects.filter(departure__company=company).select_related("booking","departure__route").order_by("-id")
+    term=search_term(request)
+    if term:
+        qs=qs.annotate(names_text=Cast("booking__passenger_names",TextField()),ref_text=Cast("booking__request_id",TextField()))
+        for word in term.split():
+            qs=qs.filter(Q(names_text__icontains=word)|Q(ref_text__icontains=word)|Q(departure__route__origin__icontains=word)|Q(departure__route__destination__icontains=word))
+    rows,meta=page_slice(request,qs)
+    return JsonResponse({"items":[{"id":l.id,"reference":str(l.booking.request_id),"origin":l.departure.route.origin,"destination":l.departure.route.destination,"starts_at":l.departure.starts_at.isoformat(),"count":l.booking.passengers,**({} if getattr(request,"company_agent",None) else {"total":l.total}),"premium_count":l.premium_count,"status":"EXPIRED" if l.booking.status==Booking.Status.HELD and l.booking.expires_at<=now else l.booking.status,"expires_at":l.booking.expires_at.isoformat()} for l in rows],**meta})

@@ -1,0 +1,5 @@
+import {it,expect} from 'vitest';
+import {renderToStaticMarkup} from 'react-dom/server';
+import SuperadminSpace,{SuperadminOverview,type Overview} from './SuperadminSpace';
+it('affiche les indicateurs de supervision et sépare les tests des recettes réelles',()=>{const d:Overview={companies:2,verified_companies:1,pending_companies:1,suspended_companies:0,travelers:8,agents:2,active_buses:3,future_departures:4,test_bookings:5,held_bookings:1,test_boardings:3,open_support:2,real_amount:0,real_payments_enabled:false,generated_at:'2026-11-25T00:00:00Z'};const html=renderToStaticMarkup(<SuperadminOverview data={d} onNavigate={()=>{}}/>);for(const v of ['Compagnies','Voyageurs actifs','Réservations TEST','Recettes réelles','Paiements réels non activés'])expect(html).toContain(v)});
+it('affiche la navigation Superadmin et conserve les opérations sensibles dans Django',()=>{const html=renderToStaticMarkup(<SuperadminSpace onLogout={()=>{}}/>);for(const v of ['Administration SiraGo','Superadministrateur','Compagnies','Voyageurs','Assistance','/admin/','lecture seule'])expect(html).toContain(v)});

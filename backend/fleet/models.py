@@ -67,10 +67,13 @@ class Departure(models.Model):
 class Booking(models.Model):
     class Status(models.TextChoices):
         HELD = "HELD", "En attente de paiement"
+        TEST_PAID = "TEST_PAID", "Paiement simulé"
+        REPORTED = "REPORTED", "Reportée"
         CANCELLED = "CANCELLED", "Annulée"
     traveler = models.ForeignKey("accounts.User", on_delete=models.PROTECT, related_name="bookings")
     request_id = models.UUIDField()
     passengers = models.PositiveIntegerField()
+    ticket_mode = models.CharField(max_length=10, choices=[("group","Collectifs"),("individual","Individuels")], default="group")
     passenger_names = models.JSONField(default=list, blank=True)
     status = models.CharField(max_length=16, choices=Status.choices, default=Status.HELD)
     expires_at = models.DateTimeField()
@@ -79,7 +82,8 @@ class Booking(models.Model):
     class Meta:
         constraints = [
             models.UniqueConstraint(fields=["traveler","request_id"], name="fleet_booking_request_unique"),
-            models.CheckConstraint(condition=Q(passengers__gte=1,passengers__lte=10), name="fleet_booking_passengers"),
+            models.CheckConstraint(condition=Q(passengers__gte=1,passengers__lte=100), name="fleet_booking_passengers"),
+            models.CheckConstraint(condition=Q(ticket_mode__in=["group","individual"]), name="fleet_booking_ticket_mode"),
         ]
 
 class BookingLeg(models.Model):
@@ -100,5 +104,61 @@ class BookingLeg(models.Model):
             models.UniqueConstraint(fields=["booking","position"], name="fleet_booking_leg_position"),
             models.UniqueConstraint(fields=["booking","departure"], name="fleet_booking_leg_unique"),
             models.CheckConstraint(condition=Q(position__lte=1,unit_price__gte=1,unit_price__lte=1000000), name="fleet_booking_leg_values"),
-            models.CheckConstraint(condition=Q(premium_count__lte=10) & (Q(premium_count=0,premium_unit_price=0) | Q(premium_count__gt=0,premium_unit_price__gte=F("unit_price"),premium_unit_price__lte=1000000)),name="fleet_leg_premium_values"),
+            models.CheckConstraint(condition=Q(premium_count__lte=100) & (Q(premium_count=0,premium_unit_price=0) | Q(premium_count__gt=0,premium_unit_price__gte=F("unit_price"),premium_unit_price__lte=1000000)),name="fleet_leg_premium_values"),
         ]
+
+
+class SimulatedPayment(models.Model):
+    """Local test record, never a financial transaction."""
+    booking = models.OneToOneField(Booking, on_delete=models.PROTECT, related_name="simulated_payment")
+    amount = models.PositiveIntegerField()
+    network = models.CharField(max_length=20, choices=[("orange_ml", "Orange Money"), ("moov_ml", "Moov Money")])
+    created_at = models.DateTimeField(auto_now_add=True)
+
+
+class TestTicketReference(models.Model):
+    code = models.CharField(max_length=41, unique=True)
+    leg = models.ForeignKey(BookingLeg, on_delete=models.PROTECT, related_name="test_ticket_refs")
+    anchor = models.PositiveSmallIntegerField()
+
+    class Meta:
+        constraints = [models.UniqueConstraint(fields=["leg","anchor"],name="fleet_test_ticket_anchor")]
+
+
+class TestBoarding(models.Model):
+    leg = models.ForeignKey(BookingLeg, on_delete=models.PROTECT, related_name="test_boardings")
+    passenger = models.PositiveSmallIntegerField()
+    actor = models.ForeignKey("accounts.User", on_delete=models.PROTECT)
+    boarded_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        constraints = [models.UniqueConstraint(fields=["leg","passenger"],name="fleet_test_boarding_once")]
+
+
+class TestTicketReport(models.Model):
+    original = models.OneToOneField(Booking, on_delete=models.PROTECT, related_name="outgoing_report")
+    replacement = models.OneToOneField(Booking, on_delete=models.PROTECT, related_name="incoming_report")
+    retained = models.OneToOneField(Booking, on_delete=models.PROTECT, related_name="retained_report", null=True, blank=True)
+    selected_positions = models.JSONField(default=list, blank=True)
+    previous_amount = models.PositiveIntegerField()
+    new_amount = models.PositiveIntegerField()
+    created_at = models.DateTimeField(auto_now_add=True)
+
+
+class SandboxCheckout(models.Model):
+    """One provider checkout attempt per local test reservation; never a real receipt."""
+    booking = models.OneToOneField(Booking, on_delete=models.PROTECT, related_name="sandbox_checkout")
+    amount = models.PositiveIntegerField()
+    provider_id = models.UUIDField(null=True, blank=True, unique=True)
+    checkout_url = models.URLField(max_length=1000, blank=True)
+    status = models.CharField(max_length=16, default="CREATING")
+    created_at = models.DateTimeField(auto_now_add=True)
+    checked_at = models.DateTimeField(null=True, blank=True)
+    transaction_id = models.UUIDField(null=True, blank=True, unique=True)
+    issued_at = models.DateTimeField(null=True, blank=True)
+
+
+class SandboxWebhookReceipt(models.Model):
+    transaction_id = models.UUIDField(unique=True)
+    received_at = models.DateTimeField(auto_now_add=True)
+    matched_at = models.DateTimeField(null=True, blank=True)

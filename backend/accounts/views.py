@@ -13,7 +13,7 @@ from django.middleware.csrf import get_token
 from django.views.decorators.cache import never_cache
 from django.views.decorators.csrf import csrf_protect
 from django.views.decorators.http import require_GET, require_POST
-from .models import User, Company
+from .models import User, Company, CompanyAgent
 
 def error(message, status=400):
     return JsonResponse({"detail": message}, status=status)
@@ -21,8 +21,8 @@ def error(message, status=400):
 def csrf_failure(request, reason=""):
     return error("Session de sécurité expirée. Actualisez la page et réessayez.", 403)
 
-def data(request):
-    if len(request.body) > 16384:
+def data(request, max_bytes=16384):
+    if len(request.body) > max_bytes:
         raise ValueError("Requête trop volumineuse.")
     try:
         value = json.loads(request.body)
@@ -65,9 +65,11 @@ def profile(user):
               "email": user.email, "role": "ADMIN" if user.is_superuser else user.role,
               "company": None}
     if not user.is_superuser and user.role == User.Role.COMPANY:
-        company = Company.objects.filter(owner=user).first()
+        agent = CompanyAgent.objects.select_related("company").filter(user=user).first()
+        company = agent.company if agent else Company.objects.filter(owner=user).first()
         if company:
             result["company"] = {"name": company.name, "status": company.status, "city": company.city}
+            result["company_role"] = agent.role if agent else "OWNER"
     return result
 
 @never_cache
@@ -153,6 +155,9 @@ def sign_in(request):
             return error("Identifiants incorrects.", 401)
     except ValueError as exc:
         return error(str(exc))
+    agent=CompanyAgent.objects.select_related("company").filter(user=user).first()
+    if agent and agent.company.status!=Company.Status.VERIFIED:
+        return error("Accès de la compagnie indisponible.",403)
     login(request, user)
     return JsonResponse(profile(user))
 
@@ -180,7 +185,7 @@ def company_account(request):
     company = Company.objects.filter(owner=request.user).first()
     if not company:
         return error("Compagnie introuvable.", 403)
-    return JsonResponse({"name": company.name, "status": company.status, "city": company.city})
+    return JsonResponse({"name": company.name, "status": company.status, "city": company.city, "address": company.address, "registration_number": company.registration_number})
 
 def traveler_profile_error(request):
     if not request.user.is_authenticated:
@@ -216,6 +221,9 @@ def change_traveler_password(request):
     denied = traveler_profile_error(request)
     if denied is not None:
         return denied
+    return change_password(request)
+
+def change_password(request):
     if limited(request, "password-change:" + str(request.user.pk), 10):
         return error("Trop de tentatives. Réessayez dans quelques minutes.", 429)
     try:
@@ -243,3 +251,40 @@ def change_traveler_password(request):
     except ValueError as exc:
         return error(str(exc))
     return JsonResponse({"detail": "Mot de passe modifié."})
+
+
+def company_profile_error(request):
+    if not request.user.is_authenticated:
+        return error("Connexion requise.",401)
+    if request.user.is_superuser or request.user.role != User.Role.COMPANY or not Company.objects.filter(owner=request.user).exists():
+        return error("Accès réservé aux compagnies.",403)
+    return None
+
+@never_cache
+@csrf_protect
+@require_POST
+def update_company_profile(request):
+    denied=company_profile_error(request)
+    if denied is not None:return denied
+    try:
+        values=data(request)
+        first=" ".join(field(values,"first_name",150).split())
+        last=" ".join(field(values,"last_name",150).split())
+        if not first or not last or any(ord(ch)<32 for ch in first+last):
+            raise ValueError("Nom ou prénom invalide.")
+    except ValueError as exc:
+        return error(str(exc))
+    user=request.user
+    user.first_name,user.last_name=first,last
+    user.save(update_fields=["first_name","last_name"])
+    return JsonResponse(profile(user))
+
+@never_cache
+@csrf_protect
+@require_POST
+def change_company_password(request):
+    if request.user.is_authenticated and not request.user.is_superuser and request.user.role==User.Role.COMPANY and CompanyAgent.objects.filter(user=request.user,company__status=Company.Status.VERIFIED).exists():
+        return change_password(request)
+    denied=company_profile_error(request)
+    if denied is not None:return denied
+    return change_password(request)

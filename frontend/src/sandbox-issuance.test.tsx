@@ -1,0 +1,11 @@
+import {it,expect} from 'vitest';
+import {renderToStaticMarkup} from 'react-dom/server';
+import {returnedBookingId,sandboxTicketsIssued,historyLabel,type Booking} from './booking-api';
+import TestTickets from './TestTickets';
+import {reportUnavailableReason} from './ReportAction';
+import {FinanceSummary} from './CompanyFinance';
+const b:Booking={id:25,reference:'test',status:'TEST_PAID',count:1,passenger_names:['Awa Test'],total:8000,created_at:'2026-11-26T10:32:00Z',expires_at:'2026-11-26T10:47:00Z',trips:[],simulation_enabled:true,sandbox_checkout_enabled:true,sandbox_checkout:{status:'PAID',amount:8000,checkout_url:''}};
+it('ouvre une réservation précise sans accepter les identifiants invalides',()=>{expect(returnedBookingId('?view=tickets&booking=25')).toBe(25);for(const v of ['0','-1','1e2','x','9007199254740992'])expect(returnedBookingId('?booking='+v)).toBeNull()});
+it('affiche des billets TEST SasPay sans report local',()=>{expect(sandboxTicketsIssued(b)).toBe(true);expect(reportUnavailableReason(b)).toContain('SasPay');expect(renderToStaticMarkup(<TestTickets booking={b} onBack={()=>{}}/>)).toContain('Paiement SasPay Sandbox réussi')});
+it('ne confond pas un paiement à examiner et un billet émis',()=>{const review:Booking={...b,status:'EXPIRED',sandbox_checkout:{status:'REVIEW_PAID',amount:8000,checkout_url:''}};expect(historyLabel(review)).toContain('examiner');expect(sandboxTicketsIssued(review)).toBe(false)});
+it('isole le montant SasPay des recettes réelles',()=>{const html=renderToStaticMarkup(<FinanceSummary data={{real_amount:0,simulated_amount:0,sandbox_amount:8000,pending_amount:0,simulated_passengers:0,pending_passengers:0,standard:0,premium:0,orange_amount:0,moov_amount:0}}/>);expect(html).toContain('SasPay Sandbox · TEST');expect(html).toContain('Recettes réelles')});
