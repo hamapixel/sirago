@@ -1,5 +1,4 @@
 """Django administration is reserved for active SiraGo superusers."""
-from django.contrib.admin.apps import AdminConfig
 from django.contrib.admin import AdminSite
 from django.contrib.admin.forms import AdminAuthenticationForm
 from django.core.exceptions import ValidationError
@@ -28,6 +27,3 @@ class SiraGoAdminSite(AdminSite):
     def has_permission(self, request):
         return super().has_permission(request) and request.user.is_superuser
 
-
-class SiraGoAdminConfig(AdminConfig):
-    default_site = "config.admin_site.SiraGoAdminSite"
