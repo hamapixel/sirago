@@ -1,6 +1,9 @@
-"""Read-only SasPay sandbox diagnostics. No payment initiation."""
+"""SasPay sandbox diagnostics. Never initiates a debit."""
 import json
 import re
+from decimal import Decimal, InvalidOperation
+from urllib.parse import urlsplit
+from uuid import UUID
 from urllib.error import HTTPError, URLError
 from urllib.request import Request, build_opener, HTTPRedirectHandler
 
@@ -52,3 +55,68 @@ def sandbox_networks(api_key):
         if not payload["next"]:
             return {code: result.get(code) for code in TARGET_NETWORKS}
     raise SasPayError("Pagination SasPay incomplète.")
+
+
+def _checkout_request(api_key, path, payload=None):
+    if not re.fullmatch(r"sk_test_[A-Za-z0-9_-]+", api_key or ""):
+        raise SasPayError("Configurez une clé Sandbox sk_test_ dans SASPAY_API_KEY.")
+    request = Request(
+        SANDBOX_URL + path,
+        headers={"Authorization": f"Bearer {api_key}", "Accept": "application/json", "Content-Type": "application/json"},
+        data=json.dumps(payload).encode("utf-8") if payload is not None else None,
+        method="POST" if payload is not None else "GET",
+    )
+    try:
+        with build_opener(NoRedirect()).open(request, timeout=15) as response:
+            raw = response.read(200001)
+            if len(raw) > 200000:
+                raise SasPayError("Réponse Checkout trop volumineuse.")
+            value = json.loads(raw)
+    except HTTPError as exc:
+        raise SasPayError(f"Checkout Sandbox : HTTP {exc.code}. Vérifiez le tableau de bord avant toute nouvelle tentative.") from None
+    except (URLError, TimeoutError, OSError, ValueError):
+        raise SasPayError("Réponse Checkout indisponible. Vérifiez le tableau de bord avant toute nouvelle tentative.") from None
+    if isinstance(value, dict) and "data" in value:
+        if value.get("success") is not True:
+            raise SasPayError("SasPay a refusé le Checkout.")
+        value = value["data"]
+    if not isinstance(value, dict):
+        raise SasPayError("Format Checkout inattendu.")
+    return value
+
+
+def _session_id(value):
+    try:
+        return str(UUID(str(value)))
+    except (TypeError, ValueError, AttributeError):
+        raise SasPayError("Identifiant de session invalide.") from None
+
+
+def sandbox_checkout_probe(api_key):
+    """Create one unpaid diagnostic session only; never retry or visit its URL."""
+    value = _checkout_request(api_key, "/checkout-sessions/", {
+        "amount": "1000.00", "currency": "XOF", "country": "ML",
+        "description": "SiraGo - Diagnostic Sandbox (sans reservation)",
+        "customer_email": "sirago-test@example.com", "customer_name": "SiraGo Test",
+    })
+    session_id = _session_id(value.get("id"))
+    try:
+        url = urlsplit(value.get("checkout_url", ""))
+        safe = (url.scheme == "https" and url.netloc == "sandbox-checkout.saspay.me"
+                and url.path.startswith("/") and bool(url.path.strip("/")) and not url.fragment)
+        amount_ok = Decimal(str(value.get("amount"))) == Decimal("1000.00")
+    except (ValueError, TypeError, InvalidOperation):
+        safe = amount_ok = False
+    if not safe:
+        raise SasPayError("URL Checkout non conforme au Sandbox. Ne payez pas cette session.")
+    if not amount_ok or value.get("currency") != "XOF" or value.get("country") != "ML" or value.get("status") != "PENDING":
+        raise SasPayError("Montant, devise, pays ou statut Checkout inattendu.")
+    return session_id
+
+
+def sandbox_checkout_status(api_key, session_id):
+    session_id = _session_id(session_id)
+    value = _checkout_request(api_key, f"/checkout-sessions/{session_id}/status/")
+    if _session_id(value.get("id")) != session_id or value.get("status") not in ("PENDING", "PAID", "EXPIRED", "CANCELLED"):
+        raise SasPayError("Statut Checkout inattendu.")
+    return value["status"]
