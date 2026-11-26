@@ -100,3 +100,39 @@ class PublicSearchTests(TestCase):
         for item in self.search().json()["items"]:
             for key in ("driver_phone","driver_first_name","driver_last_name"):
                 self.assertNotIn(key,item)
+
+    def partner(self, **kw):
+        return self.client.get(f"/api/v1/travel/partners/{self.company.pk}/",{"date":self.params["date"],**kw})
+
+    def test_partner_only_eligible_departures(self):
+        d=self.departure()
+        self.departure(status="SUSPENDED")
+        self.departure(status="DRAFT")
+        self.departure(starts_at=self.start+timedelta(days=1),ends_at=self.start+timedelta(days=1,hours=7))
+        r=self.partner()
+        self.assertEqual(r.status_code,200,r.content)
+        self.assertEqual(r.json()["company"],{"id":self.company.pk,"name":self.company.name,"city":self.company.city})
+        self.assertEqual([row["id"] for row in r.json()["items"]],[d.pk])
+        self.assertEqual(self.partner(q="SIK").json()["total"],1)
+        self.assertEqual(self.partner(q="Kayes").json()["total"],0)
+        self.assertEqual(self.partner(passengers=61).json()["total"],0)
+        self.assertNotIn("driver_phone",r.json()["items"][0])
+        self.assertNotIn("address",r.json()["company"])
+
+    def test_partner_next_date_and_validation(self):
+        self.departure()
+        r=self.partner(date=timezone.now().astimezone(TZ).date().isoformat())
+        self.assertEqual(r.json()["next_date"],self.params["date"])
+        self.assertEqual(self.partner(passengers=0).status_code,400)
+        self.assertEqual(self.partner(date="bad").status_code,400)
+        self.assertEqual(self.partner(page=0).status_code,400)
+        self.company.status=Company.Status.SUSPENDED
+        self.company.save()
+        self.assertEqual(self.partner().status_code,404)
+
+    def test_partner_pagination(self):
+        for i in range(21):
+            self.departure(price=8000+i)
+        r=self.partner().json()
+        self.assertEqual((len(r["items"]),r["total"],r["has_next"]),(20,21,True))
+        self.assertEqual(len(self.partner(page=2).json()["items"]),1)

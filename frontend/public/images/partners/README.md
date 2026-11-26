@@ -1,0 +1,2 @@
+# Visuels des partenaires SiraGo
+Déposer ici les logos (carrés, 256–512 px) et couvertures (paysage, environ 1200 × 600 px) autorisés par les compagnies, de préférence WebP. Exemple de noms : diarra-logo.webp, diarra-cover.webp. Modifier ensuite frontend/src/partners.ts. Les chemins commencent par /images/partners/. Aucun fichier photo fictif n'est fourni ; le pictogramme SiraGo s'affiche en attendant. Ne pas publier de documents privés ni de téléphone personnel. Relancer le build PWA après modification.

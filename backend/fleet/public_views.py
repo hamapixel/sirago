@@ -1,4 +1,5 @@
 from datetime import date, datetime, time, timedelta
+import unicodedata
 from django.db.models import F, Min, Q, Count
 from django.http import JsonResponse
 from django.utils import timezone
@@ -99,3 +100,44 @@ def home(request):
         "routes":[{"origin":r["route__origin"],"destination":r["route__destination"],"price":r["price"]} for r in popular],
         "companies":[{"id":r["company_id"],"name":r["company__name"],"city":r["company__city"]} for r in partners],
     })
+
+
+def normalized_city(value):
+    return "".join(c for c in unicodedata.normalize("NFD", value.casefold()) if not unicodedata.combining(c)).strip()
+
+@never_cache
+@require_GET
+def partner(request, pk):
+    if not 1 <= pk <= 2**63-1:
+        return error("Compagnie introuvable.",404)
+    company=Company.objects.filter(pk=pk,status=Company.Status.VERIFIED).first()
+    if not company:
+        return error("Compagnie introuvable.",404)
+    now=timezone.now()
+    today=now.astimezone(TZ).date()
+    try:
+        day=date.fromisoformat(request.GET.get("date",today.isoformat()))
+        if not today<=day<=today+timedelta(days=365):
+            raise ValueError("Date invalide.")
+        count=bounded_int(request.GET.get("passengers","1"),1,100)
+        page=bounded_int(request.GET.get("page","1"),1,1000)
+        term=request.GET.get("q","").strip()
+        if len(term)>100:
+            raise ValueError("Recherche trop longue.")
+        qs=public_departures(now).filter(company_id=company.pk,remaining__gte=count)
+        if term:
+            matching=[city for city in CITIES if normalized_city(term) in normalized_city(city)]
+            qs=qs.filter(Q(route__origin__in=matching)|Q(route__destination__in=matching))
+        start=datetime.combine(day,time.min,TZ)
+        last=datetime.combine(today+timedelta(days=366),time.min,TZ)
+        day_qs=qs.filter(starts_at__gte=start,starts_at__lt=start+timedelta(days=1)).select_related("company","route","bus").order_by("route__origin","route__destination","starts_at","id")
+        total=day_qs.count()
+        offset=(page-1)*20
+        rows=list(day_qs[offset:offset+20])
+        next_date=None
+        if not total:
+            future=qs.filter(starts_at__gte=start+timedelta(days=1),starts_at__lt=last).order_by("starts_at").values_list("starts_at",flat=True).first()
+            if future:next_date=future.astimezone(TZ).date().isoformat()
+        return JsonResponse({"company":{"id":company.pk,"name":company.name,"city":company.city},"items":[public_row(d) for d in rows],"total":total,"page":page,"has_next":offset+len(rows)<total,"next_date":next_date})
+    except (ValueError,OverflowError):
+        return error("Vérifiez la date, la recherche et les passagers.")

@@ -2,10 +2,12 @@ import {useState} from 'react';
 import {ArrowLeft,ArrowRight,BusFront,ShieldCheck,SlidersHorizontal,Search,CheckCircle2,MapPin} from 'lucide-react';
 import {useTravel,tripPath,defaultFilters,priceText,timeText,dayText,durationText,minimumTripTotal,compatible,type Trip,type TripPage,type Criteria,type Filters} from './travel-api';
 import './travel.css';
+import {PartnerLogo} from './PartnerSpace';
+import {partnerInfo} from './partners';
 
 export function TripCard({trip,count,onChoose}:{trip:Trip;count:number;onChoose:()=>void}){
  return <article className="panel trip-card">
- <div className="trip-company"><div className="trip-logo"><BusFront size={25}/></div><div><strong>{trip.company}</strong><small><ShieldCheck size={14}/> Vérifiée</small></div></div>
+ <div className="trip-company"><PartnerLogo key={trip.company_id} src={partnerInfo({id:trip.company_id,name:trip.company})?.logo} name={trip.company}/><div><strong>{trip.company}</strong><small><ShieldCheck size={14}/> Vérifiée</small></div></div>
  <div className="trip-timeline"><div className="trip-stop"><strong className="trip-time">{timeText(trip.starts_at)}</strong><b>{trip.origin}</b><small>{trip.boarding_point}</small></div><div className="trip-middle"><div className="trip-line"><i/><span/><i/></div><BusFront size={20}/><small>{durationText(trip.duration_minutes)}</small></div><div className="trip-stop arrival"><strong className="trip-time">{timeText(trip.ends_at)}</strong><b>{trip.destination}</b><small>{trip.arrival_point}</small>{trip.ends_at.slice(0,10)!==trip.starts_at.slice(0,10)&&<small>{dayText(trip.ends_at)}</small>}</div></div>
  <div className="trip-fare"><div><small>À partir de / passager</small><h3>{priceText(trip.from_price)}</h3>{count>1&&<small>Total min. : {priceText(minimumTripTotal(trip,count))}</small>}{trip.standard_remaining>0&&trip.premium_price>0&&<small>Standard : {priceText(trip.price)}</small>}{trip.premium_remaining>0&&<small>Premium : {priceText(trip.premium_price)}</small>}</div><div><span>{trip.remaining} places restantes</span>{trip.premium_price>0&&<small>{trip.standard_remaining} Std · {trip.premium_remaining} Premium</small>}<small>{trip.bus_name}</small></div></div>
  <button className="primary trip-choose" onClick={onChoose}>Choisir <ArrowRight size={18}/></button>
