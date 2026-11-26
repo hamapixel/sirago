@@ -176,3 +176,54 @@ class AuthTests(TestCase):
             self.assertEqual(result.json()["role"], "TRAVELER")
             self.post("logout", {})
             self.assertEqual(self.post("login", {"identifier": identifier, "password": "Admin!Test2026"}).status_code, 401)
+
+    def test_admin_profile_updates_only_own_names(self):
+        admin = User.objects.create_superuser(username="supervisor", password="Admin!Test2026", email="admin@example.com")
+        other = User.objects.create_user(username="other", first_name="Other")
+        self.client.force_login(admin)
+        response = self.post("supervision/profile", {"first_name": " Awa ", "last_name": " Traoré ",
+                             "id": other.pk, "username": "changed", "email": "changed@example.com",
+                             "is_superuser": False, "role": "TRAVELER"})
+        self.assertEqual(response.status_code, 200, response.content)
+        self.assertEqual(response.json()["username"], "supervisor")
+        self.assertEqual(response.json()["role"], "ADMIN")
+        admin.refresh_from_db()
+        other.refresh_from_db()
+        self.assertEqual((admin.first_name, admin.last_name), ("Awa", "Traoré"))
+        self.assertEqual(admin.email, "admin@example.com")
+        self.assertTrue(admin.is_superuser)
+        self.assertEqual(other.first_name, "Other")
+        self.assertIn("no-store", response["Cache-Control"])
+
+    def test_admin_profile_and_password_require_superuser(self):
+        for path in ("supervision/profile", "supervision/password"):
+            self.client.logout()
+            self.assertEqual(self.post(path, {}).status_code, 401)
+            for staff in (False, True):
+                user = User.objects.create_user(username="profile-" + path.replace("/", "-") + str(staff), is_staff=staff)
+                self.client.force_login(user)
+                self.assertEqual(self.post(path, {}).status_code, 403)
+                self.assertNotIn("username", self.client.get("/api/v1/auth/me/").json())
+
+    def test_admin_profile_csrf_and_invalid_names(self):
+        admin = User.objects.create_superuser(username="supervisor", password="Admin!Test2026")
+        client = Client(enforce_csrf_checks=True)
+        client.force_login(admin)
+        for path in ("profile", "password"):
+            self.assertEqual(client.post("/api/v1/auth/supervision/" + path + "/", {}, content_type="application/json").status_code, 403)
+        self.client.force_login(admin)
+        for value in ("", " ", "A" * 151, 42):
+            self.assertEqual(self.post("supervision/profile", {"first_name": value, "last_name": "Test"}).status_code, 400)
+
+    def test_admin_password_change_requires_current_and_preserves_session(self):
+        old = "Admin!Test2026"
+        new = "Nouveau!Fleuve2027"
+        admin = User.objects.create_superuser(username="supervisor", password=old)
+        self.client.force_login(admin)
+        payload = {"current_password": old, "password": new, "password_confirmation": new}
+        self.assertEqual(self.post("supervision/password", {**payload, "current_password": "wrong"}).status_code, 400)
+        self.assertEqual(self.post("supervision/password", payload).status_code, 200)
+        self.assertEqual(self.client.get("/api/v1/auth/me/").json()["role"], "ADMIN")
+        self.post("logout", {})
+        self.assertEqual(self.post("login", {"identifier": admin.username, "password": old}).status_code, 401)
+        self.assertEqual(self.post("login", {"identifier": admin.username, "password": new}).status_code, 200)

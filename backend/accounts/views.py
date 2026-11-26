@@ -64,6 +64,8 @@ def profile(user):
     result = {"first_name": user.first_name, "last_name": user.last_name, "phone": user.phone,
               "email": user.email, "role": "ADMIN" if user.is_superuser else user.role,
               "company": None}
+    if user.is_superuser:
+        result["username"] = user.username
     if not user.is_superuser and user.role == User.Role.COMPANY:
         agent = CompanyAgent.objects.select_related("company").filter(user=user).first()
         company = agent.company if agent else Company.objects.filter(owner=user).first()
@@ -291,4 +293,42 @@ def change_company_password(request):
         return change_password(request)
     denied=company_profile_error(request)
     if denied is not None:return denied
+    return change_password(request)
+
+def admin_profile_error(request):
+    if not request.user.is_authenticated:
+        return error("Connexion requise.", 401)
+    if not request.user.is_active or not request.user.is_superuser:
+        return error("Accès réservé au superadministrateur.", 403)
+    return None
+
+
+@never_cache
+@csrf_protect
+@require_POST
+def update_admin_profile(request):
+    denied = admin_profile_error(request)
+    if denied is not None:
+        return denied
+    try:
+        values = data(request)
+        first = " ".join(field(values, "first_name", 150).split())
+        last = " ".join(field(values, "last_name", 150).split())
+        if not first or not last or any(ord(ch) < 32 for ch in first + last):
+            raise ValueError("Nom ou prénom invalide.")
+    except ValueError as exc:
+        return error(str(exc))
+    user = request.user
+    user.first_name, user.last_name = first, last
+    user.save(update_fields=["first_name", "last_name"])
+    return JsonResponse(profile(user))
+
+
+@never_cache
+@csrf_protect
+@require_POST
+def change_admin_password(request):
+    denied = admin_profile_error(request)
+    if denied is not None:
+        return denied
     return change_password(request)

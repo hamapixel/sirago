@@ -3,6 +3,8 @@ from . import views, agent_views, notifications, support_views, supervision, com
 urlpatterns = [
     path("csrf/", views.csrf),
     path("supervision/", supervision.overview),
+    path("supervision/profile/", views.update_admin_profile),
+    path("supervision/password/", views.change_admin_password),
     path("supervision/finances/", financial_report.report),
     path("supervision/finances/pdf/", financial_report.pdf),
     path("supervision/finances/excel/", financial_report.excel),
