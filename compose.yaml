@@ -28,6 +28,19 @@ services:
       interval: 10s
       timeout: 5s
       retries: 10
+  saspay-worker:
+    profiles: ["saspay"]
+    build: ./backend
+    env_file: .env
+    environment:
+      DB_HOST: db
+    volumes:
+      - ./backend:/app
+    depends_on:
+      backend:
+        condition: service_healthy
+    command: python manage.py reconcile_saspay --watch
+    restart: unless-stopped
   frontend:
     build: ./frontend
     ports:

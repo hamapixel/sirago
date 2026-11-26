@@ -11,7 +11,8 @@ from accounts.models import User, Company
 from accounts.views import error
 from .models import Booking, Departure, SandboxCheckout
 from .booking_views import traveler_error, booking_json
-from .saspay import sandbox_enabled, create_booking_checkout, verify_booking_checkout, SasPayError
+from .saspay import sandbox_enabled, sandbox_tickets_enabled, create_booking_checkout, verify_booking_checkout, SasPayError
+from .sandbox_reconcile import reconcile
 
 def allowed(request):
     denied=traveler_error(request)
@@ -54,6 +55,13 @@ def verify(request,pk):
     denied=allowed(request)
     if denied is not None:return denied
     if not 1<=pk<=2**63-1:return error("Réservation introuvable.",404)
+    if sandbox_tickets_enabled():
+        a=SandboxCheckout.objects.filter(booking_id=pk,booking__traveler=request.user).first()
+        if a is None:return error("Session introuvable.",404)
+        if not a.provider_id:return error("Session incertaine. Consultez SasPay.",409)
+        try:reconcile(a.pk)
+        except SasPayError:return error("Confirmation SasPay indisponible ou non conforme.",502)
+        return JsonResponse(booking_json(Booking.objects.get(pk=pk)))
     with transaction.atomic():
         b=Booking.objects.select_for_update().filter(pk=pk,traveler=request.user).first()
         if b is None or not hasattr(b,"sandbox_checkout"):return error("Session introuvable.",404)

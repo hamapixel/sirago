@@ -155,14 +155,19 @@ def _validated_booking_session(value, booking, amount):
 
 
 def create_booking_checkout(api_key, booking, amount):
+    import os
     from django.utils import timezone
-    value=_checkout_request(api_key,"/checkout-sessions/",{
+    payload={
         "amount":f"{amount}.00","currency":"XOF","country":"ML",
         "description":f"SiraGo TEST - Reservation {booking.pk}",
         "customer_email":"sirago-test@example.com","customer_name":"SiraGo Test",
         "metadata":{"sirago_reference":checkout_booking_reference(booking)},
         "expires_at":booking.expires_at.isoformat(),
-    })
+    }
+    # Fixed local return origin, not a user-supplied redirect. Opt in for desktop tests.
+    if os.getenv("SIRAGO_SASPAY_LOCAL_RETURN")=="1":
+        payload["return_url"]=f"http://localhost:8030/app/?view=tickets&booking={booking.pk}"
+    value=_checkout_request(api_key,"/checkout-sessions/",payload)
     sid=_validated_booking_session(value,booking,amount)
     from django.utils.dateparse import parse_datetime
     if value.get("status")!="PENDING" or parse_datetime(value["expires_at"])<=timezone.now():
@@ -170,7 +175,7 @@ def create_booking_checkout(api_key, booking, amount):
     return sid,value["checkout_url"]
 
 
-def verify_booking_checkout(api_key, booking, attempt):
+def inspect_booking_checkout(api_key, booking, attempt):
     sid=_session_id(attempt.provider_id)
     value=_checkout_request(api_key,f"/checkout-sessions/{sid}/")
     if _validated_booking_session(value,booking,attempt.amount)!=sid:
@@ -178,12 +183,13 @@ def verify_booking_checkout(api_key, booking, attempt):
     status=value.get("status")
     if status not in ("PENDING","PAID","EXPIRED","CANCELLED"):
         raise SasPayError("Statut Checkout inattendu.")
+    txid=None
     if status=="PAID":
         result=_checkout_request(api_key,f"/checkout-sessions/{sid}/status/")
         if (_session_id(result.get("id"))!=sid or result.get("status")!="PAID"
             or result.get("transaction_status")!="SUCCESS"):
             raise SasPayError("Transaction Sandbox non confirmée.")
-        _session_id(result.get("transaction_id"))
+        txid=_session_id(result.get("transaction_id"))
         from django.utils.dateparse import parse_datetime
         try:
             paid_at=parse_datetime(value["paid_at"])
@@ -192,5 +198,15 @@ def verify_booking_checkout(api_key, booking, attempt):
         if paid_at is None or paid_at.tzinfo is None:
             raise SasPayError("Date de paiement Sandbox invalide.")
         if paid_at>booking.expires_at:
-            return "LATE_PAID"
-    return status
+            return "LATE_PAID",txid
+    return status,txid
+
+
+def verify_booking_checkout(api_key, booking, attempt):
+    return inspect_booking_checkout(api_key,booking,attempt)[0]
+
+
+def sandbox_tickets_enabled():
+    import os
+    from django.conf import settings
+    return sandbox_enabled() and settings.SIRAGO_ENABLE_SIMULATED_PAYMENTS and os.getenv("SIRAGO_ENABLE_SASPAY_TICKETS")=="1"

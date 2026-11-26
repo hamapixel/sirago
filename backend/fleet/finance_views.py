@@ -12,9 +12,12 @@ from .views import company_endpoint,TZ
 
 def metrics():
     paid=Q(booking__status=Booking.Status.TEST_PAID,booking__simulated_payment__isnull=False)
+    sandbox=Q(booking__status=Booking.Status.TEST_PAID,booking__sandbox_checkout__issued_at__isnull=False,booking__sandbox_checkout__status="PAID")
     pending=Q(booking__status=Booking.Status.HELD)
     return {
         "simulated_amount":Sum("leg_amount",filter=paid,default=0),
+        "sandbox_amount":Sum("leg_amount",filter=sandbox,default=0),
+        "sandbox_passengers":Sum("booking__passengers",filter=sandbox,default=0),
         "pending_amount":Sum("leg_amount",filter=pending,default=0),
         "simulated_passengers":Sum("booking__passengers",filter=paid,default=0),
         "pending_passengers":Sum("booking__passengers",filter=pending,default=0),

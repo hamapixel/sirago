@@ -26,7 +26,7 @@ def ticket_booking(request,pk):
     b=Booking.objects.filter(pk=pk,traveler=request.user).first()
     if b is None:
         return None,error("Réservation introuvable.",404)
-    if b.status!=Booking.Status.TEST_PAID or not hasattr(b,"simulated_payment"):
+    if b.status!=Booking.Status.TEST_PAID or not (hasattr(b,"simulated_payment") or (hasattr(b,"sandbox_checkout") and b.sandbox_checkout.issued_at and b.sandbox_checkout.status=="PAID" and b.sandbox_checkout.transaction_id)):
         return None,error("Aucun billet de test disponible.",409)
     return b,None
 

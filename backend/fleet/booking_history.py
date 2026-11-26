@@ -21,6 +21,7 @@ def history(request,now):
     qs=Booking.objects.filter(traveler=request.user).annotate(
         history_status=Case(
             When(sandbox_checkout__status="PAID",then=Value("SASPAY_PAID")),
+            When(sandbox_checkout__status="REVIEW_PAID",then=Value("REVIEW")),
             When(sandbox_checkout__status="LATE_PAID",then=Value("LATE_PAID")),
             When(sandbox_checkout__status__in=["CREATING","UNKNOWN"],then=Value("REVIEW")),
             When(sandbox_checkout__status="PENDING",then=Value("SASPAY_PENDING")),

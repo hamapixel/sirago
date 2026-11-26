@@ -13,7 +13,7 @@ URL="https://sandbox-checkout.saspay.me/checkout/example"
 class BookingCheckoutTests(BookingFixture,TestCase):
     def setUp(self):
         super().setUp()
-        env=patch.dict("os.environ",{"SIRAGO_ENABLE_SASPAY_SANDBOX":"1","SASPAY_API_KEY":"sk_test_example","SIRAGO_ENV":"development"})
+        env=patch.dict("os.environ",{"SIRAGO_ENABLE_SASPAY_SANDBOX":"1","SIRAGO_ENABLE_SASPAY_TICKETS":"0","SASPAY_API_KEY":"sk_test_example","SIRAGO_ENV":"development"})
         env.start();self.addCleanup(env.stop)
         self.client.force_login(self.user)
         r=self.reserve()

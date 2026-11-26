@@ -34,7 +34,7 @@ def overview(request):
         "agents":CompanyAgent.objects.filter(user__is_active=True).count(),
         "active_buses":Bus.objects.filter(active=True,company__status=Company.Status.VERIFIED).count(),
         "future_departures":Departure.objects.filter(status=Departure.Status.PUBLISHED,company__status=Company.Status.VERIFIED,starts_at__gt=now).count(),
-        "test_bookings":active.filter(booking__status=Booking.Status.TEST_PAID,booking__simulated_payment__isnull=False).values("booking_id").distinct().count(),
+        "test_bookings":active.filter(booking__status=Booking.Status.TEST_PAID).values("booking_id").distinct().count(),
         "held_bookings":active.filter(booking__status=Booking.Status.HELD).values("booking_id").distinct().count(),
         "test_boardings":TestBoarding.objects.filter(leg__booking__status=Booking.Status.TEST_PAID).count(),
         "open_support":SupportRequest.objects.exclude(status=SupportRequest.Status.RESOLVED).count(),

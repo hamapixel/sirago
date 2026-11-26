@@ -2,6 +2,7 @@ import {CalendarDays} from 'lucide-react';
 import type {Booking} from './booking-api';
 
 export function reportUnavailableReason(b:Booking,now=Date.now()):string|null{
+ if(b.sandbox_checkout)return 'Le report des billets SasPay TEST sera disponible dans une étape suivante.';
  if(b.status==='REPORTED')return 'Cette réservation a déjà été reportée.';
  if(b.status!=='TEST_PAID')return 'Le report nécessite un paiement simulé réussi.';
  if(!b.simulation_enabled)return 'Le report de test est désactivé.';

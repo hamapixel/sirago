@@ -23,8 +23,7 @@ def resolve(company,code):
         return None,None,error("Référence de billet TEST invalide.",400)
     ref=TestTicketReference.objects.select_related("leg__booking","leg__departure__route").filter(
         code=code.strip().upper(),leg__departure__company=company,
-        leg__booking__status=Booking.Status.TEST_PAID,
-        leg__booking__simulated_payment__isnull=False).first()
+        leg__booking__status=Booking.Status.TEST_PAID).filter(Q(leg__booking__simulated_payment__isnull=False)|Q(leg__booking__sandbox_checkout__issued_at__isnull=False,leg__booking__sandbox_checkout__status="PAID",leg__booking__sandbox_checkout__transaction_id__isnull=False)).first()
     if not ref:return None,None,error("Billet introuvable pour cette compagnie.",404)
     leg=ref.leg
     indices=next((g for g in ticket_groups(leg.booking,leg) if g[0]==ref.anchor),None)

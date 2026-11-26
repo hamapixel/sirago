@@ -42,6 +42,7 @@ export function historyPath(query:string,status:string,page:number){return 'book
 export function historyLabel(b:Booking,now=Date.now()){
  const a=b.sandbox_checkout;
  if(a?.status==='PAID')return 'Paiement SasPay confirmé (TEST)';
+ if(a?.status==='REVIEW_PAID')return 'Paiement SasPay à examiner (TEST)';
  if(a?.status==='LATE_PAID')return 'Paiement tardif (TEST)';
  if(a?.status==='PENDING')return 'Paiement SasPay à vérifier';
  if(a?.status==='EXPIRED')return 'Session SasPay expirée';
@@ -50,3 +51,6 @@ export function historyLabel(b:Booking,now=Date.now()){
  return bookingLabel(effectiveBookingStatus(b,now));
 }
 export const canVerifySasPay=(b:Booking)=>!!b.sandbox_checkout_enabled&&b.sandbox_checkout?.status==='PENDING';
+
+export const sandboxTicketsIssued=(b:Booking)=>b.status==='TEST_PAID'&&b.sandbox_checkout?.status==='PAID';
+export function returnedBookingId(search:string){const raw=new URLSearchParams(search).get('booking');if(!raw||!/^\d+$/.test(raw))return null;const id=Number(raw);return Number.isSafeInteger(id)&&id>0?id:null}

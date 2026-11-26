@@ -21,6 +21,7 @@ export default function SandboxCheckoutPanel({booking,onUpdate,expired}:{booking
  {!a&&!expired&&<button type="button" className="primary" disabled={busy} onClick={()=>action(false)}>{busy?'Création…':'Payer avec SasPay (TEST)'}</button>}
  {a?.status==='PENDING'&&<><p>Session en attente.</p>{safe&&!expired&&<a className="primary" href={a.checkout_url} target="_blank" rel="noopener noreferrer"><ExternalLink size={17}/> Ouvrir le paiement SasPay</a>}<button type="button" className="outline" disabled={busy} onClick={()=>action(true)}><RefreshCw size={17}/> Vérifier le paiement</button></>}
  {a?.status==='PAID'&&<p role="status" className="profile-success">Paiement Sandbox confirmé par Django. Aucun billet émis pour cette étape.</p>}
+ {a?.status==='REVIEW_PAID'&&<p role="alert">Paiement de test confirmé, mais la réservation ne peut pas être finalisée. Contactez l’assistance ; ne payez pas à nouveau.</p>}
  {a?.status==='LATE_PAID'&&<p role="alert">Paiement de test reçu après expiration. Aucun billet émis.</p>}
  {a&&['CREATING','UNKNOWN'].includes(a.status)&&<p role="alert">Création en cours ou incertaine. Ne créez pas une autre session. Consultez SasPay.</p>}
  {a&&['EXPIRED','CANCELLED'].includes(a.status)&&<p>Session terminée sans paiement. Créez une nouvelle réservation si nécessaire.</p>}

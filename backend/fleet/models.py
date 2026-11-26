@@ -154,3 +154,11 @@ class SandboxCheckout(models.Model):
     status = models.CharField(max_length=16, default="CREATING")
     created_at = models.DateTimeField(auto_now_add=True)
     checked_at = models.DateTimeField(null=True, blank=True)
+    transaction_id = models.UUIDField(null=True, blank=True, unique=True)
+    issued_at = models.DateTimeField(null=True, blank=True)
+
+
+class SandboxWebhookReceipt(models.Model):
+    transaction_id = models.UUIDField(unique=True)
+    received_at = models.DateTimeField(auto_now_add=True)
+    matched_at = models.DateTimeField(null=True, blank=True)

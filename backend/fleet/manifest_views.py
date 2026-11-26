@@ -19,12 +19,15 @@ def manifest_data(company,pk):
     now=timezone.now()
     legs=list(active_legs(now).filter(departure=d).select_related("booking").order_by("id"))
     boarded={(r.leg_id,r.passenger):r.boarded_at.isoformat() for r in TestBoarding.objects.filter(leg_id__in=[l.pk for l in legs])}
-    rows=[];pending=simulated=standard=premium=sim_total=pending_total=0
+    rows=[];pending=simulated=standard=premium=sim_total=pending_total=sandbox_total=0
     finished=now>=d.ends_at and d.status==Departure.Status.PUBLISHED
     for l in legs:
         b=l.booking
         paid=b.status==Booking.Status.TEST_PAID
-        if paid:simulated+=b.passengers;sim_total+=l.total
+        if paid:
+            simulated+=b.passengers
+            if hasattr(b,"sandbox_checkout") and b.sandbox_checkout.issued_at:sandbox_total+=l.total
+            else:sim_total+=l.total
         else:pending+=b.passengers;pending_total+=l.total
         premium+=l.premium_count;standard+=b.passengers-l.premium_count
         for i in range(b.passengers):
@@ -32,14 +35,14 @@ def manifest_data(company,pk):
             at=boarded.get((l.pk,i)) if paid else None
             state="BOARDED" if at else "PENDING" if not paid else "ABSENT" if finished else "WAITING"
             rows.append({"id":f"{l.pk}-{i}","name":b.passenger_names[i] if i<len(b.passenger_names) else f"Passager {i+1}","category":"Premium" if is_premium else "Standard","amount":l.premium_unit_price if is_premium else l.unit_price,"state":state,"boarded_at":at})
-    return {"departure_id":d.pk,"company":company.name,"origin":d.route.origin,"destination":d.route.destination,"boarding_point":d.route.boarding_point,"bus":d.bus.name,"plate":d.bus.plate,"starts_at":d.starts_at.isoformat(),"ends_at":d.ends_at.isoformat(),"generated_at":now.isoformat(),"status":d.status,"capacity":d.capacity,"reserved":len(rows),"standard":standard,"premium":premium,"pending":pending,"simulated":simulated,"boarded":sum(r["state"]=="BOARDED" for r in rows),"absent":sum(r["state"]=="ABSENT" for r in rows),"waiting":sum(r["state"]=="WAITING" for r in rows),"remaining":max(0,d.capacity-len(rows)),"simulated_amount":sim_total,"pending_amount":pending_total,"real_amount":0,"items":rows}
+    return {"departure_id":d.pk,"company":company.name,"origin":d.route.origin,"destination":d.route.destination,"boarding_point":d.route.boarding_point,"bus":d.bus.name,"plate":d.bus.plate,"starts_at":d.starts_at.isoformat(),"ends_at":d.ends_at.isoformat(),"generated_at":now.isoformat(),"status":d.status,"capacity":d.capacity,"reserved":len(rows),"standard":standard,"premium":premium,"pending":pending,"simulated":simulated,"boarded":sum(r["state"]=="BOARDED" for r in rows),"absent":sum(r["state"]=="ABSENT" for r in rows),"waiting":sum(r["state"]=="WAITING" for r in rows),"remaining":max(0,d.capacity-len(rows)),"simulated_amount":sim_total,"sandbox_amount":sandbox_total,"pending_amount":pending_total,"real_amount":0,"items":rows}
 
 def access(request,company,pk):
     if request.method!="GET":return None,error("Méthode non autorisée.",405)
     if company.status!=Company.Status.VERIFIED:return None,error("Compagnie non validée.",403)
     result=manifest_data(company,pk)
     if result is not None and getattr(request,"company_agent",None):
-        for key in ("simulated_amount","pending_amount","real_amount"):result.pop(key,None)
+        for key in ("simulated_amount","sandbox_amount","pending_amount","real_amount"):result.pop(key,None)
         for item in result["items"]:item.pop("amount",None)
     return (result,None) if result is not None else (None,error("Départ introuvable.",404))
 
@@ -72,7 +75,7 @@ def make_pdf(m):
         text(f'Capacité : {m["capacity"]}  |  Réservés : {m["reserved"]}  |  Standard : {m["standard"]}  |  Premium : {m["premium"]}  |  Libres : {m["remaining"]}',30,h-125,11,True)
         text(f'En attente : {m["pending"]}  |  Embarqués TEST : {m["boarded"]}  |  Non embarqués : {m["waiting"]}  |  Absents TEST : {m["absent"]}',30,h-144,10)
         if "real_amount" in m:
-            text("Simulé : "+money(m["simulated_amount"])+"   |   En attente : "+money(m["pending_amount"])+"   |   Recettes réelles : 0 FCFA",30,h-163,10,True)
+            text("Simulation : "+money(m["simulated_amount"])+"  |  SasPay TEST : "+money(m["sandbox_amount"])+"  |  Attente : "+money(m["pending_amount"])+"  |  Réel : 0 FCFA",30,h-163,9,True,width=w-60)
         else:text("Document opérationnel - Montants masqués",30,h-163,10,True)
         text("MODE TEST - Aucun encaissement ni embarquement réel",30,h-181,10,True,color="#94640C")
         cols=[30,64,365,450,560,705]

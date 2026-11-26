@@ -1,7 +1,7 @@
 import {useState,lazy,Suspense} from 'react';
 import {ArrowLeft,BusFront,Crown,Download,Share2,Ticket,CheckCircle2} from 'lucide-react';
 import {useTravel,priceText,timeText} from './travel-api';
-import type {Booking,ReportResult} from './booking-api';
+import {sandboxTicketsIssued,type Booking,type ReportResult} from './booking-api';
 import './tickets.css';
 import ReportAction,{reportUnavailableReason} from './ReportAction';
 const TicketReport=lazy(()=>import('./TicketReport'));
@@ -51,7 +51,7 @@ export default function TestTickets({booking:initial,onBack,initialReport=false}
  const q=useTravel<{items:TestTicket[]}>(enabled?'bookings/'+booking.id+'/tickets/':null,0);
  if(reporting)return <Suspense fallback={<p role="status">Chargement du report…</p>}><TicketReport booking={booking} onBack={()=>setReporting(false)} onReported={reported}/></Suspense>;
  return <section className="booking-space booking-details"><div className="travel-heading"><div className="travel-heading-top"><button onClick={onBack}><ArrowLeft size={19}/> Retour</button><Ticket size={22}/></div><h1>Mes billets</h1><p>{booking.ticket_mode==="group"?"Un billet par catégorie et par trajet.":"Un billet par passager et par trajet."}</p></div>
- {!enabled?<p className="panel">Billets de test indisponibles.</p>:<><article className="panel booking-checkout ticket-success"><CheckCircle2 size={23}/><div><strong>Paiement simulé réussi</strong><p>Aucun argent débité.</p></div></article>
+ {!enabled?<p className="panel">Billets de test indisponibles.</p>:<><article className="panel booking-checkout ticket-success"><CheckCircle2 size={23}/><div><strong>{sandboxTicketsIssued(booking)?'Paiement SasPay Sandbox réussi':'Paiement simulé réussi'}</strong><p>Aucun argent débité.</p></div></article>
  {replacements.length>0&&<p className="panel profile-success" role="status">Report de test enregistré. Les anciens QR codes ne sont plus valides. Distribuez les nouveaux billets.</p>}
  {replacements.length>1&&<article className="panel ticket-report-groups"><h2>Nouvelles réservations</h2>{replacements.map(b=><button type="button" className="outline" key={b.id} aria-pressed={booking.id===b.id} onClick={()=>setActiveId(b.id)}><strong>{dateText(b.trips[0].starts_at)} · {timeText(b.trips[0].starts_at)}</strong>{b.trips.length===2&&<small>Retour : {dateText(b.trips[1].starts_at)} · {timeText(b.trips[1].starts_at)}</small>}<small>{b.count} passager(s) · {priceText(b.total)}</small></button>)}</article>}
  <ReportAction booking={booking} onReport={()=>setReporting(true)}/>
