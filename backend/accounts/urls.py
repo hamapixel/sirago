@@ -1,8 +1,11 @@
 from django.urls import path
-from . import views, agent_views, notifications, support_views, supervision, commission_views, commission_ledger, settlement_views
+from . import views, agent_views, notifications, support_views, supervision, commission_views, commission_ledger, settlement_views, financial_report
 urlpatterns = [
     path("csrf/", views.csrf),
     path("supervision/", supervision.overview),
+    path("supervision/finances/", financial_report.report),
+    path("supervision/finances/pdf/", financial_report.pdf),
+    path("supervision/finances/excel/", financial_report.excel),
     path("supervision/settlements/", settlement_views.balances),
     path("supervision/settlements/history/", settlement_views.history),
     path("supervision/settlements/<int:pk>/", settlement_views.create),
