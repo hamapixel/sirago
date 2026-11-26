@@ -68,8 +68,9 @@ def make_pdf(m):
     def money(v):return f"{v:,}".replace(","," ")+" FCFA"
     rows=m["items"];pages=max(1,(len(rows)+17)//18)
     for page in range(pages):
-        p.setFillColor(HexColor("#103B38"));p.rect(24,h-85,w-48,60,fill=1,stroke=0)
-        text("SiraGo Pro - Manifeste voyageurs",36,h-49,18,True,color="#FFFFFF")
+        p.setFillColor(HexColor("#103B38"));p.roundRect(24,h-85,w-48,60,10,fill=1,stroke=0)
+        text("SiraGo Pro | Manifeste voyageurs",36,h-49,18,True,color="#FFFFFF")
+        text("SIMULATION",w-113,h-47,9,True,color="#F6B844")
         text(m["company"]+" | "+m["origin"]+" - "+m["destination"],36,h-70,12,width=w-75,color="#FFFFFF")
         text(fmt(m["starts_at"])+" | "+m["bus"]+" | "+m["plate"]+" | "+m["boarding_point"],30,h-105,11,width=w-60)
         text(f'Capacité : {m["capacity"]}  |  Réservés : {m["reserved"]}  |  Standard : {m["standard"]}  |  Premium : {m["premium"]}  |  Libres : {m["remaining"]}',30,h-125,11,True)
@@ -77,11 +78,15 @@ def make_pdf(m):
         if "real_amount" in m:
             text("Simulation : "+money(m["simulated_amount"])+"  |  SasPay TEST : "+money(m["sandbox_amount"])+"  |  Attente : "+money(m["pending_amount"])+"  |  Réel : 0 FCFA",30,h-163,9,True,width=w-60)
         else:text("Document opérationnel - Montants masqués",30,h-163,10,True)
-        text("MODE TEST - Aucun encaissement ni embarquement réel",30,h-181,10,True,color="#94640C")
+        p.setFillColor(HexColor("#FFF4D8"));p.roundRect(26,h-187,w-52,18,5,fill=1,stroke=0)
+        text("Simulation - Aucun encaissement ni embarquement réel",34,h-181,9,True,color="#805507")
         cols=[30,64,365,450,560,705]
-        for x,label in zip(cols,["N°","Passager","Catégorie","Montant" if "real_amount" in m else "", "Statut","Heure TEST"]):text(label,x,h-206,10,True)
+        p.setFillColor(HexColor("#103B38"));p.roundRect(26,h-213,w-52,20,5,fill=1,stroke=0)
+        for x,label in zip(cols,["N°","Passager","Catégorie","Montant" if "real_amount" in m else "", "Statut","Heure TEST"]):text(label,x,h-206,9,True,color="#FFFFFF")
         for j,r in enumerate(rows[page*18:(page+1)*18]):
             y=h-226-j*17
+            if j%2==0:
+                p.setFillColor(HexColor("#F0F7F4"));p.rect(26,y-5,w-52,17,fill=1,stroke=0)
             p.setStrokeColor(HexColor("#DCE6E3"));p.line(30,y-5,w-30,y-5)
             for x,value,width in zip(cols,[page*18+j+1,r["name"],r["category"],money(r["amount"]) if "amount" in r else "",LABELS[r["state"]],fmt(r["boarded_at"]) if r["boarded_at"] else "-"],[30,295,80,105,140,105]):text(value,x,y,9,width=width)
         if not rows:text("Aucun voyageur réservé.",30,h-235)
