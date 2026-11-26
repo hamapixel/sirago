@@ -94,8 +94,11 @@ def overview(request, company):
         return error("Méthode non autorisée.",405)
     today = timezone.now().astimezone(TZ).date()
     start = datetime.combine(today,time.min,TZ)
-    departures = company.departures.filter(starts_at__gte=start, starts_at__lt=start+timedelta(days=1),status=D.PUBLISHED)
-    return JsonResponse({"status":company.status,"active_buses":company.buses.filter(active=True).count(),"active_routes":company.routes.filter(active=True).count(),"today_departures":departures.count(),"today_capacity":sum(with_remaining(departures.filter(starts_at__gt=timezone.now()),timezone.now()).values_list("remaining",flat=True))})
+    day = company.departures.filter(starts_at__gte=start, starts_at__lt=start+timedelta(days=1))
+    departures = day.filter(status=D.PUBLISHED)
+    now = timezone.now()
+    capacity = list(with_remaining(departures.filter(starts_at__gt=now), now).values_list("capacity", "remaining"))
+    return JsonResponse({"status":company.status,"active_buses":company.buses.filter(active=True).count(),"active_routes":company.routes.filter(active=True).count(),"today_departures":departures.count(),"today_capacity":sum(max(0, remaining) for _, remaining in capacity),"today_total_capacity":sum(total for total, _ in capacity),"today_draft":day.filter(status=D.DRAFT).count(),"today_suspended":day.filter(status=D.SUSPENDED).count(),"today_cancelled":day.filter(status=D.CANCELLED).count()})
 
 @company_endpoint
 def buses(request,company,pk=None):

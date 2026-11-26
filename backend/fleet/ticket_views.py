@@ -119,8 +119,9 @@ def make_pdf(t):
         box(city, x, h-142, col, 21, 11, green, True)
         box(station, x, h-165, col, 30, 8.5, muted)
     line(h-198)
-    label("Passager" if t["count"] == 1 else "Billet collectif", left, h-211, 8, muted)
-    box(t["name"] if t["count"] == 1 else f'{t["count"]} passagers - liste en annexe',
+    inline_names = 1 < t["count"] <= 2 and len(" · ".join(t["names"])) <= 70
+    label("Passager" if t["count"] == 1 else f'Billet collectif · {t["count"]} passagers', left, h-211, 8, muted)
+    box(t["name"] if t["count"] == 1 else " · ".join(t["names"]) if inline_names else f'{t["count"]} passagers - liste en annexe',
         left, h-214, w-36, 25, 11, green, True)
     label("Catégorie", left, h-248, 8, muted)
     label("Montant", right, h-248, 8, muted)
@@ -147,7 +148,7 @@ def make_pdf(t):
     label("TEST - Non valable pour voyager", 24, 32, 9, "#963B0D", True)
     label("Propulsé par BTDIGIT", 18, 12, 7.5, muted)
     p.showPage()
-    if t["count"] > 1:
+    if t["count"] > 1 and not inline_names:
         for offset in range(0, t["count"], 11):
             label("SiraGo - Passagers TEST", 17, h-25, 15, green, True)
             box(t["company"], 17, h-31, w-34, 25, 10, green, True)

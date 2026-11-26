@@ -39,7 +39,7 @@ export function TicketCard({ticket:t,bookingId,round=false}:{ticket:TestTicket;b
    {collective&&<details className="ticket-passenger-list"><summary>Liste des {t.count} passagers</summary><ol>{t.names?.map((name,i)=><li key={i}>{name}</li>)}</ol><small>Prix unitaire : {priceText(t.unit_price??0)}</small></details>}
    <div className="digital-ticket-qr"><svg role="img" aria-label={collective?"QR code de test collectif":"QR code de test individuel"} viewBox={'0 0 '+t.qr.length+' '+t.qr.length} shapeRendering="crispEdges" xmlns="http://www.w3.org/2000/svg"><rect width={t.qr.length} height={t.qr.length} fill="#fff"/><path d={path} fill="#103b38"/></svg><div className="digital-ticket-qr-copy"><b>{collective?"QR code collectif":"QR code individuel"}</b><small>Présenter au contrôle TEST</small><small className="digital-ticket-code">{t.code}</small></div></div><span className="digital-ticket-test">TEST — Non valable pour voyager</span>
    <div className="digital-ticket-actions"><a href={url} download><Download size={20}/>Télécharger</a><button type="button" disabled={busy} onClick={share}><Share2 size={20}/>{busy?'Partage…':'Partager'}</button></div>
-   {message&&<small role="status">{message}</small>}<small className="digital-ticket-footer">Propulsé par BTDIGIT</small>
+   {message&&<small role="status">{message}</small>}
   </div>
  </article>
 }
@@ -56,6 +56,6 @@ export default function TestTickets({booking:initial,onBack,initialReport=false}
  {replacements.length>1&&<article className="panel ticket-report-groups"><h2>Nouvelles réservations</h2>{replacements.map(b=><button type="button" className="outline" key={b.id} aria-pressed={booking.id===b.id} onClick={()=>setActiveId(b.id)}><strong>{dateText(b.trips[0].starts_at)} · {timeText(b.trips[0].starts_at)}</strong>{b.trips.length===2&&<small>Retour : {dateText(b.trips[1].starts_at)} · {timeText(b.trips[1].starts_at)}</small>}<small>{b.count} passager(s) · {priceText(b.total)}</small></button>)}</article>}
  <ReportAction booking={booking} onReport={()=>setReporting(true)}/>
  {q.loading&&<p role="status">Chargement des billets…</p>}{q.error&&<article className="panel booking-checkout" role="alert">{q.error}<button className="outline" onClick={q.retry}>Réessayer</button></article>}
- <div className="ticket-list-title"><h2>Billets numériques</h2><small>PDF compact A6 · {q.data?.items.length??0} billet(s)</small></div><div className="digital-ticket-list">{q.data?.items.map(t=><TicketCard key={t.code} ticket={t} bookingId={booking.id} round={booking.trips.length>1}/>)}</div></>}
+ <div className="ticket-list-title"><h2>Billets numériques</h2><small>{q.data?.items.length??0} billet(s)</small></div><div className="digital-ticket-list">{q.data?.items.map(t=><TicketCard key={t.code} ticket={t} bookingId={booking.id} round={booking.trips.length>1}/>)}</div></>}
  </section>
 }

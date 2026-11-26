@@ -6,4 +6,5 @@ import './travel.css';
 import 'swiper/css';
 import 'swiper/css/pagination';
 import './responsive.css';
+import './premium-finish.css';
 createRoot(document.getElementById('root')!).render(<React.StrictMode><App/></React.StrictMode>);
