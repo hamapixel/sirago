@@ -143,3 +143,14 @@ class TestTicketReport(models.Model):
     previous_amount = models.PositiveIntegerField()
     new_amount = models.PositiveIntegerField()
     created_at = models.DateTimeField(auto_now_add=True)
+
+
+class SandboxCheckout(models.Model):
+    """One provider checkout attempt per local test reservation; never a real receipt."""
+    booking = models.OneToOneField(Booking, on_delete=models.PROTECT, related_name="sandbox_checkout")
+    amount = models.PositiveIntegerField()
+    provider_id = models.UUIDField(null=True, blank=True, unique=True)
+    checkout_url = models.URLField(max_length=1000, blank=True)
+    status = models.CharField(max_length=16, default="CREATING")
+    created_at = models.DateTimeField(auto_now_add=True)
+    checked_at = models.DateTimeField(null=True, blank=True)

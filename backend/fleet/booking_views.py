@@ -12,6 +12,7 @@ from accounts.views import data, error
 from .models import Booking, BookingLeg, Departure, SimulatedPayment
 from django.conf import settings
 from .ticket_refs import register_refs
+from .saspay import sandbox_enabled
 from .public_views import public_departures, public_row, bounded_int, minimum_total
 
 def selection(values):
@@ -81,6 +82,8 @@ def booking_json(b):
     return {"id":b.id,"reference":str(b.request_id),"count":b.passengers,"status":"EXPIRED" if b.status==Booking.Status.HELD and b.expires_at<=now else b.status,"expires_at":b.expires_at.isoformat(),"created_at":b.created_at.isoformat(),
             "passenger_names":b.passenger_names,"ticket_mode":b.ticket_mode,"replacement_id":b.outgoing_report.replacement_id if b.status==Booking.Status.REPORTED and hasattr(b,"outgoing_report") else None,"retained_id":b.outgoing_report.retained_id if b.status==Booking.Status.REPORTED and hasattr(b,"outgoing_report") else None,"total":sum(l.total for l in legs),
             "simulation_enabled":simulation_enabled(),
+            "sandbox_checkout_enabled":sandbox_enabled(),
+            "sandbox_checkout":({"status":b.sandbox_checkout.status,"amount":b.sandbox_checkout.amount,"checkout_url":b.sandbox_checkout.checkout_url if b.sandbox_checkout.status=="PENDING" and b.status==Booking.Status.HELD and b.expires_at>now and sandbox_enabled() else ""} if hasattr(b,"sandbox_checkout") else None),
             "simulated_payment":({"amount":b.simulated_payment.amount,"network":b.simulated_payment.network,"created_at":b.simulated_payment.created_at.isoformat()} if b.status==Booking.Status.TEST_PAID and hasattr(b,"simulated_payment") else None),
             "trips":[{"id":l.departure_id,"company":l.departure.company.name,"origin":l.departure.route.origin,"destination":l.departure.route.destination,"starts_at":l.departure.starts_at.isoformat(),"ends_at":l.departure.ends_at.isoformat(),"boarding_point":l.departure.route.boarding_point,"arrival_point":l.departure.route.arrival_point,"bus_name":l.departure.bus.name,"price":l.unit_price,"premium_price":l.premium_unit_price,"premium_positions":l.premium_positions,"total":l.total} for l in legs]}
 
@@ -169,6 +172,8 @@ def cancel(request,pk):
     with transaction.atomic():
         b=Booking.objects.select_for_update().filter(pk=pk,traveler=request.user).first()
         if not b:return error("Réservation introuvable.",404)
+        if hasattr(b,"sandbox_checkout") and b.sandbox_checkout.status not in ("EXPIRED","CANCELLED"):
+            return error("Une session SasPay existe. Vérifiez son statut avant toute annulation.",409)
         if b.status==Booking.Status.HELD and b.expires_at>timezone.now():
             b.status=Booking.Status.CANCELLED
             b.save(update_fields=["status"])
@@ -201,6 +206,8 @@ def simulate_payment(request,pk):
             return error("Réservation introuvable.",404)
         if b.status==Booking.Status.TEST_PAID:
             return JsonResponse(booking_json(b))
+        if hasattr(b,"sandbox_checkout"):
+            return error("Une session SasPay est déjà associée à cette réservation.",409)
         ids=list(b.legs.values_list("departure__company_id",flat=True).distinct())
         list(Company.objects.select_for_update().filter(pk__in=ids).order_by("pk"))
         now=timezone.now()

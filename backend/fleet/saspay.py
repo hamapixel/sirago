@@ -120,3 +120,77 @@ def sandbox_checkout_status(api_key, session_id):
     if _session_id(value.get("id")) != session_id or value.get("status") not in ("PENDING", "PAID", "EXPIRED", "CANCELLED"):
         raise SasPayError("Statut Checkout inattendu.")
     return value["status"]
+
+
+def sandbox_enabled():
+    import os
+    from django.conf import settings
+    return (settings.DEBUG and os.getenv("SIRAGO_ENV")!="production"
+            and os.getenv("SIRAGO_ENABLE_SASPAY_SANDBOX")=="1"
+            and bool(re.fullmatch(r"sk_test_[A-Za-z0-9_-]+",os.getenv("SASPAY_API_KEY",""))))
+
+
+def checkout_booking_reference(booking):
+    return f"SG-TEST-{booking.pk}-{booking.request_id}"
+
+
+def _validated_booking_session(value, booking, amount):
+    from django.utils.dateparse import parse_datetime
+    try:
+        raw_url=value["checkout_url"]
+        url=urlsplit(raw_url)
+        safe=(isinstance(raw_url,str) and len(raw_url)<=1000 and url.scheme=="https"
+              and url.netloc=="sandbox-checkout.saspay.me" and bool(url.path.strip("/"))
+              and not url.fragment and not any(ord(c)<33 for c in raw_url))
+        expires=parse_datetime(value["expires_at"])
+        valid=(safe and Decimal(str(value["amount"]))==Decimal(amount)
+               and value["currency"]=="XOF" and value["country"]=="ML"
+               and value["metadata"]["sirago_reference"]==checkout_booking_reference(booking)
+               and expires is not None and expires.tzinfo is not None and expires<=booking.expires_at)
+    except (KeyError,ValueError,TypeError,InvalidOperation,AttributeError,OverflowError):
+        valid=False
+    if not valid:
+        raise SasPayError("Session Sandbox non conforme à la réservation.")
+    return _session_id(value.get("id"))
+
+
+def create_booking_checkout(api_key, booking, amount):
+    from django.utils import timezone
+    value=_checkout_request(api_key,"/checkout-sessions/",{
+        "amount":f"{amount}.00","currency":"XOF","country":"ML",
+        "description":f"SiraGo TEST - Reservation {booking.pk}",
+        "customer_email":"sirago-test@example.com","customer_name":"SiraGo Test",
+        "metadata":{"sirago_reference":checkout_booking_reference(booking)},
+        "expires_at":booking.expires_at.isoformat(),
+    })
+    sid=_validated_booking_session(value,booking,amount)
+    from django.utils.dateparse import parse_datetime
+    if value.get("status")!="PENDING" or parse_datetime(value["expires_at"])<=timezone.now():
+        raise SasPayError("Session Sandbox non disponible.")
+    return sid,value["checkout_url"]
+
+
+def verify_booking_checkout(api_key, booking, attempt):
+    sid=_session_id(attempt.provider_id)
+    value=_checkout_request(api_key,f"/checkout-sessions/{sid}/")
+    if _validated_booking_session(value,booking,attempt.amount)!=sid:
+        raise SasPayError("Identifiant Checkout inattendu.")
+    status=value.get("status")
+    if status not in ("PENDING","PAID","EXPIRED","CANCELLED"):
+        raise SasPayError("Statut Checkout inattendu.")
+    if status=="PAID":
+        result=_checkout_request(api_key,f"/checkout-sessions/{sid}/status/")
+        if (_session_id(result.get("id"))!=sid or result.get("status")!="PAID"
+            or result.get("transaction_status")!="SUCCESS"):
+            raise SasPayError("Transaction Sandbox non confirmée.")
+        _session_id(result.get("transaction_id"))
+        from django.utils.dateparse import parse_datetime
+        try:
+            paid_at=parse_datetime(value["paid_at"])
+        except (KeyError,ValueError,TypeError):
+            paid_at=None
+        if paid_at is None or paid_at.tzinfo is None:
+            raise SasPayError("Date de paiement Sandbox invalide.")
+        if paid_at>booking.expires_at:
+            return "LATE_PAID"
+    return status
