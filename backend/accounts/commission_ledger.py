@@ -22,7 +22,17 @@ def ledger(request):
         qs=qs.filter(checkout__issued_at__gte=datetime.combine(a,time.min,tzinfo=tz),checkout__issued_at__lt=datetime.combine(b+timedelta(days=1),time.min,tzinfo=tz))
     for word in search_term(request).split():
         qs=qs.annotate(reference_search=Cast("leg__booking__request_id",CharField())).filter(Q(company__name__icontains=word)|Q(leg__departure__route__origin__icontains=word)|Q(leg__departure__route__destination__icontains=word)|Q(reference_search__icontains=word))
-    summary=qs.aggregate(gross=Sum("gross",default=0),commission=Sum("commission",default=0),company_share=Sum("company_share",default=0),unconfigured=Sum("gross",filter=Q(rate_bps__isnull=True),default=0),unconfigured_count=Count("id",filter=Q(rate_bps__isnull=True)))
+    # Aggregate aliases must not shadow source fields (gross is summed twice).
+    totals=qs.aggregate(
+        total_gross=Sum("gross",default=0),
+        total_commission=Sum("commission",default=0),
+        total_company_share=Sum("company_share",default=0),
+        total_unconfigured=Sum("gross",filter=Q(rate_bps__isnull=True),default=0),
+        count_unconfigured=Count("id",filter=Q(rate_bps__isnull=True)),
+    )
+    summary={"gross":totals["total_gross"],"commission":totals["total_commission"],
+             "company_share":totals["total_company_share"],"unconfigured":totals["total_unconfigured"],
+             "unconfigured_count":totals["count_unconfigured"]}
     rows,meta=page_slice(request,qs.select_related("company","checkout","leg__booking","leg__departure__route").order_by("-checkout__issued_at","-id"))
     items=[{"id":r.pk,"company":r.company.name,"reference":str(r.leg.booking.request_id),"route":f"{r.leg.departure.route.origin} → {r.leg.departure.route.destination}","issued_at":r.checkout.issued_at.isoformat(),"gross":r.gross,"rate_bps":r.rate_bps,"commission":r.commission,"company_share":r.company_share} for r in rows]
     legacy=SandboxCheckout.objects.filter(status="PAID",issued_at__isnull=False,commission_lines__isnull=True).count()
