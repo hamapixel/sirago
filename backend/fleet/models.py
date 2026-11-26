@@ -179,3 +179,15 @@ class SandboxCommission(models.Model):
             models.CheckConstraint(condition=Q(gross__gt=0), name="sandbox_commission_gross_positive"),
             models.CheckConstraint(condition=Q(rate_bps__isnull=True,commission__isnull=True,company_share__isnull=True) | Q(rate_bps__isnull=False,rate_bps__lte=1000,commission__isnull=False,company_share__isnull=False,gross=F("commission")+F("company_share")), name="sandbox_commission_balanced"),
         ]
+
+
+class SandboxSettlement(models.Model):
+    """Immutable simulated transfer record. Never sends funds."""
+    company = models.ForeignKey("accounts.Company", on_delete=models.PROTECT, related_name="sandbox_settlements")
+    actor = models.ForeignKey("accounts.User", on_delete=models.PROTECT)
+    reference = models.UUIDField(unique=True)
+    amount = models.PositiveBigIntegerField()
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        constraints = [models.CheckConstraint(condition=Q(amount__gt=0), name="sandbox_settlement_positive")]
