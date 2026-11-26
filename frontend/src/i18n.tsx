@@ -829,6 +829,86 @@ const words:Record<string,{en:string;bm:string}>={
   "Chargement des trajets…": {
     "en": "Loading trips…",
     "bm": "Taamaw bɛ don…"
+  },
+  "Réserver ce trajet": {
+    "en": "Book this trip",
+    "bm": "Nin taama in biyɛti ta"
+  },
+  "Type de trajet": {
+    "en": "Trip type",
+    "bm": "Taama sugu"
+  },
+  "Départs selon disponibilité": {
+    "en": "Departures subject to availability",
+    "bm": "Bisi boli ka kɛ ni yɔrɔ bɛ yen"
+  },
+  "Horaire de départ": {
+    "en": "Departure time",
+    "bm": "Boli waati"
+  },
+  "Horaire de retour": {
+    "en": "Return time",
+    "bm": "Segili waati"
+  },
+  "Choisir un départ": {
+    "en": "Choose a departure",
+    "bm": "Bisi boli dɔ sugandi"
+  },
+  "Nombre de places": {
+    "en": "Number of seats",
+    "bm": "Sigiyɔrɔ hakɛ"
+  },
+  "Autres horaires via la recherche principale.": {
+    "en": "Find more times using the main search.",
+    "bm": "Waati wɛrɛw ɲini so la."
+  },
+  "Places non bloquées.": {
+    "en": "Seats not held.",
+    "bm": "Sigiyɔrɔw ma minɛ."
+  },
+  "Résumé du voyage": {
+    "en": "Trip summary",
+    "bm": "Taama kunnafoni"
+  },
+  "Configuration des passagers": {
+    "en": "Passenger details",
+    "bm": "Taga bagaw kunnafoni"
+  },
+  "Changer de catégorie": {
+    "en": "Change seat category",
+    "bm": "Sigiyɔrɔ sugu yɛlɛma"
+  },
+  "Continuer vers le paiement": {
+    "en": "Continue to payment",
+    "bm": "Tɛmɛ wari sarali ma"
+  },
+  "Les sièges sont attribués par la compagnie.": {
+    "en": "Seats are assigned by the transport company.",
+    "bm": "Bisi tigiw de bɛ sigiyɔrɔw di."
+  },
+  "Nom complet": {
+    "en": "Full name",
+    "bm": "Tɔgɔ dafalen"
+  },
+  "Nom et prénom": {
+    "en": "First and last name",
+    "bm": "Tɔgɔ ni jamu"
+  },
+  "Renseignez chaque passager.": {
+    "en": "Enter each passenger’s name.",
+    "bm": "Taga baga kelen kelen tɔgɔ sɛbɛn."
+  },
+  "Complet": {
+    "en": "Sold out",
+    "bm": "Yɔrɔ tɛ"
+  },
+  "Retirer un passager": {
+    "en": "Remove a passenger",
+    "bm": "Taga baga dɔ bɔ"
+  },
+  "Ajouter un passager": {
+    "en": "Add a passenger",
+    "bm": "Taga baga dɔ fara a kan"
   }
 };
 const listeners=new Set<()=>void>();

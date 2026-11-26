@@ -1,0 +1,21 @@
+.quick-booking{box-sizing:border-box;width:min(520px,calc(100% - 24px));max-width:100%;max-height:calc(100dvh - 24px);margin:auto;padding:0;border:1px solid #dce6e3;border-radius:24px;background:#fff;color:#103b38;overflow:auto;overscroll-behavior:contain;box-shadow:0 24px 80px #103b3840}
+.quick-booking::backdrop{background:#092c2b91}
+.quick-booking-content{display:grid;gap:15px;padding:20px;min-width:0}
+.quick-handle{display:none}
+.quick-head{display:flex;align-items:center;justify-content:space-between;gap:10px}.quick-head h2{font-size:1.35rem;line-height:1.25}.quick-head p{font-size:.88rem;color:#506866;margin-top:4px;overflow-wrap:anywhere}
+.quick-close{width:44px;height:44px;border:0;border-radius:50%;background:#edf4f0;color:#103b38;display:grid;place-items:center;flex:none}
+.quick-identity{display:flex;align-items:center;gap:10px;border:1px solid #dce6e3;background:#f2f8f5;border-radius:14px;padding:12px}
+.quick-identity>span{display:grid;place-items:center;width:42px;height:42px;background:#dcefe5;border-radius:11px;color:#16836c;flex:none}.quick-identity>div{display:grid;gap:4px;min-width:0;overflow-wrap:anywhere}.quick-identity small{font-size:.78rem;color:#506866}
+.quick-fieldset{border:0;padding:0;margin:0;min-width:0;display:grid;gap:7px}.quick-fieldset legend,.quick-dates label,.quick-options label{font-size:.88rem;font-weight:700;margin-bottom:7px}
+.quick-segments{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:7px}.quick-segments button{border:1px solid #dce6e3;background:#edf4f0;color:#34534f;border-radius:10px;min-height:45px;font-weight:700;white-space:normal;padding:8px}.quick-segments button[aria-pressed=true]{background:#103b38;color:white;border-color:#103b38}
+.quick-dates{display:grid;gap:8px}.quick-dates label,.quick-options label{display:grid;gap:5px;min-width:0;margin:0}
+.quick-field,.quick-count{display:flex;align-items:center;gap:8px;background:#f4f7f6;border:1px solid #dce6e3;border-radius:11px;padding:8px 10px;min-width:0;min-height:46px}
+.quick-field svg,.quick-count>svg{color:#16836c;flex:none}.quick-field input{border:0;background:transparent;color:#103b38;font-size:16px;min-width:0;width:100%;max-width:100%;padding:0}
+.quick-options select{width:100%;min-width:0;max-width:100%;border:1px solid #dce6e3;border-radius:10px;padding:9px;min-height:44px;background:#f4f7f6;color:#103b38;font-size:16px}
+.quick-options small{font-weight:400;color:#506866}.quick-count>span{flex:1;min-width:0;font-size:.85rem}.quick-count>strong{min-width:22px;text-align:center;font-variant-numeric:tabular-nums}
+.quick-count button{display:grid;place-items:center;width:40px;height:40px;flex:none;border:0;border-radius:50%;background:#16836c;color:white}.quick-count button:disabled{background:#e3eae6;color:#85958e}
+.quick-footer{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);align-items:center;gap:8px;border:1px solid #dce6e3;border-radius:14px;padding:12px;background:#f2f8f5;position:static;text-align:left;margin:0}
+.quick-footer>div{display:grid;gap:4px;min-width:0}.quick-footer>div strong{color:#14664f;font-size:1.2rem;overflow-wrap:anywhere}.quick-footer>small{grid-column:1/-1;font-size:.7rem;color:#506866}.quick-footer .primary{min-height:46px;white-space:normal;justify-content:center;background:linear-gradient(110deg,#16836c,#103b38);border:1px solid #d7b465}
+.quick-warning{display:grid;gap:6px;color:#805507;background:#fff3d9;padding:9px;border-radius:9px;font-size:.8rem}
+@media(max-width:620px){.quick-booking{width:100%;max-height:calc(100dvh - env(safe-area-inset-top,0px) - 12px);margin:auto 0 0;border-radius:24px 24px 0 0;border-bottom:0}.quick-booking-content{padding:10px 15px calc(15px + env(safe-area-inset-bottom,0px));gap:13px}.quick-handle{display:block;width:38px;height:4px;background:#c9d9d3;border-radius:5px;margin:0 auto}.quick-footer>div strong{font-size:1.08rem}}
+@media(max-width:340px){.quick-count{gap:5px;padding:7px}.quick-count button{width:36px;height:36px}.quick-footer{grid-template-columns:1fr}.quick-footer>small{grid-column:auto}}

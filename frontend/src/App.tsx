@@ -58,7 +58,7 @@ export default function App(){
  function continueBooking(out:Trip,ret:Trip|null){const s:Selection={out:out.id,...(ret?{ret:ret.id}:{}),count};window.location.assign(account?.role==='TRAVELER'?bookingUrl(s):authUrl(false,s))}
  function openPartner(company:PartnerCompany){setPartner(company);SResult(false);window.scrollTo({top:0,behavior:'instant'})}
  function closePartner(){setPartner(null);requestAnimationFrame(()=>document.getElementById('home-partners')?.scrollIntoView({block:'start'}))}
- function bookPartner(trip:Trip,passengers:number){const s:Selection={out:trip.id,count:passengers};window.location.assign(account?.role==='TRAVELER'?bookingUrl(s):authUrl(false,s))}
+ function bookPartner(trip:Trip,passengers:number,ret?:Trip){const s:Selection={out:trip.id,count:passengers,...(ret?{ret:ret.id}:{})};window.location.assign(account?.role==='TRAVELER'?bookingUrl(s):authUrl(false,s))}
  function closeResults(){SResult(false);requestAnimationFrame(()=>document.querySelector('.search-section')?.scrollIntoView({block:'start'}))}
 
  if(loading)return <SplashScreen message="Chargement…"/>;

@@ -5,6 +5,7 @@ import {partnerInfo} from './partners';
 import {dayText,timeText,durationText,priceText,minimumTripTotal,type Trip} from './travel-api';
 import {t,useLanguage} from './i18n';
 import './featured-trips.css';
+import QuickBooking from './QuickBooking';
 
 export function FeaturedTripCard({trip,count,logo,onBook}:{trip:Trip;count:number;logo?:string;onBook:(trip:Trip,count:number)=>void}){
  useLanguage();
@@ -21,8 +22,8 @@ export function FeaturedTripCard({trip,count,logo,onBook}:{trip:Trip;count:numbe
  <button type="button" className="primary featured-book" disabled={!canBook} onClick={()=>onBook(trip,count)}>{t(canBook?'Réserver maintenant':'Places insuffisantes')}<ArrowRight size={18}/></button>
  </article>
 }
-export default function FeaturedTrips({trips,logos,count,onBook}:{trips:Trip[];logos:Record<string,string>;count:number;onBook:(trip:Trip,count:number)=>void}){
+export default function FeaturedTrips({trips,logos,count,onBook}:{trips:Trip[];logos:Record<string,string>;count:number;onBook:(trip:Trip,count:number,ret?:Trip)=>void}){
  useLanguage();
- const [expanded,setExpanded]=useState(false);
- return <div className="featured-trips"><div className="featured-title"><h2>{t('Trajets proposés')}</h2>{trips.length>4&&<button type="button" className="featured-more" aria-expanded={expanded} onClick={()=>setExpanded(v=>!v)}>{t(expanded?'Voir moins':'Voir plus')}<ArrowRight size={16}/></button>}</div>{!trips.length?<p className="panel travel-home-empty">{t('Aucun trajet publié.')}</p>:<div className="featured-trip-grid">{(expanded?trips:trips.slice(0,4)).map(trip=><FeaturedTripCard key={trip.id} trip={trip} logo={logos[String(trip.company_id)]} count={count} onBook={onBook}/>)}</div>}</div>
+ const [expanded,setExpanded]=useState(false),[selected,setSelected]=useState<Trip|null>(null);
+ return <div className="featured-trips"><div className="featured-title"><h2>{t('Trajets proposés')}</h2>{trips.length>4&&<button type="button" className="featured-more" aria-expanded={expanded} onClick={()=>setExpanded(v=>!v)}>{t(expanded?'Voir moins':'Voir plus')}<ArrowRight size={16}/></button>}</div>{!trips.length?<p className="panel travel-home-empty">{t('Aucun trajet publié.')}</p>:<div className="featured-trip-grid">{(expanded?trips:trips.slice(0,4)).map(trip=><FeaturedTripCard key={trip.id} trip={trip} logo={logos[String(trip.company_id)]} count={count} onBook={trip=>setSelected(trip)}/>)}</div>}{selected&&<QuickBooking key={selected.id} trip={selected} initialCount={count} onClose={()=>setSelected(null)} onBook={onBook}/>}</div>
 }
