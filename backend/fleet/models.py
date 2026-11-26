@@ -162,3 +162,20 @@ class SandboxWebhookReceipt(models.Model):
     transaction_id = models.UUIDField(unique=True)
     received_at = models.DateTimeField(auto_now_add=True)
     matched_at = models.DateTimeField(null=True, blank=True)
+
+
+class SandboxCommission(models.Model):
+    """Frozen test allocation per leg. Recognized only when the checkout issues tickets."""
+    checkout = models.ForeignKey(SandboxCheckout, on_delete=models.PROTECT, related_name="commission_lines")
+    leg = models.OneToOneField(BookingLeg, on_delete=models.PROTECT, related_name="sandbox_commission")
+    company = models.ForeignKey("accounts.Company", on_delete=models.PROTECT)
+    gross = models.PositiveIntegerField()
+    rate_bps = models.PositiveSmallIntegerField(null=True)
+    commission = models.PositiveIntegerField(null=True)
+    company_share = models.PositiveIntegerField(null=True)
+
+    class Meta:
+        constraints = [
+            models.CheckConstraint(condition=Q(gross__gt=0), name="sandbox_commission_gross_positive"),
+            models.CheckConstraint(condition=Q(rate_bps__isnull=True,commission__isnull=True,company_share__isnull=True) | Q(rate_bps__isnull=False,rate_bps__lte=1000,commission__isnull=False,company_share__isnull=False,gross=F("commission")+F("company_share")), name="sandbox_commission_balanced"),
+        ]

@@ -1,10 +1,11 @@
 from django.urls import path
-from . import views, agent_views, notifications, support_views, supervision, commission_views
+from . import views, agent_views, notifications, support_views, supervision, commission_views, commission_ledger
 urlpatterns = [
     path("csrf/", views.csrf),
     path("supervision/", supervision.overview),
     path("supervision/commissions/", commission_views.policies),
     path("supervision/commissions/history/", commission_views.changes),
+    path("supervision/commissions/ledger/", commission_ledger.ledger),
     path("supervision/commissions/<int:pk>/", commission_views.update),
     path("supervision/companies/", supervision.companies),
     path("supervision/travelers/", supervision.travelers),
