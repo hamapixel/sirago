@@ -10,7 +10,7 @@ from reportlab.pdfgen import canvas
 from reportlab.lib.pagesizes import A6
 from reportlab.lib.styles import ParagraphStyle
 from reportlab.platypus import Paragraph
-from xml.sax.saxutils import escape
+from html import escape
 from reportlab.lib.colors import HexColor
 from .booking_views import simulation_enabled, traveler_error
 from .models import Booking
@@ -79,7 +79,7 @@ def make_pdf(t):
     def box(value, x, top, width, height, size=10, color=green, bold=False):
         # Wrap long fields within their own allocated region instead of clipping.
         font = "Helvetica-Bold" if bold else "Helvetica"
-        value = escape(" ".join(str(value).split()))
+        value = escape(" ".join(str(value).split()), quote=False)
         while True:
             style = ParagraphStyle("ticket", fontName=font, fontSize=size,
                                    leading=size * 1.15, textColor=HexColor(color),

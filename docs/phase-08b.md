@@ -2,7 +2,7 @@
 
 ## Prérequis bloquants
 
-- Versionner le frontend/package-lock.json réellement validé après npm install et npm ci. Le Dockerfile production exige ce fichier et refuse de construire sans lui.
+- Le fichier frontend/package-lock.json est versionné. Les images frontend utilisent npm ci ; conserver le lockfile validé.
 - Ne jamais réutiliser les secrets, le volume PostgreSQL ou les données de développement. Aucune donnée TEST ne doit être importée dans une future production.
 - Générer trois secrets indépendants : Django (au moins 50 caractères), PostgreSQL et Redis. Utiliser des chaînes hexadécimales aléatoires pour éviter les caractères spéciaux d'URL Redis. Ne jamais committer le fichier de secrets.
 - Le profil production désactive les paiements simulés et les options SasPay TEST. Aucun service de paiement live n'est configuré.
@@ -49,3 +49,6 @@ Build reproductible, conteneurs sains, redémarrage sans perte de données, rest
 Activer seulement après recette HTTPS. Générer les clés une seule fois avec `python manage.py generate_vapid`, conserver la clé privée uniquement dans les secrets du worker, renseigner SIRAGO_PUSH_ENABLED=1, SIRAGO_VAPID_PUBLIC_KEY et SIRAGO_VAPID_SUBJECT=mailto:adresse-technique. Ajouter compose.push.yaml au compose production (Coolify : vérifier la prise en charge de plusieurs fichiers avant activation). Le worker seul a un réseau de sortie dédié ; limiter en complément les sorties HTTPS aux fournisseurs autorisés. Pas de port publié. Abonnement volontaire lié à la session, au maximum cinq appareils, supprimé à la déconnexion. Alertes génériques, sans données personnelles, expiration du travail après une heure, TTL 5 minutes. Livraison non garantie (réseau, autorisation, système). Tester Android et iPhone installé sur écran d’accueil, avec appareil verrouillé, refus puis désactivation, changement de compte, erreurs fournisseur et redémarrage du worker. Aucun paiement réel activé.
 
 Les notifications push utilisent des messages fixes selon le type (réservation, billet, embarquement, départ, assistance), avec le logo SiraGo et un pictogramme dans le titre. Le rendu final des icônes dépend du système. Aucun détail privé n'est transmis ; les simulations restent signalées. Un scan seul ne notifie pas : seule la validation d'un nouveau passager crée l'événement, pour le compte ayant réservé et le responsable de compagnie. Le contrôle réel reste à intégrer avec les paiements réels.
+
+### Contrôle des hôtes Nginx
+Le gateway génère une liste exacte à partir de DJANGO_ALLOWED_HOSTS au démarrage. Un hôte absent ou non autorisé doit donner HTTP 400, y compris sur les pages statiques. Sa sonde interne utilise le premier domaine configuré. Vérifier avec `curl.exe -i -H "Host: invalid.example.net" http://127.0.0.1:8036/` et les deux sondes autorisées ci-dessus. Ne pas publier directement le gateway sur le VPS.

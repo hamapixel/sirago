@@ -1,7 +1,7 @@
 """Read-only financial TEST report, by issuance / settlement date."""
 from datetime import date, datetime, time, timedelta
 from io import BytesIO
-from xml.sax.saxutils import escape
+from html import escape
 from zoneinfo import ZoneInfo
 from django.db.models import BigIntegerField, ExpressionWrapper, F, Q, Sum, OuterRef, Subquery, Value
 from django.db.models.functions import Coalesce
@@ -133,7 +133,7 @@ def pdf(request):
     def paragraph(value):
         if value is None:value="—"
         if isinstance(value,int):value=f"{value:,}".replace(","," ")
-        return Paragraph(escape(str(value)),body)
+        return Paragraph(escape(str(value), quote=False),body)
     story=[Paragraph("SiraGo | Rapport financier TEST",styles["Title"]),Paragraph(f"{first:%d/%m/%Y} - {last:%d/%m/%Y} · Aucun transfert réel · Hors frais SasPay",styles["Normal"]),Spacer(1,12)]
     for title,headers,rows in sections:
         story.append(Paragraph(title,styles["Heading2"]))
