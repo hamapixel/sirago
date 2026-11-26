@@ -1,3 +1,4 @@
+import {t as tr} from './i18n';
 import {useState,type ChangeEvent} from 'react';
 import {BusFront,ImagePlus,Trash2} from 'lucide-react';
 import {authPost,type Account} from './auth-api';
@@ -23,5 +24,5 @@ export default function CompanyBrand({account,onUpdated}:{account:Account;onUpda
   reader.onerror=()=>{setBusy(false);setError('Lecture impossible.')};reader.readAsDataURL(file)
  }
  const allowed=account.company?.status==='VERIFIED'||account.company?.status==='PENDING';
- return <section className="company-brand-editor"><h3>Identité visuelle</h3>{(['logo','banner'] as const).map(kind=><div className="brand-upload" key={kind}><div><strong>{kind==='logo'?'Logo':'Bannière'}</strong><small>{kind==='logo'?'Image carrée':'Image horizontale'} · 800 Ko maximum</small></div><label className="outline brand-file-label"><ImagePlus size={18}/>{kind==='logo'?'Choisir un logo':'Choisir une bannière'}<input aria-label={kind==='logo'?'Choisir un logo':'Choisir une bannière'} type="file" accept="image/png,image/jpeg,image/webp" disabled={busy||!allowed} onChange={e=>choose(kind,e)}/></label>{account.company?.[kind]&&<button className="outline" type="button" disabled={busy||!allowed} onClick={()=>save(kind,'')}><Trash2 size={16}/>Retirer</button>}</div>)}{message&&<p role="status" className="profile-success">{message}</p>}{error&&<p role="alert" className="auth-error">{error}</p>}</section>
+ return <section className="company-brand-editor"><h3>{tr("Identité visuelle")}</h3>{(['logo','banner'] as const).map(kind=><div className="brand-upload" key={kind}><div><strong>{kind==='logo'?'Logo':'Bannière'}</strong><small>{kind==='logo'?'Image carrée':'Image horizontale'} · 800 Ko maximum</small></div><label className="outline brand-file-label"><ImagePlus size={18}/>{kind==='logo'?'Choisir un logo':'Choisir une bannière'}<input aria-label={kind==='logo'?'Choisir un logo':'Choisir une bannière'} type="file" accept="image/png,image/jpeg,image/webp" disabled={busy||!allowed} onChange={e=>choose(kind,e)}/></label>{account.company?.[kind]&&<button className="outline" type="button" disabled={busy||!allowed} onClick={()=>save(kind,'')}><Trash2 size={16}/>{tr("Retirer")}</button>}</div>)}{message&&<p role="status" className="profile-success">{message}</p>}{error&&<p role="alert" className="auth-error">{error}</p>}</section>
 }

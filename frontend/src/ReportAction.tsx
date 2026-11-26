@@ -1,3 +1,4 @@
+import {t as tr} from './i18n';
 import {CalendarDays} from 'lucide-react';
 import type {Booking} from './booking-api';
 
@@ -12,5 +13,5 @@ export function reportUnavailableReason(b:Booking,now=Date.now()):string|null{
 }
 export default function ReportAction({booking,onReport,now=Date.now()}:{booking:Booking;onReport:()=>void;now?:number}){
  const reason=reportUnavailableReason(booking,now);
- return <div className="ticket-report-action"><button className="outline" type="button" disabled={reason!==null} onClick={onReport}><CalendarDays size={19}/><span>Reporter le voyage</span></button>{reason?<small>{reason}</small>:<small>Changer la date de départ de tout ou partie des passagers · TEST</small>}</div>
+ return <div className="ticket-report-action"><button className="outline" type="button" disabled={reason!==null} onClick={onReport}><CalendarDays size={19}/><span>{tr("Reporter le voyage")}</span></button>{reason?<small>{reason}</small>:<small>Changer la date de départ de tout ou partie des passagers · TEST</small>}</div>
 }
