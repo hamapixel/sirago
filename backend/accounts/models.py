@@ -85,3 +85,26 @@ class SupportRequest(models.Model):
 
     def __str__(self):
         return f"SG-{self.reference.hex[:12].upper()}"
+
+
+class CompanyCommission(models.Model):
+    company = models.OneToOneField(Company, on_delete=models.PROTECT, related_name="commission_policy")
+    rate_bps = models.PositiveSmallIntegerField()
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        constraints = [models.CheckConstraint(condition=models.Q(rate_bps__lte=1000), name="commission_rate_max_10")]
+
+
+class CommissionChange(models.Model):
+    company = models.ForeignKey(Company, on_delete=models.PROTECT, related_name="commission_changes")
+    actor = models.ForeignKey(User, on_delete=models.PROTECT)
+    previous_bps = models.PositiveSmallIntegerField(null=True)
+    new_bps = models.PositiveSmallIntegerField()
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        constraints = [
+            models.CheckConstraint(condition=models.Q(new_bps__lte=1000), name="commission_change_new_max_10"),
+            models.CheckConstraint(condition=models.Q(previous_bps__isnull=True)|models.Q(previous_bps__lte=1000), name="commission_change_old_max_10"),
+        ]
