@@ -1,0 +1,3 @@
+FROM postgres:17-alpine
+COPY backup.sh /opt/sirago/backup.sh
+ENTRYPOINT ["sh", "/opt/sirago/backup.sh"]

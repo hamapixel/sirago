@@ -99,7 +99,9 @@ services:
     restart: unless-stopped
 
   backup:
-    image: postgres:17-alpine
+    build:
+      context: ./deploy
+      dockerfile: Dockerfile.backup
     environment:
       PGHOST: db
       PGDATABASE: ${POSTGRES_DB:-sirago}
@@ -107,12 +109,10 @@ services:
       PGPASSWORD: ${POSTGRES_PASSWORD:?Set a separate database password}
     volumes:
       - backups:/backups
-      - ./deploy/backup.sh:/opt/sirago/backup.sh:ro
     networks: [data]
     depends_on:
-      db:
+      backend:
         condition: service_healthy
-    entrypoint: ["sh", "/opt/sirago/backup.sh"]
     restart: unless-stopped
 
 networks:

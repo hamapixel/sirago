@@ -37,7 +37,7 @@ Docs officielles : https://coolify.io/docs/applications/builds/docker-compose ; 
 
 ## Sauvegardes / surveillance
 
-Le service backup réalise un pg_dump personnalisé au démarrage puis toutes les 24 h, vérifie le catalogue pg_restore et conserve environ 14 jours dans un volume dédié. Une vérification de catalogue ne prouve pas une restauration complète. Contrôler les logs et copier les sauvegardes chiffrées hors VPS sur un stockage indépendant. Le volume local seul ne protège pas d'une panne VPS. Tester une restauration dans une base jetable séparée (jamais dans la base active), vérifier les lignes et l'accès à l'application. Configurer alertes d'échec et d'âge du dernier dump avant lancement.
+Le service backup (image dédiée sans montage du code source) réalise un pg_dump personnalisé après les migrations et le démarrage sain de Django, puis toutes les 24 h, vérifie le catalogue pg_restore et conserve environ 14 jours dans un volume dédié. Une vérification de catalogue ne prouve pas une restauration complète. Contrôler les logs et copier les sauvegardes chiffrées hors VPS sur un stockage indépendant. Le volume local seul ne protège pas d'une panne VPS. Tester une restauration dans une base jetable séparée (jamais dans la base active), vérifier les lignes et l'accès à l'application. Configurer alertes d'échec et d'âge du dernier dump avant lancement.
 
 Uptime Kuma : moniteur HTTP(s) sur https://<domaine-preprod>/api/v1/health/ (200 attendu, contrôle PostgreSQL + Redis), intervalle 60 s, 2 échecs avant alerte. Ajouter un moniteur HTTPS sur la page d'accueil et vérifier l'expiration TLS. Ne pas exposer les bases pour les surveiller. Les alertes et le monitor ne sont pas encore créés sur le VPS.
 
