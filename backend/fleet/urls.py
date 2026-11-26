@@ -7,6 +7,7 @@ urlpatterns=[
     path("boarding/validate/",boarding_views.validate),
     path("boarding/history/",boarding_views.history),
     path("reservations/",views.reservations),
+    path("reservations/<bounded_int:pk>/",views.reservations),
     path("buses/",views.buses),
     path("buses/<bounded_int:pk>/",views.buses),
     path("routes/",views.routes),

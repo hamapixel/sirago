@@ -725,6 +725,70 @@ const words:Record<string,{en:string;bm:string}>={
   "Continuer": {
     "en": "Continue",
     "bm": "A ka tɛmɛ"
+  },
+  "Retour aux réservations": {
+    "en": "Back to bookings",
+    "bm": "Segi biyɛti taɲininiw la"
+  },
+  "Liste des passagers": {
+    "en": "Passenger list",
+    "bm": "Taga bagaw tɔgɔw"
+  },
+  "Informations du trajet": {
+    "en": "Trip information",
+    "bm": "Taama kunnafoni"
+  },
+  "Référence": {
+    "en": "Reference",
+    "bm": "Taamasiyɛn"
+  },
+  "Embarqué (simulation)": {
+    "en": "Boarded (simulation)",
+    "bm": "Bisi donnen (kɔrɔbɔ)"
+  },
+  "Embarqués (simulation)": {
+    "en": "Boarded (simulation)",
+    "bm": "Bisi donnenw (kɔrɔbɔ)"
+  },
+  "Non embarqué": {
+    "en": "Not boarded",
+    "bm": "A ma don bisi la"
+  },
+  "Absent (simulation)": {
+    "en": "Absent (simulation)",
+    "bm": "A tɛ yan (kɔrɔbɔ)"
+  },
+  "Billet indisponible": {
+    "en": "Ticket unavailable",
+    "bm": "Biyɛtini tɛ sɔrɔ"
+  },
+  "Montant du trajet": {
+    "en": "Trip amount",
+    "bm": "Taama wari hakɛ"
+  },
+  "Montant simulé": {
+    "en": "Simulated amount",
+    "bm": "Wari hakɛ kɔrɔbɔ"
+  },
+  "Montant encaissé (réel)": {
+    "en": "Actual collected amount",
+    "bm": "Wari donnen tiɲɛ"
+  },
+  "Aucun encaissement ni embarquement réel.": {
+    "en": "No actual payment or boarding.",
+    "bm": "Wari sara ni bisi donni tiɲɛ tɛ."
+  },
+  "Billets collectifs": {
+    "en": "Group tickets",
+    "bm": "Biyɛti jamakulu"
+  },
+  "Billets individuels": {
+    "en": "Individual tickets",
+    "bm": "Kelen kelen biyɛtininw"
+  },
+  "Réservation créée le": {
+    "en": "Booking created on",
+    "bm": "Biyɛti taɲinini don"
   }
 };
 const listeners=new Set<()=>void>();

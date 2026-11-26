@@ -1,0 +1,45 @@
+.reservation-details-button{margin-top:2px;min-height:40px;font-size:.81rem;justify-content:space-between;padding:8px 11px;background:#f2f8f5;border-color:#d3e6df;color:#14664f}
+.reservation-detail{display:grid;gap:14px;min-width:0}
+.reservation-detail-toolbar{display:flex;justify-content:space-between;gap:8px;flex-wrap:wrap}
+.reservation-detail-toolbar .outline{min-height:44px;font-size:.8rem}
+.reservation-detail-hero{background:linear-gradient(120deg,#103b38,#106c59);border-radius:19px;color:#fff;padding:20px;display:grid;gap:9px;min-width:0}
+.reservation-hero-top{display:flex;justify-content:space-between;align-items:center;gap:8px;flex-wrap:wrap}
+.reservation-hero-top small{color:#f6cf75;font-weight:650}
+.reservation-detail-status{background:#ffffff18;border:1px solid #ffffff40;border-radius:8px;padding:5px 9px;font-size:.75rem}
+.reservation-detail-hero h2{display:flex;align-items:center;gap:10px;font-size:clamp(1.3rem,2.6vw,1.9rem);flex-wrap:wrap}
+.reservation-detail-hero p{display:flex;align-items:center;gap:6px;flex-wrap:wrap;color:#def1e9;font-size:.84rem;overflow-wrap:anywhere}
+.reservation-detail-reference{font-size:.72rem!important}
+.reservation-detail-metrics{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:9px}
+.reservation-detail-metrics .panel{display:flex;align-items:center;gap:9px;padding:12px;background:linear-gradient(140deg,#fff 65%,#eff8f3);min-width:0}
+.reservation-detail-metrics .panel>div{display:grid;gap:3px;min-width:0}
+.reservation-detail-metrics strong{font-size:1.4rem;color:#103b38}
+.reservation-detail-metrics small{font-size:.73rem;line-height:1.3}
+.reservation-trip-detail,.reservation-passengers,.reservation-payment-detail{display:grid;gap:13px;min-width:0;border-radius:18px}
+.reservation-detail-section-title{display:flex;justify-content:space-between;align-items:center;gap:8px;flex-wrap:wrap}
+.reservation-detail-section-title h3{font-size:1rem;color:#103b38;display:flex;align-items:center;gap:8px}
+.reservation-detail-section-title svg{color:#16836c;flex:none}
+.reservation-trip-points{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px}
+.reservation-trip-points>div{display:grid;gap:4px;background:#f3f8f5;padding:12px;border-radius:12px;min-width:0}
+.reservation-trip-points strong{font-size:1.5rem;color:#103b38}
+.reservation-trip-points span,.reservation-trip-extra span,.reservation-created,.reservation-boarded-at{display:flex;align-items:center;gap:5px;flex-wrap:wrap;font-size:.78rem;color:#506866;overflow-wrap:anywhere}
+.reservation-trip-extra{display:flex;gap:8px 14px;flex-wrap:wrap}
+.reservation-passenger-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px}
+.reservation-passenger-card{display:grid;gap:10px;border:1px solid #dce6e3;border-radius:13px;padding:12px;min-width:0;background:linear-gradient(145deg,#fff 60%,#f4f9f6)}
+.reservation-passenger-top{display:flex;align-items:center;gap:8px;min-width:0;flex-wrap:wrap}
+.reservation-passenger-avatar{width:38px;height:38px;display:grid;place-items:center;flex:none;border-radius:12px;background:linear-gradient(140deg,#e9f7ef,#bcded0);color:#14664f}
+.reservation-passenger-top>div{display:grid;gap:3px;flex:1 1 100px;min-width:0}
+.reservation-passenger-top strong{font-size:.91rem;overflow-wrap:anywhere}
+.reservation-category,.reservation-passenger-state{font-size:.72rem;padding:4px 7px;border-radius:7px;background:#e4f2eb;color:#14664f;font-weight:650}
+.reservation-category.gold{background:#fff1ce;color:#805507}
+.reservation-passenger-state.pending,.reservation-passenger-state.waiting{background:#fff3d9;color:#805507}
+.reservation-passenger-state.absent,.reservation-passenger-state.unavailable{background:#f5e8e6;color:#873f35}
+.reservation-passenger-meta{display:flex;align-items:center;justify-content:space-between;gap:7px;flex-wrap:wrap;border-top:1px solid #dce6e3;padding-top:8px}
+.reservation-passenger-meta strong,.reservation-payment-detail dd{color:#14664f;font-weight:750}
+.reservation-payment-detail dl{margin:0;display:grid;gap:6px}
+.reservation-payment-detail dl>div{display:flex;justify-content:space-between;gap:8px;flex-wrap:wrap;padding:8px 0;border-bottom:1px solid #e1eae5}
+.reservation-payment-detail dt{font-size:.85rem;color:#506866}.reservation-payment-detail dd{margin:0}
+.reservation-simulation-note{font-size:.78rem;background:#fff4dc;color:#78510c;border-radius:9px;padding:9px}
+.reservation-created{justify-content:center;text-align:center}
+@media(max-width:850px){.reservation-detail-metrics{grid-template-columns:repeat(2,minmax(0,1fr))}}
+@media(max-width:620px){.reservation-passenger-grid{grid-template-columns:minmax(0,1fr)}.reservation-detail-hero{padding:15px}.reservation-detail-metrics .panel{padding:9px;gap:7px}.reservation-detail-metrics .route-emblem{width:32px;height:32px}.reservation-trip-points{gap:7px}.reservation-trip-points>div{padding:9px}}
+@media(max-width:350px){.reservation-detail-toolbar .outline{flex:1 1 auto}.reservation-detail-metrics .panel{flex-wrap:wrap}}

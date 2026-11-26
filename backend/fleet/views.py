@@ -309,10 +309,13 @@ def publish_batch(request,company):
     return JsonResponse({"published" if target==D.PUBLISHED else "suspended":count})
 
 @company_endpoint
-def reservations(request,company):
+def reservations(request,company,pk=None):
     if request.method!="GET":
         return error("Méthode non autorisée.",405)
     from .models import BookingLeg, Booking
+    if pk is not None:
+        from .reservation_detail import reservation_detail
+        return reservation_detail(request,company,pk)
     now=timezone.now()
     qs=BookingLeg.objects.filter(departure__company=company).select_related("booking","departure__route").order_by("-id")
     term=search_term(request)

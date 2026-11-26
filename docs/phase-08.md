@@ -69,3 +69,5 @@ Voir aussi [production-checklist.md](production-checklist.md). Le compose.yaml e
 - 08B : compose de préproduction dédié, images Gunicorn/Nginx, migrations séparées, Redis/PostgreSQL sur réseau interne, santé DB/cache et sauvegarde quotidienne. Lockfile validé à versionner avant build ; TLS, restauration, MFA, protection proxy et Uptime Kuma restent à vérifier/configurer. Voir docs/phase-08b.md.
 
 - Notifications : centre partagé pour les trois rôles, badge et rafraîchissement sur retour au premier plan, événements Superadmin (inscription compagnie, assistance), Web Push opt-in par session avec file persistante et worker isolé. Migration 0008. VAPID, HTTPS et recette appareils réels indispensables ; push désactivé par défaut. Aucun SMS.
+
+- Détails des réservations compagnie : vue par segment, noms des passagers, catégorie et état d'embarquement, itinéraire, prix figés pour le responsable uniquement. Guichetier autorisé sans montants, contrôleur refusé, isolation par compagnie, aucune donnée de paiement privée ni QR exporté. Aucun changement de schéma.
