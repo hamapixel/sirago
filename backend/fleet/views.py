@@ -3,7 +3,7 @@ from datetime import date, datetime, time, timedelta
 from functools import wraps
 from zoneinfo import ZoneInfo
 from django.db import IntegrityError, transaction
-from django.db.models import Q, TextField
+from django.db.models import Q, TextField, Exists, OuterRef
 from django.db.models.functions import Cast
 from .listing import search_term, page_slice
 from django.http import JsonResponse
@@ -74,7 +74,10 @@ def flag(v, key, default=True):
     return x
 
 def bus_json(b):
-    return {"id":b.id,"name":b.name,"plate":b.plate,"capacity":b.capacity,"premium_capacity":b.premium_capacity,"active":b.active,"driver_first_name":b.driver_first_name,"driver_last_name":b.driver_last_name,"driver_phone":b.driver_phone}
+    locked = getattr(b, "capacity_locked", None)
+    if locked is None:
+        locked = future_departures(b.departures).exists()
+    return {"capacity_locked":locked,"id":b.id,"name":b.name,"plate":b.plate,"capacity":b.capacity,"premium_capacity":b.premium_capacity,"active":b.active,"driver_first_name":b.driver_first_name,"driver_last_name":b.driver_last_name,"driver_phone":b.driver_phone}
 
 def route_json(r):
     return {"id":r.id,"origin":r.origin,"destination":r.destination,"boarding_point":r.boarding_point,"arrival_point":r.arrival_point,"duration_minutes":r.duration_minutes,"price":r.price,"active":r.active}
@@ -105,7 +108,8 @@ def buses(request,company,pk=None):
     if request.method == "GET":
         if pk is not None:
             return error("Méthode non autorisée.",405)
-        return JsonResponse({"items":[bus_json(b) for b in company.buses.order_by("name","id")]})
+        locked_departures = future_departures(company.departures.filter(bus_id=OuterRef("pk")))
+        return JsonResponse({"items":[bus_json(b) for b in company.buses.annotate(capacity_locked=Exists(locked_departures)).order_by("name","id")]})
     v=data(request)
     b=company.buses.filter(pk=pk).first() if pk is not None else Bus(company=company)
     if b is None:
@@ -115,8 +119,8 @@ def buses(request,company,pk=None):
     capacity=integer(v,"capacity",1,100)
     premium=integer({"premium_capacity":v.get("premium_capacity",b.premium_capacity if pk is not None else 0)},"premium_capacity",0,capacity-1)
     active=flag(v,"active")
-    if pk is not None and future_departures(b.departures).exists() and (not active or capacity!=b.capacity or premium!=b.premium_capacity):
-        return error("Annulez les départs à venir avant de désactiver le car ou modifier sa capacité.",409)
+    if pk is not None and future_departures(b.departures).exists() and ((b.active and not active) or capacity!=b.capacity or premium!=b.premium_capacity):
+        return error("La capacité et la désactivation sont protégées tant que ce car a des départs non terminés. Les autres informations restent modifiables.",409)
     driver = {key: field({key: v.get(key, getattr(b,key))},key,20 if key=="driver_phone" else 100,required=False) for key in ("driver_first_name","driver_last_name","driver_phone")}
     if any(driver.values()):
         if not all(driver.values()):
