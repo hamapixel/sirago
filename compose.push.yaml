@@ -1,0 +1,30 @@
+# Optional production-only override; enable only after HTTPS and VAPID setup.
+services:
+  push-worker:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile.production
+    environment:
+      SIRAGO_ENV: production
+      DJANGO_DEBUG: "0"
+      DJANGO_SECRET_KEY: ${DJANGO_SECRET_KEY:?Set a separate Django secret}
+      DJANGO_ALLOWED_HOSTS: ${DJANGO_ALLOWED_HOSTS:?Set explicit hostnames}
+      DJANGO_CSRF_TRUSTED_ORIGINS: ${DJANGO_CSRF_TRUSTED_ORIGINS:?Set HTTPS origins}
+      DJANGO_TRUST_HTTPS_PROXY: "1"
+      POSTGRES_DB: ${POSTGRES_DB:-sirago}
+      POSTGRES_USER: ${POSTGRES_USER:-sirago}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?Set a separate database password}
+      DB_HOST: db
+      SIRAGO_REDIS_URL: redis://:${REDIS_PASSWORD:?Set a URL-safe Redis password}@redis:6379/0
+      SIRAGO_PUSH_ENABLED: "1"
+      SIRAGO_VAPID_PUBLIC_KEY: ${SIRAGO_VAPID_PUBLIC_KEY:?Set public key}
+      SIRAGO_VAPID_PRIVATE_KEY: ${SIRAGO_VAPID_PRIVATE_KEY:?Set private key}
+      SIRAGO_VAPID_SUBJECT: ${SIRAGO_VAPID_SUBJECT:?Set mailto contact}
+    depends_on:
+      backend:
+        condition: service_healthy
+    command: ["python", "manage.py", "send_web_push"]
+    networks: [data, push_egress]
+    restart: unless-stopped
+networks:
+  push_egress: {}

@@ -116,6 +116,8 @@ def register(request, role):
             user.save()
             if role == User.Role.COMPANY:
                 Company.objects.create(owner=user, **company_data)
+                from .notifications import notify_admins
+                notify_admins('COMPANY_REVIEW', 'Nouvelle compagnie à vérifier', 'Une inscription de compagnie attend votre vérification.')
     except ValidationError as exc:
         return error(" ".join(exc.messages))
     except ValueError as exc:
@@ -175,6 +177,9 @@ def sign_in(request):
 @csrf_protect
 @require_POST
 def sign_out(request):
+    if request.user.is_authenticated and request.session.session_key:
+        from .models import PushSubscription
+        PushSubscription.objects.filter(recipient=request.user, session_key=request.session.session_key).delete()
     logout(request)
     return JsonResponse({"detail": "Déconnecté."})
 

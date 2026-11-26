@@ -110,3 +110,21 @@ class CommissionChange(models.Model):
             models.CheckConstraint(condition=models.Q(new_bps__lte=1000), name="commission_change_new_max_10"),
             models.CheckConstraint(condition=models.Q(previous_bps__isnull=True)|models.Q(previous_bps__lte=1000), name="commission_change_old_max_10"),
         ]
+
+
+class PushSubscription(models.Model):
+    recipient = models.ForeignKey(User, on_delete=models.CASCADE)
+    session_key = models.CharField(max_length=40)
+    endpoint = models.URLField(max_length=2048, unique=True)
+    p256dh = models.CharField(max_length=100)
+    auth = models.CharField(max_length=40)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+
+class PushDelivery(models.Model):
+    subscription = models.ForeignKey(PushSubscription, on_delete=models.CASCADE)
+    notification = models.ForeignKey(Notification, on_delete=models.CASCADE)
+    attempts = models.PositiveSmallIntegerField(default=0)
+    next_attempt = models.DateTimeField(db_index=True)
+    class Meta:
+        constraints = [models.UniqueConstraint(fields=["subscription", "notification"], name="push_unique_delivery")]
