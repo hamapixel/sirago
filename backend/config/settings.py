@@ -36,3 +36,5 @@ SIRAGO_ENABLE_SIMULATED_PAYMENTS = os.environ.get("SIRAGO_ENABLE_SIMULATED_PAYME
 if os.environ.get("SIRAGO_ENV") == "production":
     from .production import production_settings
     globals().update(production_settings(os.environ))
+
+    MIDDLEWARE.insert(1, "whitenoise.middleware.WhiteNoiseMiddleware")

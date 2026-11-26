@@ -36,3 +36,6 @@ Les options SasPay Sandbox, émission TEST et retour local sont refusées au dé
 Les paramètres numériques des chemins API (identifiants et indices de billets) sont limités à 19 chiffres et à la plage positive ou nulle du bigint signé. Les valeurs hors plage sont rejetées avant dispatch par une 404. Cela ne remplace ni les vérifications de propriété, ni la validation des corps JSON et paramètres de requête. Les indices de billet commençant à zéro restent valides.
 
 Django Admin utilise un site et un formulaire de connexion dédiés : seuls les superutilisateurs actifs et staff peuvent accéder aux modèles administratifs. Les soumissions de connexion traitées par le formulaire sont limitées à 10 par IP sur 10 minutes, dans un compteur séparé du login SiraGo. Le cache partagé Redis est requis en production ; la protection au proxy et MFA restent nécessaires. Ne pas exposer l'administration sans ces contrôles complémentaires.
+
+## Lot infrastructure 08B
+Le fichier compose.production.yaml est désormais disponible. Suivre docs/phase-08b.md ; aucun déploiement effectif ni validation Docker/TLS n'est encore attesté. Le gateway bloque Django Admin par défaut. Les dépendances supplémentaires doivent être auditées après construction.

@@ -7,3 +7,8 @@ dist/
 .pytest_cache/
 *.sqlite3
 .DS_Store
+
+.env.production
+.env.preproduction
+.env.*.local
+/backups/
