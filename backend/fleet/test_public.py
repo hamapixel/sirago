@@ -255,3 +255,49 @@ class PublicSearchTests(TestCase):
         self.assertEqual([d["id"] for d in body["departures"][:2]],[first.pk,second.pk])
         self.assertEqual(len(body["companies"]),13)
         self.assertEqual(len(body["routes"]),2)
+
+    def test_verified_partners_and_uploaded_logo_without_departure(self):
+        import base64
+        from io import BytesIO
+        from PIL import Image
+        buf=BytesIO()
+        Image.new("RGB",(2,2),"green").save(buf,format="JPEG")
+        image=buf.getvalue()
+        self.company.logo="data:image/jpeg;base64,"+base64.b64encode(image).decode("ascii")
+        self.company.save(update_fields=["logo"])
+        owner=User.objects.create_user(username="pending-partner",role=User.Role.COMPANY)
+        pending=Company.objects.create(owner=owner,name="Pending Transport",city="Bamako",address="Private",
+                                       status=Company.Status.PENDING,logo=self.company.logo)
+        def home():
+            return self.client.get("/api/v1/travel/home/").json()
+        body=home()
+        url=f"/api/v1/travel/partners/{self.company.pk}/logo/"
+        self.assertEqual(body["departures"],[])
+        self.assertEqual(body["companies"],[{"id":self.company.pk,"name":self.company.name,
+                         "city":self.company.city,"logo_url":url}])
+        response=self.client.get(url)
+        self.assertEqual(response.status_code,200)
+        self.assertEqual(response.content,image)
+        self.assertEqual(response["Content-Type"],"image/jpeg")
+        self.assertIn("no-store",response["Cache-Control"])
+        self.assertEqual(self.client.get(f"/api/v1/travel/partners/{pending.pk}/logo/").status_code,404)
+        pending.status=Company.Status.VERIFIED
+        pending.save(update_fields=["status"])
+        self.assertEqual({x["id"] for x in home()["companies"]},{self.company.pk,pending.pk})
+        self.company.status=Company.Status.SUSPENDED
+        self.company.save(update_fields=["status"])
+        self.assertEqual(self.client.get(url).status_code,404)
+        self.assertEqual([x["id"] for x in home()["companies"]],[pending.pk])
+
+    def test_partner_directory_pagination(self):
+        for i in range(30):
+            user=User.objects.create_user(username=f"directory-{i}",role=User.Role.COMPANY)
+            Company.objects.create(owner=user,name=f"Directory {i:02d}",city="Bamako",address="Gare",
+                                   status=Company.Status.VERIFIED)
+        first=self.client.get("/api/v1/travel/home/").json()
+        second=self.client.get("/api/v1/travel/home/",{"partner_page":2}).json()
+        self.assertEqual((len(first["companies"]),len(second["companies"])),(30,1))
+        self.assertTrue(first["partners_has_next"])
+        self.assertFalse(second["partners_has_next"])
+        self.assertFalse({x["id"] for x in first["companies"]}&{x["id"] for x in second["companies"]})
+        self.assertEqual(self.client.get("/api/v1/travel/home/",{"partner_page":0}).status_code,400)

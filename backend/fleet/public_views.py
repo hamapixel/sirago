@@ -1,8 +1,10 @@
 from datetime import date, datetime, time, timedelta
 import unicodedata
-from django.db.models import F, Min, Q, Count, Window
+import base64
+import binascii
+from django.db.models import F, Min, Q, Count, Window, Case, When, Value, BooleanField
 from django.db.models.functions import RowNumber
-from django.http import JsonResponse
+from django.http import JsonResponse, HttpResponse
 from django.utils import timezone
 from django.utils.dateparse import parse_datetime
 from django.views.decorators.cache import never_cache
@@ -97,6 +99,10 @@ def search(request):
 @never_cache
 @require_GET
 def home(request):
+    try:
+        partner_page=bounded_int(request.GET.get("partner_page","1"),1,1000)
+    except (ValueError, OverflowError):
+        return error("Page de compagnies invalide.")
     now=timezone.now()
     last=datetime.combine(now.astimezone(TZ).date()+timedelta(days=366),time.min,TZ)
     qs=public_departures(now).filter(remaining__gt=0,starts_at__lt=last)
@@ -111,13 +117,40 @@ def home(request):
                          order_by=[F("starts_at").asc(),F("id").asc()])
     ).filter(home_rank=1).select_related("company","route","bus").defer("company__banner").order_by("starts_at","id")[:12])
     logos={str(d.company_id):d.company.logo for d in featured if d.company.logo.startswith("data:image/jpeg;base64,")}
-    partners=list(qs.values("company_id","company__name","company__city").distinct().order_by("company__name","company_id")[:30])
+    # A verified company is a partner even before publishing its first departure.
+    # Keep logo bytes out of the home response; load the individual JPEG on demand.
+    offset=(partner_page-1)*30
+    partners=list(Company.objects.filter(status=Company.Status.VERIFIED)
+        .annotate(has_logo=Case(When(logo__startswith="data:image/jpeg;base64,",then=Value(True)),
+                                default=Value(False),output_field=BooleanField()))
+        .order_by("name","id").values("id","name","city","has_logo")[offset:offset+31])
     return JsonResponse({
         "routes":[{"origin":r["route__origin"],"destination":r["route__destination"],"price":r["price"]} for r in popular],
         "departures":[public_row(d) for d in featured],
         "company_logos":logos,
-        "companies":[{"id":r["company_id"],"name":r["company__name"],"city":r["company__city"]} for r in partners],
+        "companies":[{"id":r["id"],"name":r["name"],"city":r["city"],
+                      **({"logo_url":f"/api/v1/travel/partners/{r['id']}/logo/"} if r["has_logo"] else {})}
+                     for r in partners[:30]],
+        "partners_has_next":len(partners)>30,
     })
+
+
+@never_cache
+@require_GET
+def partner_logo(request, pk):
+    logo=Company.objects.filter(pk=pk,status=Company.Status.VERIFIED).values_list("logo",flat=True).first()
+    prefix="data:image/jpeg;base64,"
+    if not logo or not logo.startswith(prefix) or len(logo)>2_000_000:
+        return error("Logo introuvable.",404)
+    try:
+        body=base64.b64decode(logo[len(prefix):],validate=True)
+    except (ValueError,binascii.Error):
+        return error("Logo introuvable.",404)
+    if not body.startswith(b"\xff\xd8") or not body.endswith(b"\xff\xd9"):
+        return error("Logo introuvable.",404)
+    response=HttpResponse(body,content_type="image/jpeg")
+    response["X-Content-Type-Options"]="nosniff"
+    return response
 
 
 def normalized_city(value):

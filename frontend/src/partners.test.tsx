@@ -13,3 +13,5 @@ it('présente les horaires et masque le tarif Premium non proposé',()=>{const h
 it('transmet les critères réels au serveur',()=>{const url=partnerPath(7,'2026-12-01','Ségou',3,2);expect(url.startsWith('partners/7/?')).toBe(true);const p=new URLSearchParams(url.split('?')[1]);expect(p.get('q')).toBe('Ségou');expect(p.get('passengers')).toBe('3');expect(p.get('page')).toBe('2')});
 
 it('conserve la date vide pour tous les départs et affiche les dates réelles',()=>{expect(new URLSearchParams(partnerPath(1,'','',1,1).split('?')[1]).get('date')).toBe('');const html=renderToStaticMarkup(<PartnerRoute trips={[trip,{...trip,id:2,starts_at:'2026-12-02T06:00:00Z'}]} count={1} onBook={()=>{}}/>);expect(html).toContain('1 déc.');expect(html).toContain('2 déc.')});
+
+it('affiche le logo public envoyé par la compagnie',()=>{const logo='/api/v1/travel/partners/9/logo/';const html=renderToStaticMarkup(<PartnerCard company={{id:9,name:'Nouvelle compagnie',city:'Bamako',logo_url:logo}} onOpen={()=>{}}/>);expect(html).toContain('src="'+logo+'"');expect(html).toContain('Nouvelle compagnie')});
