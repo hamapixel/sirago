@@ -314,3 +314,79 @@ class ConcurrentBookingTests(BookingFixture,TransactionTestCase):
             Departure.objects.filter(pk=self.departure.pk), timezone.now()
         ).get()
         self.assertEqual((departure.standard_remaining, departure.premium_remaining), (1, 0))
+
+    def test_twenty_travelers_compete_for_ten_seats(self):
+        if connection.vendor != "postgresql":
+            self.skipTest("PostgreSQL row locks required")
+        from .availability import with_remaining
+
+        bus = self.departure.bus
+        bus.capacity = 10
+        bus.premium_capacity = 4
+        bus.save(update_fields=["capacity", "premium_capacity"])
+        self.departure.capacity = 10
+        self.departure.premium_capacity = 4
+        self.departure.premium_price = 12000
+        self.departure.save(update_fields=["capacity", "premium_capacity", "premium_price"])
+        attempts = []
+        for i in range(20):
+            user = User.objects.create_user(username=f"seat-race-{i}", role=User.Role.TRAVELER)
+            client = Client()
+            client.force_login(user)
+            premium = i >= 10
+            payload = dict(count=1, passenger_names=["Awa Test"],
+                           premium_positions=[[0]] if premium else [[]],
+                           total=12000 if premium else 8000,
+                           request_id=str(uuid4()))
+            attempts.append((client, premium, payload))
+
+        barrier = Barrier(len(attempts))
+
+        def run(attempt):
+            client, premium, payload = attempt
+            try:
+                barrier.wait(timeout=30)
+                response = self.reserve(client, **payload)
+                return response.status_code, premium, response.json().get("id")
+            finally:
+                connections.close_all()
+
+        with ThreadPoolExecutor(max_workers=len(attempts)) as executor:
+            results = list(executor.map(run, attempts))
+
+        self.assertEqual(sorted(code for code, _, _ in results), [201]*10 + [409]*10)
+        self.assertEqual(sum(code == 201 and premium for code, premium, _ in results), 4)
+        self.assertEqual(sum(code == 201 and not premium for code, premium, _ in results), 6)
+        self.assertEqual(Booking.objects.count(), 10)
+        self.assertEqual(Booking.objects.filter(status=Booking.Status.HELD).count(), 10)
+        self.assertEqual(len({pk for code, _, pk in results if code == 201}), 10)
+        departure = with_remaining(
+            Departure.objects.filter(pk=self.departure.pk), timezone.now()
+        ).get()
+        self.assertEqual((departure.remaining, departure.standard_remaining,
+                          departure.premium_remaining), (0, 0, 0))
+
+        # A repeated successful request returns the same booking without
+        # consuming a second seat; a cancellation releases the correct class.
+        index = next(i for i, result in enumerate(results) if result[0] == 201 and result[1])
+        client, _, payload = attempts[index]
+        booking_id = results[index][2]
+        retry = self.reserve(client, **payload)
+        self.assertEqual(retry.status_code, 200)
+        self.assertEqual(retry.json()["id"], booking_id)
+        self.assertEqual(Booking.objects.count(), 10)
+        self.assertEqual(client.post(f"/api/v1/travel/bookings/{booking_id}/cancel/").status_code, 200)
+        departure = with_remaining(
+            Departure.objects.filter(pk=self.departure.pk), timezone.now()
+        ).get()
+        self.assertEqual((departure.remaining, departure.standard_remaining,
+                          departure.premium_remaining), (1, 0, 1))
+        index = next(i for i, result in enumerate(results) if result[0] == 409 and result[1])
+        client, _, payload = attempts[index]
+        self.assertEqual(self.reserve(client, **payload).status_code, 201)
+        self.assertEqual(Booking.objects.filter(status=Booking.Status.HELD).count(), 10)
+        departure = with_remaining(
+            Departure.objects.filter(pk=self.departure.pk), timezone.now()
+        ).get()
+        self.assertEqual((departure.remaining, departure.standard_remaining,
+                          departure.premium_remaining), (0, 0, 0))
