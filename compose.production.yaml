@@ -1,0 +1,136 @@
+# Standalone stack: never combine with the development compose.yaml.
+x-backend-env: &backend-env
+  SIRAGO_ENV: production
+  DJANGO_DEBUG: "0"
+  DJANGO_SECRET_KEY: ${DJANGO_SECRET_KEY:?Set a separate Django secret}
+  DJANGO_ALLOWED_HOSTS: ${DJANGO_ALLOWED_HOSTS:?Set explicit hostnames}
+  DJANGO_CSRF_TRUSTED_ORIGINS: ${DJANGO_CSRF_TRUSTED_ORIGINS:?Set HTTPS origins}
+  DJANGO_TRUST_HTTPS_PROXY: "1"
+  SIRAGO_ENABLE_SIMULATED_PAYMENTS: "0"
+  SIRAGO_ENABLE_SASPAY_SANDBOX: "0"
+  SIRAGO_ENABLE_SASPAY_TICKETS: "0"
+  SIRAGO_SASPAY_LOCAL_RETURN: "0"
+  SIRAGO_PUSH_ENABLED: ${SIRAGO_PUSH_ENABLED:-0}
+  SIRAGO_VAPID_PUBLIC_KEY: ${SIRAGO_VAPID_PUBLIC_KEY:-}
+  POSTGRES_DB: ${POSTGRES_DB:-sirago}
+  POSTGRES_USER: ${POSTGRES_USER:-sirago}
+  POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?Set a separate database password}
+  DB_HOST: db
+  SIRAGO_DB_CONN_MAX_AGE: "${SIRAGO_DB_CONN_MAX_AGE:-60}"
+  SIRAGO_REDIS_URL: redis://:${REDIS_PASSWORD:?Set a URL-safe Redis password}@redis:6379/0
+
+services:
+  db:
+    build:
+      context: ./deploy
+      dockerfile: Dockerfile.db
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB:-sirago}
+      POSTGRES_USER: ${POSTGRES_USER:-sirago}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?Set a separate database password}
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    networks: [data]
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U $$POSTGRES_USER -d $$POSTGRES_DB"]
+      interval: 10s
+      timeout: 5s
+      retries: 12
+    restart: unless-stopped
+
+  redis:
+    build:
+      context: ./deploy
+      dockerfile: Dockerfile.redis
+    environment:
+      REDIS_PASSWORD: ${REDIS_PASSWORD:?Set a URL-safe Redis password}
+    command: ["sh", "-ec", "exec redis-server --requirepass \"$$REDIS_PASSWORD\" --maxmemory 128mb --maxmemory-policy noeviction --appendonly yes"]
+    volumes:
+      - redisdata:/data
+    networks: [data]
+    healthcheck:
+      test: ["CMD-SHELL", "REDISCLI_AUTH=\"$$REDIS_PASSWORD\" redis-cli ping | grep -qx PONG"]
+      interval: 10s
+      timeout: 4s
+      retries: 10
+    restart: unless-stopped
+
+  migrate:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile.production
+    environment: *backend-env
+    depends_on:
+      db:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    networks: [data]
+    command: ["sh", "-ec", "python manage.py check && python manage.py migrate --noinput"]
+    restart: "no"
+
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile.production
+    environment: *backend-env
+    depends_on:
+      migrate:
+        condition: service_completed_successfully
+      redis:
+        condition: service_healthy
+    networks: [app, data]
+    command: ["sh", "-ec", "python manage.py collectstatic --noinput && exec gunicorn config.wsgi:application --bind 0.0.0.0:8000 --workers 2 --threads 2 --timeout 60 --max-requests 1000 --max-requests-jitter 100 --access-logfile - --error-logfile -"]
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; r=urllib.request.Request('http://127.0.0.1:8000/api/v1/health/', headers={'X-Forwarded-Proto':'https'}); assert urllib.request.urlopen(r,timeout=4).status==200"]
+      interval: 15s
+      timeout: 6s
+      retries: 12
+      start_period: 30s
+    restart: unless-stopped
+
+  gateway:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile.production
+    expose: ["8080"]
+    environment:
+      DJANGO_ALLOWED_HOSTS: ${DJANGO_ALLOWED_HOSTS:?Set explicit hostnames}
+    networks: [edge, app]
+    depends_on:
+      backend:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD-SHELL", "wget -q -O /dev/null --header='X-Forwarded-Proto: https' --header=\"Host: $$(cat /etc/nginx/sirago-health-host)\" http://127.0.0.1:8080/api/v1/health/"]
+      interval: 20s
+      timeout: 6s
+      retries: 6
+    restart: unless-stopped
+
+  backup:
+    build:
+      context: ./deploy
+      dockerfile: Dockerfile.backup
+    environment:
+      PGHOST: db
+      PGDATABASE: ${POSTGRES_DB:-sirago}
+      PGUSER: ${POSTGRES_USER:-sirago}
+      PGPASSWORD: ${POSTGRES_PASSWORD:?Set a separate database password}
+    volumes:
+      - backups:/backups
+    networks: [data]
+    depends_on:
+      backend:
+        condition: service_healthy
+    restart: unless-stopped
+
+networks:
+  edge: {}
+  app:
+    internal: true
+  data:
+    internal: true
+volumes:
+  pgdata:
+  redisdata:
+  backups:

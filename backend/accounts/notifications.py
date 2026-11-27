@@ -3,15 +3,28 @@ from django.http import JsonResponse
 from django.views.decorators.cache import never_cache
 from django.views.decorators.csrf import csrf_protect
 from django.views.decorators.http import require_GET,require_POST
-from .models import Notification,CompanyAgent,Company
+from .models import Notification,CompanyAgent,Company,User,PushSubscription,PushDelivery
+from django.db import transaction
+import os
 from .views import error
 
+@transaction.atomic
 def notify(recipient_id,kind,title,message):
-    return Notification.objects.create(recipient_id=recipient_id,kind=kind,title=title,message=message[:500])
+    notice = Notification.objects.create(recipient_id=recipient_id,kind=kind,title=title,message=message[:500])
+    if os.environ.get("SIRAGO_PUSH_ENABLED") == "1":
+        PushDelivery.objects.bulk_create([
+            PushDelivery(subscription_id=pk, notification=notice, next_attempt=timezone.now())
+            for pk in PushSubscription.objects.filter(recipient_id=recipient_id).values_list("pk",flat=True)
+        ])
+    return notice
+
+def notify_admins(kind,title,message):
+    for pk in User.objects.filter(is_active=True,is_superuser=True).values_list("pk",flat=True):
+        notify(pk,kind,title,message)
 
 def accessible(request):
     if not request.user.is_authenticated:return None,error("Connexion requise.",401)
-    if request.user.is_superuser:return None,error("Accès indisponible.",403)
+    if not request.user.is_active:return None,error("Accès indisponible.",403)
     if CompanyAgent.objects.filter(user=request.user).exclude(company__status=Company.Status.VERIFIED).exists():
         return None,error("Compagnie indisponible.",403)
     return Notification.objects.filter(recipient=request.user),None

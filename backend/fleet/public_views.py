@@ -1,6 +1,7 @@
 from datetime import date, datetime, time, timedelta
 import unicodedata
-from django.db.models import F, Min, Q, Count
+from django.db.models import F, Min, Q, Count, Window
+from django.db.models.functions import RowNumber
 from django.http import JsonResponse
 from django.utils import timezone
 from django.utils.dateparse import parse_datetime
@@ -83,8 +84,10 @@ def search(request):
         options=list(qs.order_by().values("company_id","company__name").annotate(departures=Count("id")).order_by("company__name","company_id"))
         if company:qs=qs.filter(company__name__icontains=company)
         if q.get("company_id"):qs=qs.filter(company_id=bounded_int(q["company_id"],1,2**63-1))
-        qs=qs.annotate(duration=F("ends_at")-F("starts_at")).select_related("company","route","bus").order_by(*orders[sort])
-        total=qs.count()
+        qs=qs.annotate(duration=F("ends_at")-F("starts_at")).select_related("company","route","bus").defer("company__logo","company__banner").order_by(*orders[sort])
+        # The unfiltered company counts already cover the same eligible departures.
+        # Keep a separate count when a company name or ID changes that result set.
+        total=qs.count() if company or q.get("company_id") else sum(c["departures"] for c in options)
         offset=(page-1)*20
         rows=list(qs[offset:offset+20])
         return JsonResponse({"items":[public_row(d) for d in rows],"total":total,"page":page,"has_next":offset+len(rows)<total,"companies":[{"id":c["company_id"],"name":c["company__name"],"departures":c["departures"]} for c in options]})
@@ -94,11 +97,25 @@ def search(request):
 @never_cache
 @require_GET
 def home(request):
-    qs=public_departures(timezone.now()).filter(remaining__gt=0)
+    now=timezone.now()
+    last=datetime.combine(now.astimezone(TZ).date()+timedelta(days=366),time.min,TZ)
+    qs=public_departures(now).filter(remaining__gt=0,starts_at__lt=last)
     popular=list(qs.values("route__origin","route__destination").annotate(price=Min("from_price")).order_by("route__origin","route__destination")[:12])
+    # One next available departure per company and city pair. Different companies
+    # serving the same cities are intentionally kept separate.
+    # Rank eligible departures in one query instead of recalculating the same
+    # availability predicates in a correlated outer query and an IN subquery.
+    featured=list(qs.annotate(
+        home_rank=Window(expression=RowNumber(),
+                         partition_by=[F("company_id"),F("route__origin"),F("route__destination")],
+                         order_by=[F("starts_at").asc(),F("id").asc()])
+    ).filter(home_rank=1).select_related("company","route","bus").defer("company__banner").order_by("starts_at","id")[:12])
+    logos={str(d.company_id):d.company.logo for d in featured if d.company.logo.startswith("data:image/jpeg;base64,")}
     partners=list(qs.values("company_id","company__name","company__city").distinct().order_by("company__name","company_id")[:30])
     return JsonResponse({
         "routes":[{"origin":r["route__origin"],"destination":r["route__destination"],"price":r["price"]} for r in popular],
+        "departures":[public_row(d) for d in featured],
+        "company_logos":logos,
         "companies":[{"id":r["company_id"],"name":r["company__name"],"city":r["company__city"]} for r in partners],
     })
 
@@ -111,7 +128,7 @@ def normalized_city(value):
 def partner(request, pk):
     if not 1 <= pk <= 2**63-1:
         return error("Compagnie introuvable.",404)
-    company=Company.objects.filter(pk=pk,status=Company.Status.VERIFIED).first()
+    company=Company.objects.filter(pk=pk,status=Company.Status.VERIFIED).only("id","name","city").first()
     if not company:
         return error("Compagnie introuvable.",404)
     now=timezone.now()
@@ -137,7 +154,7 @@ def partner(request, pk):
             day_qs=qs.filter(starts_at__gte=start,starts_at__lt=start+timedelta(days=1))
         else:
             day_qs=qs
-        day_qs=day_qs.select_related("company","route","bus").order_by("route__origin","route__destination","starts_at","id")
+        day_qs=day_qs.select_related("company","route","bus").defer("company__logo","company__banner").order_by("route__origin","route__destination","starts_at","id")
         total=day_qs.count()
         offset=(page-1)*20
         rows=list(day_qs[offset:offset+20])

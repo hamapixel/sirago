@@ -5,3 +5,11 @@ const t:SupportRequest={id:1,reference:'SG-TEST',category:'BOOKING',subject:'Bil
 it('affiche le suivi et la réponse du support',()=>{const html=renderToStaticMarkup(<SupportCard item={t}/>);for(const v of ['SG-TEST','Résolue','Réponse BTDIGIT','Votre billet est disponible.'])expect(html).toContain(v)});
 it('propose une FAQ publique sans envoi anonyme',()=>{const html=renderToStaticMarkup(<SupportCenter signedIn={false}/>);expect(html).toContain('Questions fréquentes');expect(html).toContain('Se connecter');expect(html).not.toContain('Nouvelle demande')});
 it('propose les demandes et leur recherche pour un compte connecté',()=>{const html=renderToStaticMarkup(<SupportCenter/>);expect(html).toContain('Nouvelle demande');expect(html).toContain('Mes demandes');expect(html).toContain('Sujet ou référence')});
+
+it('affiche le contenu utilisateur et les réponses comme du texte, jamais comme du HTML actif',()=>{
+ const marker='<svg onload="void(0)"></svg>';
+ const html=renderToStaticMarkup(<SupportCard item={{...t,subject:marker,message:marker,reply:marker}}/>);
+ expect(html).toContain('&lt;svg onload=&quot;void(0)&quot;&gt;');
+ expect(html).not.toContain(marker);
+ expect(html).not.toMatch(/<svg[^>]+onload\s*=/i);
+});

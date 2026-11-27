@@ -54,6 +54,8 @@ def requests(request):
             if SupportRequest.objects.filter(reference=reference).exists():return error("Référence indisponible.",409)
             if qs.filter(created_at__gte=timezone.now()-timedelta(hours=1)).count()>=5:return error("Limite de cinq demandes par heure atteinte.",429)
             t=SupportRequest.objects.create(requester=request.user,reference=reference,category=category,subject=subject,message=message)
+            from .notifications import notify_admins
+            notify_admins('SUPPORT_NEW','Nouvelle demande d’assistance','Une demande est disponible dans votre espace assistance.')
             return JsonResponse(row(t),status=201)
     except IntegrityError:return error("Référence indisponible. Réessayez avec une nouvelle demande.",409)
     except (ValueError,TypeError,OverflowError) as exc:return error(str(exc))

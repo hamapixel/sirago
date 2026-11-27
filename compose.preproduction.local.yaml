@@ -1,0 +1,5 @@
+# Local smoke tests only. Do not use this override on the VPS.
+services:
+  gateway:
+    ports:
+      - "127.0.0.1:8036:8080"

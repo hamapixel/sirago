@@ -40,12 +40,12 @@ export default function CompanyBoarding({company,verified}:{company:string;verif
   try{const result=await companyPost<BoardingTicket>('boarding/validate/',{code:ticket.code,passengers:selected});setTicket(result);setSelected([]);setNotice('Embarquement de test enregistré.');setHistory(false)}catch(e){setError(e instanceof Error?e.message:'Validation impossible.')}finally{pending.current=false;setBusy(false)}
  }
  return <section className="boarding-space"><header className="boarding-head"><div><h2>Contrôle des billets</h2><p>{company}</p></div><ScanLine size={24}/></header>
- <p className="boarding-test">MODE TEST — Aucun embarquement réel.</p>
+ <p className="boarding-test">Simulation — Aucun embarquement réel.</p>
  {!verified?<p className="panel">Ce contrôle est réservé aux compagnies validées.</p>:<div className="panel boarding-panel">
  {error&&<p role="alert" className="auth-error">{error}</p>}{notice&&<p role="status" className="boarding-complete">{notice}</p>}
  {ticket?<><BoardingResult ticket={ticket} selected={selected} onToggle={i=>setSelected(old=>old.includes(i)?old.filter(x=>x!==i):[...old,i])} onAll={()=>setSelected(ticket.passengers.filter(p=>!p.boarded_at).map(p=>p.index))} onValidate={validate} busy={busy}/><button type="button" className="outline" disabled={busy} onClick={()=>{setTicket(null);setCode('');setSelected([]);setNotice('');setError('')}}><ScanLine size={20}/> Scanner un autre billet</button></>:<>
  <QRReader busy={busy} code={code} onCode={setCode} onLookup={lookup} onError={setError}/></>}
  <button className="outline" type="button" disabled={busy} onClick={()=>setHistory(v=>!v)} aria-expanded={history}><History size={18}/> Historique des embarquements</button>
  {history&&<BoardingHistory/>}
- <small className="boarding-footer">Propulsé par BTDIGIT</small></div>}</section>
+ </div>}</section>
 }

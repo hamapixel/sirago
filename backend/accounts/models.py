@@ -1,5 +1,7 @@
+import uuid
 from django.contrib.auth.models import AbstractUser
 from django.db import models
+from django.utils.crypto import salted_hmac
 class User(AbstractUser):
     # Custom user from the first migration; public registration comes in phase 02.
     class Role(models.TextChoices):
@@ -7,6 +9,14 @@ class User(AbstractUser):
         COMPANY = "COMPANY", "Compagnie"
     role = models.CharField(max_length=16, choices=Role.choices, default=Role.TRAVELER)
     phone = models.CharField(max_length=16, unique=True, null=True, blank=True)
+    session_version = models.PositiveBigIntegerField(default=0, editable=False)
+
+    def _get_session_auth_hash(self, secret=None):
+        # Preserve existing sessions until an explicit administrative revocation.
+        if self.session_version == 0:
+            return super()._get_session_auth_hash(secret=secret)
+        return salted_hmac("sirago.user.session.v1", f"{self.password}:{self.session_version}",
+                           secret=secret, algorithm="sha256").hexdigest()
 
     class Meta(AbstractUser.Meta):
         constraints = [models.UniqueConstraint(models.functions.Lower("email"), condition=~models.Q(email=""), name="unique_nonempty_email_ci")]
@@ -22,6 +32,8 @@ class Company(models.Model):
     city = models.CharField(max_length=100)
     address = models.CharField(max_length=250)
     registration_number = models.CharField(max_length=100, blank=True)
+    logo = models.TextField(blank=True, default="", editable=False)
+    banner = models.TextField(blank=True, default="", editable=False)
     status = models.CharField(max_length=16, choices=Status.choices, default=Status.PENDING)
     created_at = models.DateTimeField(auto_now_add=True)
 
@@ -108,3 +120,47 @@ class CommissionChange(models.Model):
             models.CheckConstraint(condition=models.Q(new_bps__lte=1000), name="commission_change_new_max_10"),
             models.CheckConstraint(condition=models.Q(previous_bps__isnull=True)|models.Q(previous_bps__lte=1000), name="commission_change_old_max_10"),
         ]
+
+
+class PushSubscription(models.Model):
+    recipient = models.ForeignKey(User, on_delete=models.CASCADE)
+    session_key = models.CharField(max_length=40)
+    endpoint = models.URLField(max_length=2048, unique=True)
+    p256dh = models.CharField(max_length=100)
+    auth = models.CharField(max_length=40)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+
+class PushDelivery(models.Model):
+    subscription = models.ForeignKey(PushSubscription, on_delete=models.CASCADE)
+    notification = models.ForeignKey(Notification, on_delete=models.CASCADE)
+    attempts = models.PositiveSmallIntegerField(default=0)
+    next_attempt = models.DateTimeField(db_index=True)
+    class Meta:
+        constraints = [models.UniqueConstraint(fields=["subscription", "notification"], name="push_unique_delivery")]
+
+
+class AdminMFA(models.Model):
+    user = models.OneToOneField(User, on_delete=models.CASCADE, related_name="admin_mfa")
+    enabled = models.BooleanField(default=False)
+    encrypted_secret = models.TextField(blank=True, default="")
+    enrollment_hash = models.CharField(max_length=64, blank=True, default="")
+    enrollment_expires = models.DateTimeField(null=True, blank=True)
+    last_step = models.BigIntegerField(default=-1)
+    recovery_hashes = models.JSONField(default=list)
+    version = models.UUIDField(default=uuid.uuid4, editable=False)
+
+
+class AdminMFAEvent(models.Model):
+    user = models.ForeignKey(User, on_delete=models.SET_NULL, null=True)
+    kind = models.CharField(max_length=32)
+    created_at = models.DateTimeField(auto_now_add=True, db_index=True)
+
+class AdminAction(models.Model):
+    actor = models.ForeignKey(User, on_delete=models.PROTECT, related_name="admin_actions")
+    target_type = models.CharField(max_length=16)
+    target_id = models.PositiveBigIntegerField()
+    before = models.CharField(max_length=32)
+    after = models.CharField(max_length=32)
+    reason = models.CharField(max_length=300)
+    created_at = models.DateTimeField(auto_now_add=True, db_index=True)

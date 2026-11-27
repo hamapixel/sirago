@@ -64,11 +64,17 @@ def profile(user):
     result = {"first_name": user.first_name, "last_name": user.last_name, "phone": user.phone,
               "email": user.email, "role": "ADMIN" if user.is_superuser else user.role,
               "company": None}
+    if user.is_superuser:
+        result["username"] = user.username
     if not user.is_superuser and user.role == User.Role.COMPANY:
         agent = CompanyAgent.objects.select_related("company").filter(user=user).first()
         company = agent.company if agent else Company.objects.filter(owner=user).first()
         if company:
             result["company"] = {"name": company.name, "status": company.status, "city": company.city}
+            if company.logo:
+                result["company"]["logo"] = company.logo
+            if company.banner:
+                result["company"]["banner"] = company.banner
             result["company_role"] = agent.role if agent else "OWNER"
     return result
 
@@ -110,6 +116,8 @@ def register(request, role):
             user.save()
             if role == User.Role.COMPANY:
                 Company.objects.create(owner=user, **company_data)
+                from .notifications import notify_admins
+                notify_admins('COMPANY_REVIEW', 'Nouvelle compagnie à vérifier', 'Une inscription de compagnie attend votre vérification.')
     except ValidationError as exc:
         return error(" ".join(exc.messages))
     except ValueError as exc:
@@ -150,6 +158,10 @@ def sign_in(request):
                 account = User.objects.filter(phone=phone_number(identifier)).first()
             except ValueError:
                 account = None
+        # Public phone/email identifiers keep priority. Only existing
+        # superusers may additionally authenticate with a Django username.
+        if account is None:
+            account = User.objects.filter(username=identifier, is_superuser=True).first()
         user = authenticate(request, username=account.username if account else "unknown-" + uuid.uuid4().hex, password=password)
         if user is None:
             return error("Identifiants incorrects.", 401)
@@ -158,6 +170,11 @@ def sign_in(request):
     agent=CompanyAgent.objects.select_related("company").filter(user=user).first()
     if agent and agent.company.status!=Company.Status.VERIFIED:
         return error("Accès de la compagnie indisponible.",403)
+    from django.conf import settings
+    if user.is_superuser and settings.SIRAGO_ADMIN_MFA_REQUIRED:
+        from .mfa import begin
+        return begin(request, user)
+    request.session.pop("admin_mfa_pending", None)
     login(request, user)
     return JsonResponse(profile(user))
 
@@ -165,6 +182,9 @@ def sign_in(request):
 @csrf_protect
 @require_POST
 def sign_out(request):
+    if request.user.is_authenticated and request.session.session_key:
+        from .models import PushSubscription
+        PushSubscription.objects.filter(recipient=request.user, session_key=request.session.session_key).delete()
     logout(request)
     return JsonResponse({"detail": "Déconnecté."})
 
@@ -185,7 +205,7 @@ def company_account(request):
     company = Company.objects.filter(owner=request.user).first()
     if not company:
         return error("Compagnie introuvable.", 403)
-    return JsonResponse({"name": company.name, "status": company.status, "city": company.city, "address": company.address, "registration_number": company.registration_number})
+    return JsonResponse({"name": company.name, "status": company.status, "city": company.city, "address": company.address, "registration_number": company.registration_number, **({"logo": company.logo} if company.logo else {}), **({"banner": company.banner} if company.banner else {})})
 
 def traveler_profile_error(request):
     if not request.user.is_authenticated:
@@ -287,4 +307,42 @@ def change_company_password(request):
         return change_password(request)
     denied=company_profile_error(request)
     if denied is not None:return denied
+    return change_password(request)
+
+def admin_profile_error(request):
+    if not request.user.is_authenticated:
+        return error("Connexion requise.", 401)
+    if not request.user.is_active or not request.user.is_superuser:
+        return error("Accès réservé au superadministrateur.", 403)
+    return None
+
+
+@never_cache
+@csrf_protect
+@require_POST
+def update_admin_profile(request):
+    denied = admin_profile_error(request)
+    if denied is not None:
+        return denied
+    try:
+        values = data(request)
+        first = " ".join(field(values, "first_name", 150).split())
+        last = " ".join(field(values, "last_name", 150).split())
+        if not first or not last or any(ord(ch) < 32 for ch in first + last):
+            raise ValueError("Nom ou prénom invalide.")
+    except ValueError as exc:
+        return error(str(exc))
+    user = request.user
+    user.first_name, user.last_name = first, last
+    user.save(update_fields=["first_name", "last_name"])
+    return JsonResponse(profile(user))
+
+
+@never_cache
+@csrf_protect
+@require_POST
+def change_admin_password(request):
+    denied = admin_profile_error(request)
+    if denied is not None:
+        return denied
     return change_password(request)

@@ -5,7 +5,7 @@ export type Filters={company:string;company_id?:string;period:string;max_price:s
 export type TripPage={items:Trip[];total:number;page:number;has_next:boolean;companies?:{id:number;name:string;departures:number}[]};
 export type PartnerCompany={id:number;name:string;city:string};
 export type PartnerPage=TripPage&{company:PartnerCompany;next_date:string|null};
-export type HomeData={routes:{origin:string;destination:string;price:number}[];companies:PartnerCompany[]};
+export type HomeData={routes:{origin:string;destination:string;price:number}[];companies:PartnerCompany[];departures?:Trip[];company_logos?:Record<string,string>};
 export const defaultFilters:Filters={company:'',period:'',max_price:'',sort:'price'};
 export function tripPath(c:Criteria,filters:Filters=defaultFilters,page=1,returnLeg=false,after=''){
  const params=new URLSearchParams({origin:returnLeg?c.destination:c.origin,destination:returnLeg?c.origin:c.destination,date:returnLeg?c.back:c.date,passengers:String(c.count),page:String(page),sort:filters.sort});

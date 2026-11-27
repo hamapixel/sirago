@@ -22,7 +22,7 @@ export default function NotificationsDialog({onClose,signedIn=false}:{onClose:()
   <div className="notification-dialog-top"><span><img src="/logo.svg" width={28} height={28} alt=""/> SiraGo</span><button type="button" className="notification-close" aria-label="Fermer les notifications" onClick={onClose}><X size={21}/></button></div>
   <h2 id="notification-dialog-title">Notifications</h2>
   <p id="notification-dialog-description">Vos alertes SiraGo</p>
-  <NotificationCenter signedIn={signedIn}/>
+  <NotificationCenter signedIn={signedIn} compact/>
   <button type="button" className="outline notification-dismiss" onClick={onClose}>Fermer</button>
  </dialog>
 }

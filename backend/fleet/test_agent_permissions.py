@@ -1,5 +1,6 @@
-from django.test import TestCase,override_settings
-from accounts.models import CompanyAgent,User,Company
+from django.test import TestCase,Client,override_settings
+from unittest.mock import patch
+from accounts.models import CompanyAgent,User,Company,Notification,PushSubscription,PushDelivery
 from .test_booking import BookingFixture
 from .models import TestBoarding
 
@@ -49,3 +50,23 @@ class AgentPermissionTests(BookingFixture,TestCase):
         Company.objects.filter(pk=self.membership.company_id).update(status="SUSPENDED")
         self.assertEqual(self.client.get(self.manifest).status_code,403)
         self.assertEqual(self.post("boarding/lookup/",{"code":self.code}).status_code,403)
+
+    def test_clerk_scan_notifies_only_after_validation_without_duplicate(self):
+        self.membership.role="CLERK"
+        self.membership.save(update_fields=["role"])
+        traveler=Client()
+        traveler.force_login(self.user)
+        sub=PushSubscription.objects.create(recipient=self.user,session_key=traveler.session.session_key,endpoint="https://fcm.googleapis.com/fcm/send/boarding-test",p256dh="fixture",auth="fixture")
+        with patch.dict("os.environ",{"SIRAGO_PUSH_ENABLED":"1"}):
+            self.assertEqual(self.post("boarding/lookup/",{"code":self.code}).status_code,200)
+            self.assertFalse(Notification.objects.filter(kind="TEST_BOARDING").exists())
+            for _ in range(2):
+                self.assertEqual(self.post("boarding/validate/",{"code":self.code,"passengers":[0]}).status_code,200)
+        self.assertEqual(TestBoarding.objects.get().actor,self.agent)
+        notice=Notification.objects.get(recipient=self.user,kind="TEST_BOARDING")
+        self.assertIn("test",notice.title.lower())
+        self.assertEqual(Notification.objects.filter(recipient=self.owner,kind="TEST_BOARDING").count(),1)
+        self.assertFalse(Notification.objects.filter(recipient=self.other,kind="TEST_BOARDING").exists())
+        self.assertEqual(PushDelivery.objects.filter(subscription=sub,notification=notice).count(),1)
+        self.assertEqual(PushDelivery.objects.count(),1)
+        self.assertTrue(any(n["id"]==notice.pk for n in traveler.get("/api/v1/auth/notifications/").json()["items"]))

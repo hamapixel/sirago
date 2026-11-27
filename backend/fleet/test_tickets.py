@@ -30,6 +30,8 @@ class TicketTests(BookingFixture,TestCase):
         self.assertTrue(a["code"].startswith("SRG-TEST-"))
         self.assertEqual(a["name"],"Awa Test")
         self.assertEqual(a["amount"],8000)
+        self.assertEqual(a["company_city"], self.company.city)
+        self.assertEqual(a["bus_name"], self.departure.bus.name)
         self.assertEqual(r.json(),self.client.get(self.ticket_url).json())
         self.assertIn("no-store",r["Cache-Control"])
     def test_pdf_and_bounds(self):
@@ -37,6 +39,12 @@ class TicketTests(BookingFixture,TestCase):
         r=self.client.get(self.ticket_url+"0/1/pdf/")
         self.assertEqual(r.status_code,200)
         self.assertTrue(r.content.startswith(b"%PDF"))
+        import re
+        from reportlab.lib.pagesizes import A6
+        match = re.search(rb"/MediaBox\s*\[\s*0\s+0\s+([\d.]+)\s+([\d.]+)\s*\]", r.content)
+        self.assertIsNotNone(match)
+        self.assertAlmostEqual(float(match.group(1)), A6[0], places=2)
+        self.assertAlmostEqual(float(match.group(2)), A6[1], places=2)
         self.assertIn("SRG-TEST-",r["Content-Disposition"])
         self.assertIn("no-store",r["Cache-Control"])
         self.assertEqual(self.client.get(self.ticket_url+"0/2/pdf/").status_code,404)
@@ -90,3 +98,18 @@ class TicketTests(BookingFixture,TestCase):
         self.assertEqual([(t["category"],t["count"],t["amount"]) for t in items],[("Standard",3,24000),("Premium",2,24000)])
         self.assertNotEqual(items[0]["code"],items[1]["code"])
         self.assertEqual(items[0]["names"].count("Awa Test"),2)
+
+    def test_small_collective_pdf_keeps_both_names_on_one_page(self):
+        import re
+        from uuid import uuid4
+        self.client.post(self.base+"cancel/")
+        r = self.reserve(ticket_mode="group", request_id=str(uuid4()))
+        self.assertEqual(r.status_code, 201, r.content)
+        self.base = f'/api/v1/travel/bookings/{r.json()["id"]}/'
+        self.ticket_url = self.base+"tickets/"
+        self.pay()
+        items = self.client.get(self.ticket_url).json()["items"]
+        self.assertEqual(items[0]["names"], ["Awa Test", "Moussa Test"])
+        pdf = self.client.get(self.ticket_url+"0/0/pdf/")
+        self.assertEqual(pdf.status_code, 200)
+        self.assertEqual(len(re.findall(rb"/Type\s*/Page\b", pdf.content)), 1)

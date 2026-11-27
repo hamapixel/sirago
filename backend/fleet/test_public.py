@@ -157,3 +157,101 @@ class PublicSearchTests(TestCase):
         self.departure()
         self.assertEqual(self.search(destination="Gao").json()["total"],1)
         self.assertEqual(self.search(destination="Ville inconnue").status_code,400)
+
+    def test_home_featured_real_departures_by_company_and_route(self):
+        early=self.departure(price=8500)
+        self.departure(starts_at=self.start+timedelta(hours=1),ends_at=self.start+timedelta(hours=8),price=7000)
+        self.departure(status="DRAFT",price=1000)
+        self.departure(starts_at=timezone.now()-timedelta(hours=1),ends_at=timezone.now()+timedelta(hours=6))
+        self.departure(starts_at=self.start+timedelta(days=400),ends_at=self.start+timedelta(days=400,hours=7))
+        owner=User.objects.create_user(username="featured-other",role=User.Role.COMPANY)
+        second=Company.objects.create(owner=owner,name="Deuxième Transport",city="Bamako",address="Gare",status="VERIFIED")
+        bus=Bus.objects.create(company=second,name="Car 02",plate="AA 002",capacity=60)
+        route=Route.objects.create(company=second,origin="Bamako",destination="Sikasso",boarding_point="Gare A",arrival_point="Gare B",duration_minutes=420,price=8000)
+        other=self.departure(company=second,bus=bus,route=route)
+        result=self.client.get("/api/v1/travel/home/")
+        self.assertEqual(result.status_code,200,result.content)
+        rows=result.json()["departures"]
+        self.assertEqual({x["id"] for x in rows},{early.pk,other.pk})
+        first=next(x for x in rows if x["id"]==early.pk)
+        self.assertEqual((first["company"],first["price"],first["duration_minutes"]),(self.company.name,8500,420))
+        self.assertEqual(first["starts_at"],early.starts_at.isoformat())
+        self.assertEqual(first["premium_remaining"],0)
+        self.assertNotIn("plate",first)
+        self.assertNotIn("owner",first)
+        self.assertEqual(result.json()["company_logos"],{})
+        second.status="SUSPENDED";second.save(update_fields=["status"])
+        self.assertEqual([x["id"] for x in self.client.get("/api/v1/travel/home/").json()["departures"]],[early.pk])
+
+    def test_public_search_reuses_group_counts_without_fetching_branding(self):
+        from django.test import RequestFactory
+        from django.test.utils import CaptureQueriesContext
+        from django.db import connection
+        from .public_views import search
+        import json
+        for i in range(21):
+            self.departure(price=8000+i)
+        self.company.logo="data:image/jpeg;base64,fixture"
+        self.company.banner="data:image/jpeg;base64,fixture"
+        self.company.save(update_fields=["logo","banner"])
+        request=RequestFactory().get("/api/v1/travel/search/",{**self.params,"page":2})
+        with CaptureQueriesContext(connection) as queries:
+            response=search(request)
+        self.assertEqual(response.status_code,200)
+        body=json.loads(response.content)
+        self.assertEqual((body["total"],len(body["items"]),body["has_next"]),(21,1,False))
+        self.assertEqual(body["companies"][0]["departures"],21)
+        self.assertEqual(len(queries),3)
+        self.assertTrue(all('"logo"' not in q["sql"] and '"banner"' not in q["sql"] for q in queries))
+        self.assertEqual(self.search(company="Transport").json()["total"],21)
+        self.assertEqual(self.search(company_id=self.company.pk).json()["total"],21)
+
+    def test_home_ranking_skips_full_departure_and_reacts_to_release(self):
+        from uuid import uuid4
+        from .models import Booking, BookingLeg
+        early=self.departure(capacity=2,price=8000)
+        same_time=self.departure(capacity=2,price=8500)
+        later=self.departure(starts_at=self.start+timedelta(hours=1),
+                             ends_at=self.start+timedelta(hours=8),price=7000)
+        user=User.objects.create_user(username="home-rank-traveler")
+        booking=Booking.objects.create(traveler=user,request_id=uuid4(),passengers=2,
+            passenger_names=["Awa Test","Moussa Test"],status=Booking.Status.HELD,
+            expires_at=timezone.now()+timedelta(minutes=10))
+        BookingLeg.objects.create(booking=booking,departure=early,position=0,unit_price=8000)
+        def home():
+            response=self.client.get("/api/v1/travel/home/")
+            self.assertEqual(response.status_code,200,response.content)
+            self.assertIn("no-store",response["Cache-Control"])
+            return response.json()
+        body=home()
+        self.assertEqual([r["id"] for r in body["departures"]],[same_time.pk])
+        self.assertEqual(body["routes"][0]["price"],later.price)
+        booking.expires_at=timezone.now()-timedelta(seconds=1)
+        booking.save(update_fields=["expires_at"])
+        self.assertEqual([r["id"] for r in home()["departures"]],[early.pk])
+        self.company.status=Company.Status.SUSPENDED
+        self.company.save(update_fields=["status"])
+        body=home()
+        self.assertEqual((body["departures"],body["companies"],body["routes"]),([],[],[]))
+
+    def test_home_ranking_limits_global_results_and_keeps_distinct_city_pairs(self):
+        from .models import Locality
+        Locality.objects.get_or_create(name="Kayes",defaults={"kind":"REGION"})
+        first=self.departure()
+        route=Route.objects.create(company=self.company,origin="Bamako",destination="Kayes",
+            boarding_point="Gare A",arrival_point="Gare C",duration_minutes=420,price=8000)
+        second=self.departure(route=route)
+        for i in range(12):
+            owner=User.objects.create_user(username=f"home-rank-owner-{i}",role=User.Role.COMPANY)
+            company=Company.objects.create(owner=owner,name=f"Home rank {i}",city="Bamako",
+                address="Gare",status=Company.Status.VERIFIED)
+            bus=Bus.objects.create(company=company,name="Car",plate=f"HOME {i}",capacity=60)
+            other_route=Route.objects.create(company=company,origin="Bamako",destination="Sikasso",
+                boarding_point="Gare A",arrival_point="Gare B",duration_minutes=420,price=8000)
+            self.departure(company=company,bus=bus,route=other_route,
+                starts_at=self.start+timedelta(hours=i+1),ends_at=self.start+timedelta(hours=i+8))
+        body=self.client.get("/api/v1/travel/home/").json()
+        self.assertEqual(len(body["departures"]),12)
+        self.assertEqual([d["id"] for d in body["departures"][:2]],[first.pk,second.pk])
+        self.assertEqual(len(body["companies"]),13)
+        self.assertEqual(len(body["routes"]),2)

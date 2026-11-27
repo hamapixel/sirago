@@ -87,6 +87,24 @@ class FleetTests(TestCase):
         client=Client(enforce_csrf_checks=True)
         client.force_login(self.user)
         self.assertEqual(client.post("/api/v1/company/buses/",{"name":"X","plate":"X","capacity":50},content_type="application/json").status_code,403)
+    def test_bus_capacity_lock_and_driver_update(self):
+        self.verify()
+        path = f"buses/{self.bus.id}"
+        values = {"name":"Car 01","plate":"AA 001","capacity":60,"premium_capacity":0,"active":True}
+        self.assertFalse(self.client.get("/api/v1/company/buses/").json()["items"][0]["capacity_locked"])
+        departure = self.create_departure()
+        self.assertEqual(self.post(f"departures/{departure.id}/status",{"status":"PUBLISHED"}).status_code,200)
+        self.assertTrue(self.client.get("/api/v1/company/buses/").json()["items"][0]["capacity_locked"])
+        result = self.post(path,{**values,"driver_first_name":"Adama","driver_last_name":"Traore","driver_phone":"76123456"})
+        self.assertEqual(result.status_code,200,result.content)
+        self.assertTrue(result.json()["capacity_locked"])
+        self.assertEqual(result.json()["driver_phone"],"+22376123456")
+        self.assertEqual(self.post(path,{**values,"premium_capacity":10}).status_code,409)
+        self.assertEqual(self.post(path,{**values,"active":False}).status_code,409)
+        self.assertEqual(self.post(f"departures/{departure.id}/status",{"status":"CANCELLED"}).status_code,200)
+        self.assertFalse(self.client.get("/api/v1/company/buses/").json()["items"][0]["capacity_locked"])
+        self.assertEqual(self.post(path,{**values,"premium_capacity":10}).status_code,200)
+
     def test_cancel_and_edit(self):
         d=self.create_departure()
         self.assertEqual(self.post(f"departures/{d.id}",{**self.payload,"price":8500}).status_code,200)

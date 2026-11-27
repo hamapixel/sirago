@@ -24,3 +24,32 @@
 .booking-state.sandbox-paid{background:#e3f2ed;color:#14664f}
 
 .passenger-progress{height:6px;background:#e3f2ed;border-radius:99px;overflow:hidden}.passenger-progress span{display:block;height:100%;background:#16836c;transition:width .2s}.passenger-config{padding:14px;border-radius:14px}.passenger-config-head{padding-bottom:4px}.passenger-config .seat-category-card{min-height:72px;grid-template-columns:auto minmax(0,1fr);justify-items:start;text-align:left;padding:10px;column-gap:8px;row-gap:3px}.passenger-config .seat-category-card>svg:not(.seat-selected-check){grid-row:1/3}.passenger-config .seat-category-card span{grid-column:2}.passenger-config .seat-category-card small{grid-column:2}.passenger-config .seat-category-card strong{padding-right:10px}.passenger-config .seat-selected-check{width:13px;right:5px;top:5px}@media(max-width:360px){.passenger-config .seat-category-card{grid-template-columns:minmax(0,1fr);justify-items:center;text-align:center;padding:8px}.passenger-config .seat-category-card>svg:not(.seat-selected-check),.passenger-config .seat-category-card span,.passenger-config .seat-category-card small{grid-column:auto;grid-row:auto}.passenger-config .seat-category-card strong{padding-right:0}}
+
+/* Reservation and history styles are independent of route navigation order. */
+.booking-history{width:100%;max-width:900px;margin-inline:auto}
+.booking-space .booking-heading{background:linear-gradient(125deg,#103b38,#146b58);padding:20px;border-radius:20px;box-shadow:0 8px 24px #103b3814;gap:7px}
+.booking-heading .travel-heading-top button{border:1px solid #ffffff48;border-radius:10px;padding:7px 11px;min-height:40px}
+.booking-heading .travel-heading-top>svg{color:#f6b844}
+.booking-eyebrow{font-size:.68rem;letter-spacing:.12em;color:#f6d38d;font-weight:750}
+.booking-space .booking-checkout{border-radius:18px;box-shadow:0 5px 22px #103b3809}
+.booking-reference{border-left:4px solid #16836c}
+.booking-reference>small,.history-card>small{overflow-wrap:anywhere}
+.booking-reference .booking-total:last-child{border-top:1px solid #dce6e3;padding-top:12px}
+.booking-reference .booking-total:last-child strong{font-size:1.2rem}
+.booking-space .booking-total .booking-state{display:inline-flex;color:#80540a;line-height:1.4}
+.booking-space .booking-total .booking-state.test_paid,.booking-space .booking-total .booking-state.sandbox-paid{color:#14664f;background:#e3f2ed}
+.booking-space .booking-total .booking-state.expired,.booking-space .booking-total .booking-state.cancelled{color:#863c38}
+.booking-space .booking-total .booking-state.reported{background:#e3f2ed;color:#14664f}
+.booking-trip-card .trip-company>div:last-child{display:grid;gap:3px;min-width:0}
+.booking-trip-card .trip-company strong{overflow-wrap:anywhere}
+.booking-trip-card .trip-stop{min-width:0}
+.booking-trip-card .trip-timeline{background:#f8faf9;border-radius:12px;border:1px solid #e5eeeb;padding:14px 12px}
+.booking-trip-card .trip-time{margin:0;color:#103b38}
+.booking-space .history-saspay{border:1px solid #cce5dc;padding:14px}
+.history-trip{display:flex;align-items:center;gap:12px;min-width:0;background:#f5f9f7;padding:12px;border-radius:12px}
+.history-trip-icon{display:grid;place-items:center;flex:none;width:40px;height:40px;border-radius:11px;color:#14664f;background:#e1f2eb}
+.history-trip>div{min-width:0;display:grid;gap:4px}
+.history-trip p{font-size:.82rem;color:#506866}
+.history-card>.outline{min-height:44px}
+.booking-space .history-filters{border-radius:18px}
+@media(max-width:480px){.booking-space .booking-heading{padding:15px}.booking-trip-card .trip-timeline{padding:12px 8px;grid-template-columns:minmax(0,1fr) 42px minmax(0,1fr);gap:5px}.booking-trip-card .trip-stop small{overflow-wrap:anywhere}.history-trip{padding:10px}.booking-reference .booking-total:last-child strong{font-size:1.05rem}}

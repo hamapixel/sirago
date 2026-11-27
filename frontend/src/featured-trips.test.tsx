@@ -1,0 +1,8 @@
+import {it,expect} from 'vitest';
+import {renderToStaticMarkup} from 'react-dom/server';
+import FeaturedTrips,{FeaturedTripCard} from './FeaturedTrips';
+import type {Trip} from './travel-api';
+const trip:Trip={id:5,company_id:1,company:'Diarra Transport',bus_name:'Car 01',origin:'Bamako',destination:'Sikasso',boarding_point:'Gare A',arrival_point:'Gare B',starts_at:'2026-12-01T06:00:00Z',ends_at:'2026-12-01T13:00:00Z',duration_minutes:420,price:8000,capacity:60,remaining:10,standard_remaining:10,premium_remaining:0,premium_price:0,from_price:8000};
+it('présente la compagnie, la date, les horaires et le tarif réellement disponible',()=>{const html=renderToStaticMarkup(<FeaturedTripCard trip={trip} count={1} onBook={()=>{}}/>);for(const s of ['Diarra Transport','Bamako','Sikasso','06:00','13:00','7 h 00 min','Standard','Réserver maintenant'])expect(html).toContain(s);expect(html).not.toContain('Premium');expect(html).not.toContain('>0 FCFA')});
+it('affiche Premium seulement quand disponible et bloque les groupes trop grands',()=>{const html=renderToStaticMarkup(<FeaturedTripCard trip={{...trip,remaining:2,standard_remaining:1,premium_remaining:1,premium_price:12000}} count={3} onBook={()=>{}}/>);expect(html).toContain('Premium');expect(html).toContain('Places insuffisantes');expect(html).toContain('disabled=""')});
+it('conserve les compagnies distinctes et les logos réels',()=>{const html=renderToStaticMarkup(<FeaturedTrips trips={[trip,{...trip,id:6,company_id:2,company:'Autre Transport'}]} logos={{'1':'data:image/jpeg;base64,YWJj'}} count={1} onBook={()=>{}}/>);expect(html).toContain('Diarra Transport');expect(html).toContain('Autre Transport');expect(html).toContain('data:image/jpeg;base64,YWJj')});
