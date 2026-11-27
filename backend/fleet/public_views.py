@@ -1,8 +1,11 @@
 from datetime import date, datetime, time, timedelta
 import unicodedata
-from django.db.models import F, Min, Q, Count, Window
+import base64
+import binascii
+from collections import defaultdict
+from django.db.models import F, Min, Q, Count, Window, Case, When, Value, BooleanField
 from django.db.models.functions import RowNumber
-from django.http import JsonResponse
+from django.http import JsonResponse, HttpResponse
 from django.utils import timezone
 from django.utils.dateparse import parse_datetime
 from django.views.decorators.cache import never_cache
@@ -94,9 +97,78 @@ def search(request):
     except (ValueError, OverflowError):
         return error("Vérifiez la date, les passagers et les filtres de recherche.")
 
+def best_round_pairs(outgoing, returning, count):
+    # Sweep backwards over arrival/departure times; no Cartesian product.
+    by_company=defaultdict(list)
+    for row in returning:
+        by_company[row.company_id].append(row)
+    outs=defaultdict(list)
+    for row in outgoing:
+        outs[row.company_id].append(row)
+    pairs=[]
+    def return_key(row):
+        return (minimum_total(row,count),row.starts_at,row.pk)
+    for company_id, rows in outs.items():
+        returns=sorted(by_company[company_id],key=lambda row:row.starts_at,reverse=True)
+        best_return=None
+        best_pair=None
+        i=0
+        for out in sorted(rows,key=lambda row:row.ends_at,reverse=True):
+            while i<len(returns) and returns[i].starts_at>=out.ends_at:
+                candidate=returns[i]
+                if best_return is None or return_key(candidate)<return_key(best_return):
+                    best_return=candidate
+                i+=1
+            if best_return is None:
+                continue
+            total=minimum_total(out,count)+minimum_total(best_return,count)
+            key=(total,out.starts_at,best_return.starts_at,out.pk,best_return.pk)
+            if best_pair is None or key<best_pair[0]:
+                best_pair=(key,out,best_return)
+        if best_pair:
+            pairs.append(best_pair)
+    return sorted(pairs,key=lambda pair:pair[0])
+
+@never_cache
+@require_GET
+def round_offers(request):
+    now=timezone.now()
+    today=now.astimezone(TZ).date()
+    q=request.GET
+    origin,destination=q.get("origin",""),q.get("destination","")
+    if not valid_localities(origin,destination):
+        return error("Choisissez deux villes différentes.")
+    try:
+        day=date.fromisoformat(q.get("date",""))
+        back=date.fromisoformat(q.get("back",""))
+        if not today<=day<=back<=today+timedelta(days=365):
+            raise ValueError
+        count=bounded_int(q.get("passengers","1"),1,100)
+        page=bounded_int(q.get("page","1"),1,1000)
+        def candidates(start,end,travel_day):
+            at=datetime.combine(travel_day,time.min,TZ)
+            return list(public_departures(now).filter(route__origin=start,route__destination=end,
+                starts_at__gte=at,starts_at__lt=at+timedelta(days=1),remaining__gte=count)
+                .select_related("company","route","bus").defer("company__logo","company__banner").order_by("id")[:2001])
+        outgoing=candidates(origin,destination,day)
+        returning=candidates(destination,origin,back)
+        if len(outgoing)>2000 or len(returning)>2000:
+            return error("Trop de départs pour comparer automatiquement. Recherchez séparément l’aller et le retour.",400)
+        pairs=best_round_pairs(outgoing,returning,count)
+        offset=(page-1)*20
+        items=[{"company_id":out.company_id,"company":out.company.name,"out":public_row(out),
+                "ret":public_row(ret),"total":key[0]} for key,out,ret in pairs[offset:offset+20]]
+        return JsonResponse({"items":items,"total":len(pairs),"page":page,"has_next":offset+len(items)<len(pairs)})
+    except (ValueError,OverflowError):
+        return error("Vérifiez les dates et le nombre de passagers.")
+
 @never_cache
 @require_GET
 def home(request):
+    try:
+        partner_page=bounded_int(request.GET.get("partner_page","1"),1,1000)
+    except (ValueError, OverflowError):
+        return error("Page de compagnies invalide.")
     now=timezone.now()
     last=datetime.combine(now.astimezone(TZ).date()+timedelta(days=366),time.min,TZ)
     qs=public_departures(now).filter(remaining__gt=0,starts_at__lt=last)
@@ -111,13 +183,40 @@ def home(request):
                          order_by=[F("starts_at").asc(),F("id").asc()])
     ).filter(home_rank=1).select_related("company","route","bus").defer("company__banner").order_by("starts_at","id")[:12])
     logos={str(d.company_id):d.company.logo for d in featured if d.company.logo.startswith("data:image/jpeg;base64,")}
-    partners=list(qs.values("company_id","company__name","company__city").distinct().order_by("company__name","company_id")[:30])
+    # A verified company is a partner even before publishing its first departure.
+    # Keep logo bytes out of the home response; load the individual JPEG on demand.
+    offset=(partner_page-1)*30
+    partners=list(Company.objects.filter(status=Company.Status.VERIFIED)
+        .annotate(has_logo=Case(When(logo__startswith="data:image/jpeg;base64,",then=Value(True)),
+                                default=Value(False),output_field=BooleanField()))
+        .order_by("name","id").values("id","name","city","has_logo")[offset:offset+31])
     return JsonResponse({
         "routes":[{"origin":r["route__origin"],"destination":r["route__destination"],"price":r["price"]} for r in popular],
         "departures":[public_row(d) for d in featured],
         "company_logos":logos,
-        "companies":[{"id":r["company_id"],"name":r["company__name"],"city":r["company__city"]} for r in partners],
+        "companies":[{"id":r["id"],"name":r["name"],"city":r["city"],
+                      **({"logo_url":f"/api/v1/travel/partners/{r['id']}/logo/"} if r["has_logo"] else {})}
+                     for r in partners[:30]],
+        "partners_has_next":len(partners)>30,
     })
+
+
+@never_cache
+@require_GET
+def partner_logo(request, pk):
+    logo=Company.objects.filter(pk=pk,status=Company.Status.VERIFIED).values_list("logo",flat=True).first()
+    prefix="data:image/jpeg;base64,"
+    if not logo or not logo.startswith(prefix) or len(logo)>2_000_000:
+        return error("Logo introuvable.",404)
+    try:
+        body=base64.b64decode(logo[len(prefix):],validate=True)
+    except (ValueError,binascii.Error):
+        return error("Logo introuvable.",404)
+    if not body.startswith(b"\xff\xd8") or not body.endswith(b"\xff\xd9"):
+        return error("Logo introuvable.",404)
+    response=HttpResponse(body,content_type="image/jpeg")
+    response["X-Content-Type-Options"]="nosniff"
+    return response
 
 
 def normalized_city(value):

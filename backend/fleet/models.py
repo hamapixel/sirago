@@ -6,6 +6,9 @@ class Locality(models.Model):
     name = models.CharField(max_length=100, unique=True)
     kind = models.CharField(max_length=12, choices=[("DISTRICT","District"),("REGION","Région / chef-lieu"),("CERCLE","Cercle"),("LOCALITY","Localité")])
 
+    country_code = models.CharField(max_length=2, default="ML")
+    region = models.CharField(max_length=100, blank=True, default="")
+
     def __str__(self):
         return self.name
 

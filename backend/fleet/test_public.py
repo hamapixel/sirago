@@ -255,3 +255,91 @@ class PublicSearchTests(TestCase):
         self.assertEqual([d["id"] for d in body["departures"][:2]],[first.pk,second.pk])
         self.assertEqual(len(body["companies"]),13)
         self.assertEqual(len(body["routes"]),2)
+
+    def test_verified_partners_and_uploaded_logo_without_departure(self):
+        import base64
+        from io import BytesIO
+        from PIL import Image
+        buf=BytesIO()
+        Image.new("RGB",(2,2),"green").save(buf,format="JPEG")
+        image=buf.getvalue()
+        self.company.logo="data:image/jpeg;base64,"+base64.b64encode(image).decode("ascii")
+        self.company.save(update_fields=["logo"])
+        owner=User.objects.create_user(username="pending-partner",role=User.Role.COMPANY)
+        pending=Company.objects.create(owner=owner,name="Pending Transport",city="Bamako",address="Private",
+                                       status=Company.Status.PENDING,logo=self.company.logo)
+        def home():
+            return self.client.get("/api/v1/travel/home/").json()
+        body=home()
+        url=f"/api/v1/travel/partners/{self.company.pk}/logo/"
+        self.assertEqual(body["departures"],[])
+        self.assertEqual(body["companies"],[{"id":self.company.pk,"name":self.company.name,
+                         "city":self.company.city,"logo_url":url}])
+        response=self.client.get(url)
+        self.assertEqual(response.status_code,200)
+        self.assertEqual(response.content,image)
+        self.assertEqual(response["Content-Type"],"image/jpeg")
+        self.assertIn("no-store",response["Cache-Control"])
+        self.assertEqual(self.client.get(f"/api/v1/travel/partners/{pending.pk}/logo/").status_code,404)
+        pending.status=Company.Status.VERIFIED
+        pending.save(update_fields=["status"])
+        self.assertEqual({x["id"] for x in home()["companies"]},{self.company.pk,pending.pk})
+        self.company.status=Company.Status.SUSPENDED
+        self.company.save(update_fields=["status"])
+        self.assertEqual(self.client.get(url).status_code,404)
+        self.assertEqual([x["id"] for x in home()["companies"]],[pending.pk])
+
+    def test_partner_directory_pagination(self):
+        for i in range(30):
+            user=User.objects.create_user(username=f"directory-{i}",role=User.Role.COMPANY)
+            Company.objects.create(owner=user,name=f"Directory {i:02d}",city="Bamako",address="Gare",
+                                   status=Company.Status.VERIFIED)
+        first=self.client.get("/api/v1/travel/home/").json()
+        second=self.client.get("/api/v1/travel/home/",{"partner_page":2}).json()
+        self.assertEqual((len(first["companies"]),len(second["companies"])),(30,1))
+        self.assertTrue(first["partners_has_next"])
+        self.assertFalse(second["partners_has_next"])
+        self.assertFalse({x["id"] for x in first["companies"]}&{x["id"] for x in second["companies"]})
+        self.assertEqual(self.client.get("/api/v1/travel/home/",{"partner_page":0}).status_code,400)
+
+    def test_round_offers_use_same_company_capacity_and_real_chronology(self):
+        out=self.departure(price=8000)
+        reverse=Route.objects.create(company=self.company,origin="Sikasso",destination="Bamako",
+            boarding_point="Gare B",arrival_point="Gare A",duration_minutes=420,price=6000)
+        self.departure(route=reverse,starts_at=self.start+timedelta(hours=1),
+                       ends_at=self.start+timedelta(hours=8),price=1000)
+        self.departure(route=reverse,starts_at=self.start+timedelta(hours=8),
+                       ends_at=self.start+timedelta(hours=15),price=1000,capacity=1)
+        good=self.departure(route=reverse,starts_at=self.start+timedelta(hours=9),
+                       ends_at=self.start+timedelta(hours=16),price=6000)
+        self.departure(route=reverse,starts_at=self.start+timedelta(hours=10),
+                       ends_at=self.start+timedelta(hours=17),price=7000)
+        self.departure(route=reverse,starts_at=self.start+timedelta(hours=8),
+                       ends_at=self.start+timedelta(hours=15),price=1000,status="DRAFT")
+        other=User.objects.create_user(username="round-other",role=User.Role.COMPANY)
+        company=Company.objects.create(owner=other,name="Autre compagnie",city="Bamako",address="Gare",status="VERIFIED")
+        bus=Bus.objects.create(company=company,name="Car",plate="ROUND 2",capacity=60)
+        route=Route.objects.create(company=company,origin="Bamako",destination="Sikasso",boarding_point="A",
+                                    arrival_point="B",duration_minutes=420,price=4000)
+        self.departure(company=company,bus=bus,route=route,price=4000)
+        params={**self.params,"back":self.params["date"],"passengers":2}
+        response=self.client.get("/api/v1/travel/round-offers/",params)
+        self.assertEqual(response.status_code,200,response.content)
+        data=response.json()
+        self.assertEqual(data["total"],1)
+        offer=data["items"][0]
+        self.assertEqual((offer["out"]["id"],offer["ret"]["id"],offer["total"]),(out.pk,good.pk,28000))
+        self.assertEqual(self.client.get("/api/v1/travel/quote/",{"out":out.pk,"ret":good.pk,"count":2}).json()["total"],28000)
+        self.assertEqual(self.client.get("/api/v1/travel/round-offers/",{**params,"back":"bad"}).status_code,400)
+        self.company.status="SUSPENDED"
+        self.company.save(update_fields=["status"])
+        self.assertEqual(self.client.get("/api/v1/travel/round-offers/",params).json()["total"],0)
+
+    def test_locality_geography_and_selected_international_catalog(self):
+        from .models import Locality
+        self.assertEqual(Locality.objects.get(name="Bamako").kind,"DISTRICT")
+        self.assertEqual(Locality.objects.get(name="Kati").region,"Koulikoro")
+        self.assertEqual(Locality.objects.get(name="Kaya").country_code,"BF")
+        self.assertEqual(Locality.objects.get(name="Kayar").country_code,"SN")
+        self.assertEqual(Locality.objects.get(name="Abidjan").country_code,"CI")
+        self.assertEqual(self.search(destination="Dakar").json()["total"],0)
