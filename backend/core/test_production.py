@@ -13,6 +13,7 @@ class ProductionSettingsTests(SimpleTestCase):
                 "SIRAGO_REDIS_URL":"redis://redis:6379/0"}
     def test_secure_defaults(self):
         s=production_settings(self.env())
+        self.assertEqual(s["SIRAGO_DB_CONN_MAX_AGE"], 60)
         self.assertFalse(s["DEBUG"])
         self.assertTrue(s["SIRAGO_ADMIN_MFA_REQUIRED"])
         self.assertTrue(production_settings({**self.env(), "SIRAGO_ADMIN_MFA_REQUIRED": "0"})["SIRAGO_ADMIN_MFA_REQUIRED"])
@@ -73,3 +74,10 @@ class ProductionSettingsTests(SimpleTestCase):
     @override_settings(DEBUG=False,SIRAGO_ENABLE_SIMULATED_PAYMENTS=True)
     def test_simulation_disabled_without_debug(self):
         self.assertFalse(simulation_enabled())
+
+    def test_bounded_persistent_database_connections(self):
+        for age in (0, 60, 300):
+            self.assertEqual(production_settings({**self.env(), "SIRAGO_DB_CONN_MAX_AGE":str(age)})["SIRAGO_DB_CONN_MAX_AGE"],age)
+        for age in ("-1","301","forever",""):
+            with self.subTest(age=age), self.assertRaises(ImproperlyConfigured):
+                production_settings({**self.env(),"SIRAGO_DB_CONN_MAX_AGE":age})

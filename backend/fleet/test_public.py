@@ -182,3 +182,26 @@ class PublicSearchTests(TestCase):
         self.assertEqual(result.json()["company_logos"],{})
         second.status="SUSPENDED";second.save(update_fields=["status"])
         self.assertEqual([x["id"] for x in self.client.get("/api/v1/travel/home/").json()["departures"]],[early.pk])
+
+    def test_public_search_reuses_group_counts_without_fetching_branding(self):
+        from django.test import RequestFactory
+        from django.test.utils import CaptureQueriesContext
+        from django.db import connection
+        from .public_views import search
+        import json
+        for i in range(21):
+            self.departure(price=8000+i)
+        self.company.logo="data:image/jpeg;base64,fixture"
+        self.company.banner="data:image/jpeg;base64,fixture"
+        self.company.save(update_fields=["logo","banner"])
+        request=RequestFactory().get("/api/v1/travel/search/",{**self.params,"page":2})
+        with CaptureQueriesContext(connection) as queries:
+            response=search(request)
+        self.assertEqual(response.status_code,200)
+        body=json.loads(response.content)
+        self.assertEqual((body["total"],len(body["items"]),body["has_next"]),(21,1,False))
+        self.assertEqual(body["companies"][0]["departures"],21)
+        self.assertEqual(len(queries),3)
+        self.assertTrue(all('"logo"' not in q["sql"] and '"banner"' not in q["sql"] for q in queries))
+        self.assertEqual(self.search(company="Transport").json()["total"],21)
+        self.assertEqual(self.search(company_id=self.company.pk).json()["total"],21)

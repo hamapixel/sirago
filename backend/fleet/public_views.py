@@ -83,8 +83,10 @@ def search(request):
         options=list(qs.order_by().values("company_id","company__name").annotate(departures=Count("id")).order_by("company__name","company_id"))
         if company:qs=qs.filter(company__name__icontains=company)
         if q.get("company_id"):qs=qs.filter(company_id=bounded_int(q["company_id"],1,2**63-1))
-        qs=qs.annotate(duration=F("ends_at")-F("starts_at")).select_related("company","route","bus").order_by(*orders[sort])
-        total=qs.count()
+        qs=qs.annotate(duration=F("ends_at")-F("starts_at")).select_related("company","route","bus").defer("company__logo","company__banner").order_by(*orders[sort])
+        # The unfiltered company counts already cover the same eligible departures.
+        # Keep a separate count when a company name or ID changes that result set.
+        total=qs.count() if company or q.get("company_id") else sum(c["departures"] for c in options)
         offset=(page-1)*20
         rows=list(qs[offset:offset+20])
         return JsonResponse({"items":[public_row(d) for d in rows],"total":total,"page":page,"has_next":offset+len(rows)<total,"companies":[{"id":c["company_id"],"name":c["company__name"],"departures":c["departures"]} for c in options]})
@@ -120,7 +122,7 @@ def normalized_city(value):
 def partner(request, pk):
     if not 1 <= pk <= 2**63-1:
         return error("Compagnie introuvable.",404)
-    company=Company.objects.filter(pk=pk,status=Company.Status.VERIFIED).first()
+    company=Company.objects.filter(pk=pk,status=Company.Status.VERIFIED).only("id","name","city").first()
     if not company:
         return error("Compagnie introuvable.",404)
     now=timezone.now()
@@ -146,7 +148,7 @@ def partner(request, pk):
             day_qs=qs.filter(starts_at__gte=start,starts_at__lt=start+timedelta(days=1))
         else:
             day_qs=qs
-        day_qs=day_qs.select_related("company","route","bus").order_by("route__origin","route__destination","starts_at","id")
+        day_qs=day_qs.select_related("company","route","bus").defer("company__logo","company__banner").order_by("route__origin","route__destination","starts_at","id")
         total=day_qs.count()
         offset=(page-1)*20
         rows=list(day_qs[offset:offset+20])

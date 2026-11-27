@@ -39,5 +39,6 @@ SIRAGO_ENABLE_SIMULATED_PAYMENTS = os.environ.get("SIRAGO_ENABLE_SIMULATED_PAYME
 if os.environ.get("SIRAGO_ENV") == "production":
     from .production import production_settings
     globals().update(production_settings(os.environ))
+    DATABASES["default"].update(CONN_MAX_AGE=SIRAGO_DB_CONN_MAX_AGE, CONN_HEALTH_CHECKS=True)
 
     MIDDLEWARE.insert(1, "whitenoise.middleware.WhiteNoiseMiddleware")

@@ -54,10 +54,18 @@ def production_settings(env):
     if not valid_redis:
         # Never include the URL: it may contain credentials.
         fail("Production: configurez SIRAGO_REDIS_URL avec une URL Redis valide.")
+    # WSGI workers reuse one connection per database-using thread, not a global pool.
+    try:
+        conn_age = int(env.get("SIRAGO_DB_CONN_MAX_AGE", "60"))
+        if not 0 <= conn_age <= 300:
+            raise ValueError
+    except (TypeError, ValueError):
+        fail("Production: SIRAGO_DB_CONN_MAX_AGE doit être compris entre 0 et 300 secondes.")
     # Proxy trust is deliberately explicit: the edge must strip client-supplied headers.
     trust=env.get("DJANGO_TRUST_HTTPS_PROXY")=="1"
     return {
         "SIRAGO_ADMIN_MFA_REQUIRED":True,
+        "SIRAGO_DB_CONN_MAX_AGE":conn_age,
         "DEBUG":False,"ALLOWED_HOSTS":hosts+list(LOCAL_HOSTS),
         "CSRF_TRUSTED_ORIGINS":origins,
         "SESSION_COOKIE_SECURE":True,"CSRF_COOKIE_SECURE":True,

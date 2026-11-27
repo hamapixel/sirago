@@ -16,6 +16,7 @@ x-backend-env: &backend-env
   POSTGRES_USER: ${POSTGRES_USER:-sirago}
   POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?Set a separate database password}
   DB_HOST: db
+  SIRAGO_DB_CONN_MAX_AGE: "${SIRAGO_DB_CONN_MAX_AGE:-60}"
   SIRAGO_REDIS_URL: redis://:${REDIS_PASSWORD:?Set a URL-safe Redis password}@redis:6379/0
 
 services:
