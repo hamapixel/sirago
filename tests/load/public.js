@@ -10,9 +10,9 @@ const base = 'http://gateway:8080';
 const params = (name) => ({headers: {'Host':'load.example.test','X-Forwarded-Proto':'https'},tags:{name},timeout:'10s'});
 const searchPath = '/api/v1/travel/search/?origin=Bamako&destination=Sikasso&date='+date+'&passengers=1';
 export const options = {
-  vus,
-  duration:'60s',
-  gracefulStop:'15s',
+  scenarios:{
+    default:{executor:'constant-vus',vus,duration:'60s',gracefulStop:'15s'},
+  },
   thresholds:{
     http_req_failed:[{threshold:'rate<0.01',abortOnFail:true,delayAbortEval:'20s'}],
     checks:['rate>0.99'],
