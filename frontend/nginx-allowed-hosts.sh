@@ -26,8 +26,8 @@ END { if (!count) exit 1 }
 vhosts="$(mktemp /etc/nginx/sirago-vhosts.XXXXXX)"
 health="$(mktemp /etc/nginx/sirago-health.XXXXXX)"
 trap 'rm -f "$tmp" "$vhosts" "$health"' EXIT HUP INT TERM
-while IFS= read -r host; do
-    printf 'server {\n    listen 8080;\n    server_name %s;\n    include /etc/nginx/sirago-site.conf;\n}\n' "$host"
+while IFS= read -r configured_domain; do
+    printf 'server {\n    listen 8080;\n    server_name %s;\n    include /etc/nginx/sirago-site.conf;\n}\n' "$configured_domain"
 done < "$tmp" > "$vhosts"
 head -n 1 "$tmp" > "$health"
 chmod 0644 "$vhosts" "$health"
