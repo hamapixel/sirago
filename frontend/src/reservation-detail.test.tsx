@@ -6,3 +6,11 @@ const data:ReservationDetailData={id:1,reference:'REF-DEMO',company:'Transport D
 it('affiche un bouton accessible pour ouvrir la réservation',()=>{const html=renderToStaticMarkup(<ReservationCard row={{id:1,reference:'REF',origin:'Bamako',destination:'Sikasso',starts_at:data.starts_at,expires_at:data.expires_at,count:2,premium_count:1,total:20000,status:'TEST_PAID'}} onDetails={()=>{}}/>);expect(html).toContain('Voir les détails');expect(html).toContain('reservation-details-button');expect(html).toContain('aria-label=')});
 it('présente les noms, catégories, horaires et validation simulée',()=>{const html=renderToStaticMarkup(<ReservationDetailContent data={data}/>);for(const s of ['Awa Démo','Moussa Démo','Standard','Premium','Embarqué (simulation)','Non embarqué','Gare A','Gare B','Billets collectifs','FCFA','Aucun encaissement ni embarquement réel.'])expect(html).toContain(s)});
 it('ne rend aucun montant si les données financières sont absentes',()=>{const html=renderToStaticMarkup(<ReservationDetailContent data={{...data,total:undefined,simulated_amount:undefined,real_amount:undefined,passengers:data.passengers.map(({amount,...p})=>p)}}/>);expect(html).toContain('Awa Démo');expect(html).not.toContain('FCFA');expect(html).not.toContain('Montant du trajet')});
+
+it('échappe le HTML injecté dans les noms des passagers et de la compagnie',()=>{
+ const marker='<img src=x onerror="void(0)">';
+ const html=renderToStaticMarkup(<ReservationDetailContent data={{...data,company:marker,passengers:data.passengers.map(p=>({...p,name:marker}))}}/>);
+ expect(html).toContain('&lt;img src=x onerror=&quot;void(0)&quot;&gt;');
+ expect(html).not.toContain(marker);
+ expect(html).not.toMatch(/<img[^>]+onerror\s*=/i);
+});

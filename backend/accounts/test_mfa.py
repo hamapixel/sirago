@@ -173,3 +173,17 @@ class AdminMFATests(TestCase):
             self.assertIn("_auth_user_id", self.client.session)
             self.assertEqual(self.client.get("/api/v1/auth/supervision/").status_code, 403)
             self.post("logout", {})
+
+
+    def test_authenticated_superadmin_search_treats_sql_syntax_as_text(self):
+        from .models import Company
+        owner = User.objects.create_user(username="security-mfa-company", role=User.Role.COMPANY)
+        Company.objects.create(owner=owner,name="Security company",city="Bamako",address="Gare")
+        self.activate()
+        url = "/api/v1/auth/supervision/companies/"
+        self.assertEqual(self.client.get(url).json()["total"],1)
+        for value in ("' OR '1'='1", "%' OR 1=1 --", "x'; SELECT 1; --"):
+            response = self.client.get(url,{"q":value})
+            self.assertEqual(response.status_code,200,response.content)
+            self.assertEqual(response.json()["items"],[])
+        self.assertEqual(Company.objects.count(),1)
