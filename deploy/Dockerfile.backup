@@ -1,3 +1,5 @@
 FROM postgres:17-alpine
 COPY backup.sh /opt/sirago/backup.sh
+RUN sed -i 's/\r$//' /opt/sirago/backup.sh \
+ && sh -n /opt/sirago/backup.sh
 ENTRYPOINT ["sh", "/opt/sirago/backup.sh"]

@@ -54,3 +54,6 @@ Les notifications push utilisent des messages fixes selon le type (réservation,
 Le gateway génère une liste exacte à partir de DJANGO_ALLOWED_HOSTS au démarrage. Un hôte absent ou non autorisé doit donner HTTP 400, y compris sur les pages statiques. Sa sonde interne utilise le premier domaine configuré. Vérifier avec `curl.exe -i -H "Host: invalid.example.net" http://127.0.0.1:8036/` et les deux sondes autorisées ci-dessus. Ne pas publier directement le gateway sur le VPS.
 
 Chaque domaine public validé dispose désormais d'un bloc server distinct, sans wildcard. Le backend reçoit `$server_name` (nom littéral configuré dans ce bloc) et non l'en-tête Host brut. Le serveur par défaut refuse les hôtes inconnus. Tester chaque domaine autorisé et les hôtes inconnus ; le résultat du scan ne remplace pas ces tests HTTP.
+
+### Windows / scripts Linux
+Les scripts shell sont forcés en LF par .gitattributes. Les Dockerfiles gateway et backup normalisent également les CRLF résiduels et vérifient la syntaxe avec sh -n au build. Premier démarrage local : backend, migrations, Redis et PostgreSQL OK ; gateway code 127 et backup code 2. La cause CRLF est une hypothèse à confirmer par les logs. Reconstruire uniquement ces deux images et vérifier leur démarrage, sans supprimer les volumes.
