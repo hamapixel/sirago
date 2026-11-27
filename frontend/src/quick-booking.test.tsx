@@ -1,6 +1,6 @@
 import {it,expect} from 'vitest';
 import {renderToStaticMarkup} from 'react-dom/server';
-import QuickBooking,{quickSelection} from './QuickBooking';
+import QuickBooking,{quickSelection,selectQuickDeparture} from './QuickBooking';
 import CompactSeatChoice,{canChangeSeat} from './CompactSeatChoice';
 import {categoryTotal} from './booking-api';
 import type {Trip} from './travel-api';
@@ -9,3 +9,5 @@ it('prépare un aller simple sans inventer une disponibilité quotidienne',()=>{
 it('exige un retour compatible et conserve les deux identifiants',()=>{const ret={...trip,id:6,origin:trip.destination,destination:trip.origin,starts_at:'2026-12-01T15:00:00Z',ends_at:'2026-12-01T22:00:00Z'};expect(quickSelection(trip,ret,true,2)).toEqual({out:5,ret:6,count:2});expect(quickSelection(trip,undefined,true,2)).toBeNull();expect(quickSelection(trip,{...ret,starts_at:trip.starts_at},true,2)).toBeNull();expect(quickSelection(trip,{...ret,origin:'Kayes'},true,2)).toBeNull()});
 it('change la catégorie uniquement si la capacité le permet et recalcule le prix',()=>{expect(canChangeSeat(trip,false,2,0)).toBe(true);expect(canChangeSeat(trip,false,2,1)).toBe(false);expect(canChangeSeat(trip,true,2,1)).toBe(true);expect(canChangeSeat(trip,true,3,1)).toBe(false);expect(categoryTotal(trip,2,[])).toBe(16000);expect(categoryTotal(trip,2,[0])).toBe(20000)});
 it('affiche la catégorie actuelle avec une commande de changement accessible',()=>{const html=renderToStaticMarkup(<CompactSeatChoice trip={trip} premium={false} count={1} premiumCount={0} disabled={false} passenger={1} leg="" onChange={()=>{}}/>);expect(html).toContain('Changer de catégorie');expect(html).toContain('Standard');expect(html).toContain('Premium');expect(html).not.toContain('disabled=""');const standard=renderToStaticMarkup(<CompactSeatChoice trip={{...trip,premium_price:0,premium_remaining:0}} premium={false} count={1} premiumCount={0} disabled={false} passenger={1} leg="" onChange={()=>{}}/>);expect(standard).not.toContain('Premium');expect(standard).not.toContain('compact-seat-switch')});
+
+it('sélectionne uniquement les horaires réellement retournés et conserve le départ initial si disponible',()=>{const later={...trip,id:8,starts_at:'2026-12-01T08:00:00Z'};expect(selectQuickDeparture([trip,later],null,5)).toEqual(trip);expect(selectQuickDeparture([trip,later],8,5)).toEqual(later);expect(selectQuickDeparture([trip,later],null)).toBeUndefined();expect(selectQuickDeparture([later],null)).toEqual(later);expect(selectQuickDeparture([later],5,5)).toBeUndefined();expect(selectQuickDeparture([],null,5)).toBeUndefined()});

@@ -1,5 +1,5 @@
 import { describe,it,expect } from 'vitest';
-import {validSearch,stepPassengerCount} from './search';
+import {validSearch,stepPassengerCount,localToday} from './search';
 describe('recherche',()=>{
 const check=(from='Bamako',to='Sikasso',date='2026-12-01',ret='',round=false,count=1)=>validSearch(from,to,date,ret,round,count,'2026-11-25');
 it('accepte un aller simple',()=>expect(check()).toBe(true));
@@ -10,3 +10,5 @@ it('refuse une quantité invalide',()=>expect(check('Bamako','Kayes','2026-12-01
 it('ne descend jamais sous un passager',()=>{expect(stepPassengerCount(1,-1)).toBe(1);expect(stepPassengerCount(2,-1)).toBe(1)});
 it('incrémente de 1 à 100 sans dépasser la limite',()=>{let n=1;for(let i=2;i<=100;i++){n=stepPassengerCount(n,1);expect(n).toBe(i)}expect(stepPassengerCount(n,1)).toBe(100)});
 });
+
+it('produit toujours une date ISO pour les champs HTML indépendamment du format régional',()=>{expect(localToday(new Date('2026-11-29T06:00:00Z'))).toBe('2026-11-29');expect(localToday(new Date('2026-12-01T00:01:00Z'))).toBe('2026-12-01')});
