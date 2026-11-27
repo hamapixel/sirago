@@ -301,3 +301,45 @@ class PublicSearchTests(TestCase):
         self.assertFalse(second["partners_has_next"])
         self.assertFalse({x["id"] for x in first["companies"]}&{x["id"] for x in second["companies"]})
         self.assertEqual(self.client.get("/api/v1/travel/home/",{"partner_page":0}).status_code,400)
+
+    def test_round_offers_use_same_company_capacity_and_real_chronology(self):
+        out=self.departure(price=8000)
+        reverse=Route.objects.create(company=self.company,origin="Sikasso",destination="Bamako",
+            boarding_point="Gare B",arrival_point="Gare A",duration_minutes=420,price=6000)
+        self.departure(route=reverse,starts_at=self.start+timedelta(hours=1),
+                       ends_at=self.start+timedelta(hours=8),price=1000)
+        self.departure(route=reverse,starts_at=self.start+timedelta(hours=8),
+                       ends_at=self.start+timedelta(hours=15),price=1000,capacity=1)
+        good=self.departure(route=reverse,starts_at=self.start+timedelta(hours=9),
+                       ends_at=self.start+timedelta(hours=16),price=6000)
+        self.departure(route=reverse,starts_at=self.start+timedelta(hours=10),
+                       ends_at=self.start+timedelta(hours=17),price=7000)
+        self.departure(route=reverse,starts_at=self.start+timedelta(hours=8),
+                       ends_at=self.start+timedelta(hours=15),price=1000,status="DRAFT")
+        other=User.objects.create_user(username="round-other",role=User.Role.COMPANY)
+        company=Company.objects.create(owner=other,name="Autre compagnie",city="Bamako",address="Gare",status="VERIFIED")
+        bus=Bus.objects.create(company=company,name="Car",plate="ROUND 2",capacity=60)
+        route=Route.objects.create(company=company,origin="Bamako",destination="Sikasso",boarding_point="A",
+                                    arrival_point="B",duration_minutes=420,price=4000)
+        self.departure(company=company,bus=bus,route=route,price=4000)
+        params={**self.params,"back":self.params["date"],"passengers":2}
+        response=self.client.get("/api/v1/travel/round-offers/",params)
+        self.assertEqual(response.status_code,200,response.content)
+        data=response.json()
+        self.assertEqual(data["total"],1)
+        offer=data["items"][0]
+        self.assertEqual((offer["out"]["id"],offer["ret"]["id"],offer["total"]),(out.pk,good.pk,28000))
+        self.assertEqual(self.client.get("/api/v1/travel/quote/",{"out":out.pk,"ret":good.pk,"count":2}).json()["total"],28000)
+        self.assertEqual(self.client.get("/api/v1/travel/round-offers/",{**params,"back":"bad"}).status_code,400)
+        self.company.status="SUSPENDED"
+        self.company.save(update_fields=["status"])
+        self.assertEqual(self.client.get("/api/v1/travel/round-offers/",params).json()["total"],0)
+
+    def test_locality_geography_and_selected_international_catalog(self):
+        from .models import Locality
+        self.assertEqual(Locality.objects.get(name="Bamako").kind,"DISTRICT")
+        self.assertEqual(Locality.objects.get(name="Kati").region,"Koulikoro")
+        self.assertEqual(Locality.objects.get(name="Kaya").country_code,"BF")
+        self.assertEqual(Locality.objects.get(name="Kayar").country_code,"SN")
+        self.assertEqual(Locality.objects.get(name="Abidjan").country_code,"CI")
+        self.assertEqual(self.search(destination="Dakar").json()["total"],0)

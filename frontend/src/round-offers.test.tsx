@@ -1,0 +1,10 @@
+import {it,expect} from 'vitest';
+import {renderToStaticMarkup} from 'react-dom/server';
+import {RoundOfferCard} from './TravelResults';
+import {CityLegend} from './CityField';
+import {localityGeography} from './localities';
+import {roundPath,type Trip} from './travel-api';
+import {matchingCities} from './search';
+it('distingue district, cercle, pays et villes de même préfixe',()=>{expect(localityGeography('Bamako')?.label).toBe('District de Bamako');expect(localityGeography('Kati')?.label).toContain('Koulikoro');expect(localityGeography('Kaya')?.country).toBe('Burkina Faso');expect(matchingCities('kay')).toEqual(expect.arrayContaining(['Kayes','Kaya','Kayar']));expect(renderToStaticMarkup(<CityLegend name="Kayar"/>)).toContain('Sénégal')});
+it('transmet les deux dates et le nombre de passagers',()=>{const p=new URLSearchParams(roundPath({origin:'Bamako',destination:'Mopti',date:'2026-12-01',back:'2026-12-03',round:true,count:3},2).split('?')[1]);expect(p.get('back')).toBe('2026-12-03');expect(p.get('passengers')).toBe('3');expect(p.get('page')).toBe('2')});
+it('affiche les deux départs et le tarif global de la même compagnie',()=>{const out={id:1,company_id:1,company:'Transport Test',bus_name:'Car 1',origin:'Bamako',destination:'Mopti',starts_at:'2026-12-01T06:00:00Z',ends_at:'2026-12-01T13:00:00Z',remaining:10} as Trip;const ret={...out,id:2,origin:'Mopti',destination:'Bamako',starts_at:'2026-12-03T08:00:00Z',ends_at:'2026-12-03T15:00:00Z'};const html=renderToStaticMarkup(<RoundOfferCard offer={{company_id:1,company:out.company,out,ret,total:32000}} count={2} onChoose={()=>{}}/>);for(const s of ['Transport Test','Aller et retour disponibles','06:00','08:00','Choisir cette offre','2 passager'])expect(html).toContain(s)});

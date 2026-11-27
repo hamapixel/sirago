@@ -2,6 +2,7 @@ from datetime import date, datetime, time, timedelta
 import unicodedata
 import base64
 import binascii
+from collections import defaultdict
 from django.db.models import F, Min, Q, Count, Window, Case, When, Value, BooleanField
 from django.db.models.functions import RowNumber
 from django.http import JsonResponse, HttpResponse
@@ -95,6 +96,71 @@ def search(request):
         return JsonResponse({"items":[public_row(d) for d in rows],"total":total,"page":page,"has_next":offset+len(rows)<total,"companies":[{"id":c["company_id"],"name":c["company__name"],"departures":c["departures"]} for c in options]})
     except (ValueError, OverflowError):
         return error("Vérifiez la date, les passagers et les filtres de recherche.")
+
+def best_round_pairs(outgoing, returning, count):
+    # Sweep backwards over arrival/departure times; no Cartesian product.
+    by_company=defaultdict(list)
+    for row in returning:
+        by_company[row.company_id].append(row)
+    outs=defaultdict(list)
+    for row in outgoing:
+        outs[row.company_id].append(row)
+    pairs=[]
+    def return_key(row):
+        return (minimum_total(row,count),row.starts_at,row.pk)
+    for company_id, rows in outs.items():
+        returns=sorted(by_company[company_id],key=lambda row:row.starts_at,reverse=True)
+        best_return=None
+        best_pair=None
+        i=0
+        for out in sorted(rows,key=lambda row:row.ends_at,reverse=True):
+            while i<len(returns) and returns[i].starts_at>=out.ends_at:
+                candidate=returns[i]
+                if best_return is None or return_key(candidate)<return_key(best_return):
+                    best_return=candidate
+                i+=1
+            if best_return is None:
+                continue
+            total=minimum_total(out,count)+minimum_total(best_return,count)
+            key=(total,out.starts_at,best_return.starts_at,out.pk,best_return.pk)
+            if best_pair is None or key<best_pair[0]:
+                best_pair=(key,out,best_return)
+        if best_pair:
+            pairs.append(best_pair)
+    return sorted(pairs,key=lambda pair:pair[0])
+
+@never_cache
+@require_GET
+def round_offers(request):
+    now=timezone.now()
+    today=now.astimezone(TZ).date()
+    q=request.GET
+    origin,destination=q.get("origin",""),q.get("destination","")
+    if not valid_localities(origin,destination):
+        return error("Choisissez deux villes différentes.")
+    try:
+        day=date.fromisoformat(q.get("date",""))
+        back=date.fromisoformat(q.get("back",""))
+        if not today<=day<=back<=today+timedelta(days=365):
+            raise ValueError
+        count=bounded_int(q.get("passengers","1"),1,100)
+        page=bounded_int(q.get("page","1"),1,1000)
+        def candidates(start,end,travel_day):
+            at=datetime.combine(travel_day,time.min,TZ)
+            return list(public_departures(now).filter(route__origin=start,route__destination=end,
+                starts_at__gte=at,starts_at__lt=at+timedelta(days=1),remaining__gte=count)
+                .select_related("company","route","bus").defer("company__logo","company__banner").order_by("id")[:2001])
+        outgoing=candidates(origin,destination,day)
+        returning=candidates(destination,origin,back)
+        if len(outgoing)>2000 or len(returning)>2000:
+            return error("Trop de départs pour comparer automatiquement. Recherchez séparément l’aller et le retour.",400)
+        pairs=best_round_pairs(outgoing,returning,count)
+        offset=(page-1)*20
+        items=[{"company_id":out.company_id,"company":out.company.name,"out":public_row(out),
+                "ret":public_row(ret),"total":key[0]} for key,out,ret in pairs[offset:offset+20]]
+        return JsonResponse({"items":items,"total":len(pairs),"page":page,"has_next":offset+len(items)<len(pairs)})
+    except (ValueError,OverflowError):
+        return error("Vérifiez les dates et le nombre de passagers.")
 
 @never_cache
 @require_GET
