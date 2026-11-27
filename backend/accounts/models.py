@@ -1,6 +1,7 @@
 import uuid
 from django.contrib.auth.models import AbstractUser
 from django.db import models
+from django.utils.crypto import salted_hmac
 class User(AbstractUser):
     # Custom user from the first migration; public registration comes in phase 02.
     class Role(models.TextChoices):
@@ -8,6 +9,14 @@ class User(AbstractUser):
         COMPANY = "COMPANY", "Compagnie"
     role = models.CharField(max_length=16, choices=Role.choices, default=Role.TRAVELER)
     phone = models.CharField(max_length=16, unique=True, null=True, blank=True)
+    session_version = models.PositiveBigIntegerField(default=0, editable=False)
+
+    def _get_session_auth_hash(self, secret=None):
+        # Preserve existing sessions until an explicit administrative revocation.
+        if self.session_version == 0:
+            return super()._get_session_auth_hash(secret=secret)
+        return salted_hmac("sirago.user.session.v1", f"{self.password}:{self.session_version}",
+                           secret=secret, algorithm="sha256").hexdigest()
 
     class Meta(AbstractUser.Meta):
         constraints = [models.UniqueConstraint(models.functions.Lower("email"), condition=~models.Q(email=""), name="unique_nonempty_email_ci")]
@@ -145,4 +154,13 @@ class AdminMFA(models.Model):
 class AdminMFAEvent(models.Model):
     user = models.ForeignKey(User, on_delete=models.SET_NULL, null=True)
     kind = models.CharField(max_length=32)
+    created_at = models.DateTimeField(auto_now_add=True, db_index=True)
+
+class AdminAction(models.Model):
+    actor = models.ForeignKey(User, on_delete=models.PROTECT, related_name="admin_actions")
+    target_type = models.CharField(max_length=16)
+    target_id = models.PositiveBigIntegerField()
+    before = models.CharField(max_length=32)
+    after = models.CharField(max_length=32)
+    reason = models.CharField(max_length=300)
     created_at = models.DateTimeField(auto_now_add=True, db_index=True)

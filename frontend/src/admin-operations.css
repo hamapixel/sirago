@@ -1,0 +1,13 @@
+.admin-operation-dialog{box-sizing:border-box;width:min(94vw,600px);max-height:88dvh;overflow:auto;border:1px solid #b9c7c1;border-radius:20px;padding:20px;background:var(--surface,#fff);color:var(--text,#173d32);box-shadow:0 24px 70px #102c2940}
+.admin-operation-dialog::backdrop{background:#0b2823aa}
+.admin-operation-head{display:flex;justify-content:space-between;align-items:flex-start;gap:12px;margin-bottom:16px}
+.admin-operation-head h2{margin:5px 0;overflow-wrap:anywhere}
+.admin-operation-head small{color:#16836c;font-weight:700;letter-spacing:.06em}
+.admin-operation-dialog label{display:grid;gap:6px;margin:12px 0;font-weight:600}
+.admin-operation-dialog textarea,.admin-operation-dialog select{box-sizing:border-box;width:100%;padding:12px;border:1px solid #aabbb4;border-radius:10px;background:inherit;color:inherit;font:inherit}
+.admin-operation-info,.admin-operation-confirm{padding:14px;border:1px solid #aabbb4;border-radius:12px;margin:12px 0;overflow-wrap:anywhere}
+.admin-operation-message,.admin-audit-row p{white-space:pre-wrap;overflow-wrap:anywhere}
+.admin-operation-confirm>div{display:flex;flex-wrap:wrap;gap:10px}
+.admin-operation-primary{background:#11634e;color:white;border:0;border-radius:10px;padding:12px;font-weight:700}
+.admin-operation-dialog button:disabled{opacity:.55;cursor:not-allowed}
+@media(max-width:600px){.admin-operation-dialog{padding:15px}.admin-operation-confirm>div>button{flex:1 1 100%}}

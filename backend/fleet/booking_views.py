@@ -114,7 +114,9 @@ def reserve(request):
             raise ValueError("Total invalide.")
         with transaction.atomic():
             # Serialize retries per traveler and writes with company management.
-            User.objects.select_for_update().get(pk=request.user.pk)
+            user = User.objects.select_for_update().get(pk=request.user.pk)
+            if not user.is_active or user.session_version != request.user.session_version:
+                return error("Session indisponible. Reconnectez-vous.",401)
             old=Booking.objects.filter(traveler=request.user,request_id=key).first()
             if old:
                 if list(old.legs.order_by("position").values_list("departure_id",flat=True))!=ids or old.passengers!=count or old.ticket_mode!=mode or old.passenger_names!=names or [l.premium_positions for l in old.legs.order_by("position")]!=classes or sum(l.total for l in old.legs.all())!=expected:
