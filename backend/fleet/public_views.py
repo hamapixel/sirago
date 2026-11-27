@@ -1,6 +1,7 @@
 from datetime import date, datetime, time, timedelta
 import unicodedata
-from django.db.models import F, Min, Q, Count, Subquery
+from django.db.models import F, Min, Q, Count, Window
+from django.db.models.functions import RowNumber
 from django.http import JsonResponse
 from django.utils import timezone
 from django.utils.dateparse import parse_datetime
@@ -102,8 +103,13 @@ def home(request):
     popular=list(qs.values("route__origin","route__destination").annotate(price=Min("from_price")).order_by("route__origin","route__destination")[:12])
     # One next available departure per company and city pair. Different companies
     # serving the same cities are intentionally kept separate.
-    first_ids=qs.order_by("company_id","route__origin","route__destination","starts_at","id").distinct("company_id","route__origin","route__destination").values("pk")
-    featured=list(qs.filter(pk__in=Subquery(first_ids)).select_related("company","route","bus").defer("company__banner").order_by("starts_at","id")[:12])
+    # Rank eligible departures in one query instead of recalculating the same
+    # availability predicates in a correlated outer query and an IN subquery.
+    featured=list(qs.annotate(
+        home_rank=Window(expression=RowNumber(),
+                         partition_by=[F("company_id"),F("route__origin"),F("route__destination")],
+                         order_by=[F("starts_at").asc(),F("id").asc()])
+    ).filter(home_rank=1).select_related("company","route","bus").defer("company__banner").order_by("starts_at","id")[:12])
     logos={str(d.company_id):d.company.logo for d in featured if d.company.logo.startswith("data:image/jpeg;base64,")}
     partners=list(qs.values("company_id","company__name","company__city").distinct().order_by("company__name","company_id")[:30])
     return JsonResponse({

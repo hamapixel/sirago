@@ -18,6 +18,7 @@ export const options = {
     checks:['rate>0.99'],
     http_req_duration:['p(95)<1000','p(99)<2500'],
     'http_req_duration{name:search}':['p(95)<1000'],
+    'http_req_duration{name:home}':['p(95)<1000'],
   },
   summaryTrendStats:['avg','med','p(90)','p(95)','p(99)','max'],
 };
