@@ -14,6 +14,8 @@ class ProductionSettingsTests(SimpleTestCase):
     def test_secure_defaults(self):
         s=production_settings(self.env())
         self.assertFalse(s["DEBUG"])
+        self.assertTrue(s["SIRAGO_ADMIN_MFA_REQUIRED"])
+        self.assertTrue(production_settings({**self.env(), "SIRAGO_ADMIN_MFA_REQUIRED": "0"})["SIRAGO_ADMIN_MFA_REQUIRED"])
         self.assertFalse(s["SIRAGO_ENABLE_SIMULATED_PAYMENTS"])
         self.assertTrue(s["SESSION_COOKIE_SECURE"])
         self.assertTrue(s["CSRF_COOKIE_SECURE"])

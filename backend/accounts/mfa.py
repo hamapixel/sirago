@@ -111,6 +111,7 @@ def finish(request, user, state, codes=None):
     request.session.pop(PENDING, None)
     login(request, user, backend="django.contrib.auth.backends.ModelBackend")
     request.session[VERIFIED] = str(state.version)
+    request.session.set_expiry(8 * 3600)
     result = {"account": profile(user)}
     if codes is not None:
         result["recovery_codes"] = codes
