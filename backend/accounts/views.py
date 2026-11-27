@@ -170,6 +170,11 @@ def sign_in(request):
     agent=CompanyAgent.objects.select_related("company").filter(user=user).first()
     if agent and agent.company.status!=Company.Status.VERIFIED:
         return error("Accès de la compagnie indisponible.",403)
+    from django.conf import settings
+    if user.is_superuser and settings.SIRAGO_ADMIN_MFA_REQUIRED:
+        from .mfa import begin
+        return begin(request, user)
+    request.session.pop("admin_mfa_pending", None)
     login(request, user)
     return JsonResponse(profile(user))
 

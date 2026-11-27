@@ -57,6 +57,7 @@ def production_settings(env):
     # Proxy trust is deliberately explicit: the edge must strip client-supplied headers.
     trust=env.get("DJANGO_TRUST_HTTPS_PROXY")=="1"
     return {
+        "SIRAGO_ADMIN_MFA_REQUIRED":True,
         "DEBUG":False,"ALLOWED_HOSTS":hosts+list(LOCAL_HOSTS),
         "CSRF_TRUSTED_ORIGINS":origins,
         "SESSION_COOKIE_SECURE":True,"CSRF_COOKIE_SECURE":True,

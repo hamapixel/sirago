@@ -1,7 +1,8 @@
 import {t as tr,useLanguage} from './i18n';
 import {useState,type FormEvent} from 'react';
 import {ArrowLeft,ArrowRight,BusFront,Check,CircleCheck,CircleX,Eye,EyeOff,LockKeyhole,UserRound,Mail} from 'lucide-react';
-import {authPost,destination,type Account} from './auth-api';
+import {authPost,destination,isMfaChallenge,type LoginResult,type MfaChallenge} from './auth-api';
+import AdminMfaChallenge from './AdminMfaChallenge';
 import {phoneValid,emailValid,passwordValid,passwordChecks} from './auth-validation';
 import './auth.css';
 import {AuthTrip} from './BookingSpace';
@@ -10,6 +11,7 @@ type Role='traveler'|'company';
 const initial={first_name:'',last_name:'',phone:'',email:'',company_name:'',city:'Bamako',address:'',registration_number:'',password:'',password_confirmation:'',terms:false};
 export default function AuthPage({register,selection=null}:{register:boolean;selection?:Selection|null}){
  useLanguage();
+ const [mfa,setMfa]=useState<MfaChallenge|null>(null);
  const [role,setRole]=useState<Role>('traveler'),[step,setStep]=useState(selection&&register?1:0),[values,setValues]=useState(initial),[identifier,setIdentifier]=useState(''),[show,setShow]=useState(false),[busy,setBusy]=useState(false),[error,setError]=useState('');
  const change=(key:keyof typeof initial,value:string|boolean)=>{setValues(old=>({...old,[key]:value}));setError('')};
  const next=()=>{setError('');setStep(s=>s+1)};
@@ -23,9 +25,10 @@ export default function AuthPage({register,selection=null}:{register:boolean;sel
  if(register&&step!==3)return;
  if(register&&(!validIdentity||!validSecurity))return;
  setBusy(true);
- try{const account=await authPost<Account>(register?'register/'+role:'login',register?values:{identifier,password:values.password});window.location.assign(selection&&account.role==='TRAVELER'?bookingUrl(selection):destination(account))}
+ try{const account=await authPost<LoginResult>(register?'register/'+role:'login',register?values:{identifier,password:values.password});if(isMfaChallenge(account)){setValues(initial);setIdentifier('');setShow(false);setMfa(account);setBusy(false);return}window.location.assign(selection&&account.role==='TRAVELER'?bookingUrl(selection):destination(account))}
  catch(e){setError(e instanceof Error?e.message:'Connexion au serveur impossible.');setBusy(false)}
  }
+ if(mfa)return <AdminMfaChallenge challenge={mfa}/>;
  return <section className={"auth-shell "+(register?"auth-register":"auth-login")}>
  <div className="auth-banner"><img className="auth-brand-mark" src="/brand-mark.svg" alt="" width="54" height="54"/><h1>SiraGo</h1><strong>Ka billet ta fô i sigi yorola.</strong><p>{tr("Réservez votre billet sans vous déplacer.")}</p></div>
  {selection&&<AuthTrip selection={selection}/>}

@@ -1,3 +1,4 @@
+import uuid
 from django.contrib.auth.models import AbstractUser
 from django.db import models
 class User(AbstractUser):
@@ -128,3 +129,20 @@ class PushDelivery(models.Model):
     next_attempt = models.DateTimeField(db_index=True)
     class Meta:
         constraints = [models.UniqueConstraint(fields=["subscription", "notification"], name="push_unique_delivery")]
+
+
+class AdminMFA(models.Model):
+    user = models.OneToOneField(User, on_delete=models.CASCADE, related_name="admin_mfa")
+    enabled = models.BooleanField(default=False)
+    encrypted_secret = models.TextField(blank=True, default="")
+    enrollment_hash = models.CharField(max_length=64, blank=True, default="")
+    enrollment_expires = models.DateTimeField(null=True, blank=True)
+    last_step = models.BigIntegerField(default=-1)
+    recovery_hashes = models.JSONField(default=list)
+    version = models.UUIDField(default=uuid.uuid4, editable=False)
+
+
+class AdminMFAEvent(models.Model):
+    user = models.ForeignKey(User, on_delete=models.SET_NULL, null=True)
+    kind = models.CharField(max_length=32)
+    created_at = models.DateTimeField(auto_now_add=True, db_index=True)
