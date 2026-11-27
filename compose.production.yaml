@@ -36,7 +36,7 @@ services:
     restart: unless-stopped
 
   redis:
-    image: redis:7.4-alpine
+    image: redis:7.4-alpine3.22
     environment:
       REDIS_PASSWORD: ${REDIS_PASSWORD:?Set a URL-safe Redis password}
     command: ["sh", "-ec", "exec redis-server --requirepass \"$$REDIS_PASSWORD\" --maxmemory 128mb --maxmemory-policy noeviction --appendonly yes"]

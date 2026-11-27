@@ -5,6 +5,7 @@ RUN npm ci --no-audit --no-fund
 COPY . .
 RUN npm run build
 FROM nginx:1.28-alpine
+RUN apk upgrade --no-cache
 COPY nginx.production.conf /etc/nginx/conf.d/default.conf
 COPY nginx-site.conf /etc/nginx/sirago-site.conf
 COPY nginx-allowed-hosts.sh /docker-entrypoint.d/25-sirago-allowed-hosts.sh
