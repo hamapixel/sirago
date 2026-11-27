@@ -36,3 +36,6 @@ mv "$health" /etc/nginx/sirago-health-host
 rm -f "$tmp"
 nginx -t
 trap - EXIT HUP INT TERM
+
+# No command during the build-time configuration check; exec nginx at runtime.
+if [ "$#" -gt 0 ]; then exec "$@"; fi

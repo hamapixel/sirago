@@ -1,5 +1,6 @@
 FROM postgres:17-alpine
-RUN apk upgrade --no-cache
+RUN apk upgrade --no-cache \
+ && rm -f /usr/local/bin/gosu
 COPY backup.sh /opt/sirago/backup.sh
 RUN sed -i 's/\r$//' /opt/sirago/backup.sh \
  && sh -n /opt/sirago/backup.sh

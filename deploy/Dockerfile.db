@@ -1,0 +1,10 @@
+FROM postgres:17-alpine
+# The official entrypoint uses gosu postgres to drop privileges.
+# Use Alpine's native su-exec for that operation instead of an old Go binary.
+RUN apk upgrade --no-cache \
+ && apk add --no-cache su-exec \
+ && grep -Fq 'exec gosu postgres "$BASH_SOURCE" "$@"' /usr/local/bin/docker-entrypoint.sh \
+ && rm -f /usr/local/bin/gosu \
+ && ln -s "$(command -v su-exec)" /usr/local/bin/gosu \
+ && test "$(gosu postgres id -u)" = "$(id -u postgres)" \
+ && gosu postgres true
