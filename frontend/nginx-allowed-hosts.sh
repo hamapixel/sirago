@@ -18,11 +18,21 @@ NR != 1 { exit 1 }
         for (j=1; j<=n; j++) {
             if (length(labels[j])>63 || labels[j] !~ /^[a-z0-9]([a-z0-9-]*[a-z0-9])?$/) exit 1
         }
-        if (!seen[h]++) { print h " " h ";"; count++ }
+        if (!seen[h]++) { print h; count++ }
     }
 }
 END { if (!count) exit 1 }
 ' > "$tmp" || { echo "Invalid gateway host allowlist" >&2; exit 1; }
-chmod 0644 "$tmp"
-mv "$tmp" /etc/nginx/sirago-hosts.map
+vhosts="$(mktemp /etc/nginx/sirago-vhosts.XXXXXX)"
+health="$(mktemp /etc/nginx/sirago-health.XXXXXX)"
+trap 'rm -f "$tmp" "$vhosts" "$health"' EXIT HUP INT TERM
+while IFS= read -r host; do
+    printf 'server {\n    listen 8080;\n    server_name %s;\n    include /etc/nginx/sirago-site.conf;\n}\n' "$host"
+done < "$tmp" > "$vhosts"
+head -n 1 "$tmp" > "$health"
+chmod 0644 "$vhosts" "$health"
+mv "$vhosts" /etc/nginx/sirago-vhosts.conf
+mv "$health" /etc/nginx/sirago-health-host
+rm -f "$tmp"
+nginx -t
 trap - EXIT HUP INT TERM
