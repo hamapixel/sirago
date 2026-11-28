@@ -166,7 +166,7 @@ def create_booking_checkout(api_key, booking, amount):
     }
     # Fixed local return origin, not a user-supplied redirect. Opt in for desktop tests.
     if os.getenv("SIRAGO_SASPAY_LOCAL_RETURN")=="1":
-        payload["return_url"]=f"http://localhost:8030/app/?view=tickets&booking={booking.pk}"
+        payload["return_url"]=f"http://localhost:8030/app/?view=tickets&booking={booking.pk}&checkout_return=1"
     value=_checkout_request(api_key,"/checkout-sessions/",payload)
     sid=_validated_booking_session(value,booking,amount)
     from django.utils.dateparse import parse_datetime
