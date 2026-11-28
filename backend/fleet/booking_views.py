@@ -222,7 +222,7 @@ def simulate_payment(request,pk):
         b.status=Booking.Status.TEST_PAID
         b.save(update_fields=["status"])
         register_refs(b,legs)
-        notify(b.traveler_id,"TEST_PAYMENT","Billets de test disponibles","Paiement simulé réussi. Aucun argent débité. Consultez Mes billets.")
+        notify(b.traveler_id,"TEST_PAYMENT","Billets de test disponibles","Paiement simulé réussi. Aucun argent débité. Consultez Mes billets.",booking_id=b.pk)
         for l in legs:
             d=l.departure
             notify(d.company.owner_id,"TEST_BOOKING","Nouvelle réservation TEST",f"{d.route.origin} → {d.route.destination} : {b.passengers} passager(s). Aucun encaissement réel.")
