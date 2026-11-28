@@ -1,0 +1,6 @@
+import {it,expect} from 'vitest';
+import {renderToStaticMarkup} from 'react-dom/server';
+import {HomeCardCarousel} from './HomeCardCarousel';
+import {PartnerCard} from './PartnerCard';
+it('conserve toutes les cartes partenaires cliquables dans des slides horizontales',()=>{const companies=[{id:1,name:'Transport A',city:'Bamako'},{id:2,name:'Transport B',city:'Kayes'},{id:3,name:'Transport C',city:'Sikasso'}];const html=renderToStaticMarkup(<HomeCardCarousel label="Compagnies partenaires" kind="partners">{companies.map(company=><PartnerCard key={company.id} company={company} onOpen={()=>{}}/>)}</HomeCardCarousel>);expect(html).toContain('home-card-carousel-partners');expect(html).toContain('swiper-horizontal');expect(html).toContain('swiper-button-prev');expect(html).toContain('swiper-button-next');expect(html).toContain('Transport C');expect(html.match(/class="swiper-slide"/g)?.length).toBe(3)});
+it('ne duplique pas les cartes ni les commandes quand un seul partenaire est disponible',()=>{const html=renderToStaticMarkup(<HomeCardCarousel label="Partenaires" kind="partners"><PartnerCard company={{id:1,name:'Transport unique',city:'Bamako'}} onOpen={()=>{}}/></HomeCardCarousel>);expect(html).not.toContain('swiper-button-next');expect(html.match(/class="swiper-slide"/g)?.length).toBe(1)});

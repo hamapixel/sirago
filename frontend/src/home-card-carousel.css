@@ -1,0 +1,18 @@
+.home-card-carousel-region{min-width:0;max-width:100%;overflow:hidden}
+.home-card-carousel{width:100%;min-width:0;--swiper-theme-color:#16836c;--swiper-navigation-size:18px;--swiper-pagination-color:#16836c;--swiper-pagination-bottom:14px;--swiper-pagination-bullet-inactive-color:#79938b;--swiper-pagination-bullet-inactive-opacity:.45}
+.home-card-carousel .swiper-wrapper{align-items:stretch}
+.home-card-carousel .swiper-slide{height:auto;min-width:0;display:flex;align-items:stretch;box-sizing:border-box;padding-bottom:4px}
+.home-card-carousel .swiper-slide>article,.home-card-carousel .swiper-slide>button{width:100%;height:auto;min-width:0}
+.home-card-carousel .swiper-slide>article{display:flex;flex-direction:column;align-items:stretch}
+.home-card-carousel .swiper-slide .featured-book{margin-top:auto}
+.home-card-carousel.has-multiple{padding-bottom:46px}
+.home-card-carousel .swiper-button-prev,.home-card-carousel .swiper-button-next{top:auto;bottom:3px;margin-top:0;width:38px;height:38px;border:1px solid #cce3db;background:#eaf5ef;border-radius:50%;color:#14664f;box-shadow:none}
+.home-card-carousel .swiper-button-prev{left:4px}.home-card-carousel .swiper-button-next{right:4px}
+.home-card-carousel .swiper-button-prev svg,.home-card-carousel .swiper-button-next svg{width:17px;height:17px}
+.home-card-carousel .swiper-button-disabled{opacity:.4}
+.home-card-carousel .swiper-button-lock,.home-card-carousel .swiper-pagination-lock{display:none}
+.home-card-carousel .swiper-pagination-bullet{width:8px;height:8px}
+.home-card-carousel .swiper-button-prev:focus-visible,.home-card-carousel .swiper-button-next:focus-visible,.home-card-carousel .swiper-pagination-bullet:focus-visible{outline:2px solid #b78417;outline-offset:2px}
+.home-card-carousel .swiper-slide .partner-card:hover{transform:none}
+@media(min-width:640px){.home-card-carousel:not(.has-multiple){max-width:calc((100% - 14px)/2);margin-left:0;margin-right:auto}.home-card-carousel.has-multiple:has(.swiper-button-lock){padding-bottom:0}}
+@media(prefers-reduced-motion:reduce){.home-card-carousel .partner-card{transition:none}}

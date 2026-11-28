@@ -6,6 +6,7 @@ import {dayText,timeText,durationText,priceText,minimumTripTotal,type Trip,type 
 import {t,useLanguage} from './i18n';
 import './featured-trips.css';
 import QuickBooking from './QuickBooking';
+import {HomeCardCarousel} from './HomeCardCarousel';
 
 export function FeaturedTripCard({trip,count,logo,onBook}:{trip:Trip;count:number;logo?:string;onBook:(trip:Trip,count:number)=>void}){
  useLanguage();
@@ -24,6 +25,6 @@ export function FeaturedTripCard({trip,count,logo,onBook}:{trip:Trip;count:numbe
 }
 export default function FeaturedTrips({trips,logos,count,onSearch}:{trips:Trip[];logos:Record<string,string>;count:number;onSearch:(criteria:Criteria,companyId:number)=>void}){
  useLanguage();
- const [expanded,setExpanded]=useState(false),[selected,setSelected]=useState<Trip|null>(null);
- return <div className="featured-trips"><div className="featured-title"><h2>{t('Trajets proposés')}</h2>{trips.length>4&&<button type="button" className="featured-more" aria-expanded={expanded} onClick={()=>setExpanded(v=>!v)}>{t(expanded?'Voir moins':'Voir plus')}<ArrowRight size={16}/></button>}</div>{!trips.length?<p className="panel travel-home-empty">{t('Aucun trajet publié.')}</p>:<div className="featured-trip-grid">{(expanded?trips:trips.slice(0,4)).map(trip=><FeaturedTripCard key={trip.id} trip={trip} logo={logos[String(trip.company_id)]} count={count} onBook={trip=>setSelected(trip)}/>)}</div>}{selected&&<QuickBooking key={selected.id} trip={selected} initialCount={count} onClose={()=>setSelected(null)} onSearch={onSearch}/>}</div>
+ const [selected,setSelected]=useState<Trip|null>(null);
+ return <div className="featured-trips"><div className="featured-title"><h2>{t('Trajets proposés')}</h2></div>{!trips.length?<p className="panel travel-home-empty">{t('Aucun trajet publié.')}</p>:<HomeCardCarousel label={t('Trajets proposés')} kind="trips">{trips.map(trip=><FeaturedTripCard key={trip.id} trip={trip} logo={logos[String(trip.company_id)]} count={count} onBook={trip=>setSelected(trip)}/>)}</HomeCardCarousel>}{selected&&<QuickBooking key={selected.id} trip={selected} initialCount={count} onClose={()=>setSelected(null)} onSearch={onSearch}/>}</div>
 }
