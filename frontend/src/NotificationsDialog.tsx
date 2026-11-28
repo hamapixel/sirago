@@ -20,9 +20,7 @@ export default function NotificationsDialog({onClose,signedIn=false}:{onClose:()
  return <dialog ref={ref} className="sirago-notifications-dialog" aria-labelledby="notification-dialog-title" aria-describedby="notification-dialog-description" onCancel={e=>{e.preventDefault();onClose()}} onClick={e=>{if(e.target===e.currentTarget){const r=e.currentTarget.getBoundingClientRect();if(e.clientX<r.left||e.clientX>r.right||e.clientY<r.top||e.clientY>r.bottom)onClose()}}}>
   <header className="notification-fixed-header">
   <div className="notification-sheet-handle" aria-hidden="true"/>
-  <div className="notification-dialog-top"><span><img src="/logo.svg" width={28} height={28} alt=""/> SiraGo</span><button type="button" className="notification-close" aria-label="Fermer les notifications" onClick={onClose}><X size={21}/></button></div>
-  <h2 id="notification-dialog-title">Notifications</h2>
-  <p id="notification-dialog-description">Vos alertes SiraGo</p>
+  <div className="notification-dialog-top"><span className="notification-heading-brand"><img src="/logo.svg" width={32} height={32} alt=""/><span className="notification-heading-copy"><h2 id="notification-dialog-title">Notifications</h2><span id="notification-dialog-description">Vos alertes SiraGo</span></span></span><button type="button" className="notification-close" aria-label="Fermer les notifications" onClick={onClose}><X size={21}/></button></div>
   </header>
   <div className="notification-scroll-body">
    <NotificationCenter signedIn={signedIn} compact/>
