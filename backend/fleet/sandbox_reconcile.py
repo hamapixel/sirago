@@ -46,7 +46,7 @@ def reconcile(pk):
                 current.status="PAID";current.issued_at=now
                 b.status=Booking.Status.TEST_PAID;b.save(update_fields=["status"])
                 register_refs(b,legs)
-                notify(b.traveler_id,"TEST_PAYMENT","Billets SasPay TEST disponibles","Paiement Sandbox vérifié. Consultez Mes billets. Aucun débit réel.")
+                notify(b.traveler_id,"TEST_PAYMENT","Billets SasPay TEST disponibles","Paiement Sandbox vérifié. Consultez Mes billets. Aucun débit réel.",booking_id=b.pk)
                 for l in legs:
                     d=l.departure
                     notify(d.company.owner_id,"TEST_BOOKING","Nouvelle réservation SasPay TEST",f"{d.route.origin} → {d.route.destination} : {b.passengers} passager(s). Aucun encaissement réel.")
