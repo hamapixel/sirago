@@ -51,7 +51,7 @@ export default function BookingSpace({selection,account,onHistory}:{selection:Se
   catch(e){setError(e instanceof Error?e.message:'Réservation impossible.');q.retry()}
   finally{submitting.current=false;setBusy(false)}
  }
- if(booked&&showPayment)return <BookingDetails id={booked.id} initialPayment onBack={()=>setShowPayment(false)}/>;
+ if(booked&&showPayment)return <BookingDetails id={booked.id} initialPayment onBack={()=>setShowPayment(false)} onTicketsExit={onHistory}/>;
  if(booked&&showDetails)return <BookingDetails id={booked.id} onBack={onHistory}/>;
  return <section className="booking-space booking-details compact-checkout"><div className="travel-heading booking-heading"><a className="booking-back" href="/app/"><ArrowLeft size={18}/> {tr("Retour")}</a><h1>{booked?'Réservation enregistrée':tr('Résumé du voyage')}</h1>{!booked&&q.data&&<p>{q.data.trips[0].origin} → {q.data.trips[0].destination}</p>}</div>
  {booked?<article className="panel booking-success"><ShieldCheck size={32}/><h2>{bookingLabel(booked.status)}</h2><p>Référence : {booked.reference}</p><h3>{priceText(booked.total)}</h3>{booked.status==='HELD'&&<><p><Clock size={17}/> Places bloquées : <Countdown expires={booked.expires_at}/></p><p>Aucun débit effectué.</p><button className="primary" onClick={()=>setShowPayment(true)}>Continuer vers le paiement</button></>}<button className="outline" onClick={()=>setShowDetails(true)}>{tr("Voir les détails")}</button><button className="outline" onClick={onHistory}>Mes réservations</button></article>:<>
@@ -89,7 +89,7 @@ export function BookingPassengerList({booking:b}:{booking:Booking}){
  return <article className="panel booking-checkout traveler-passengers"><h2><Users size={20}/> {tr("Passagers")}</h2>{b.passenger_names.map((name,i)=><div className="traveler-passenger-row" key={i}><span className="passenger-number">{i+1}</span><div className="traveler-passenger-name"><strong>{name}</strong><div className="traveler-categories">{b.trips.map((t,j)=>{const premium=t.premium_positions.includes(i);return <span key={t.id} className={'traveler-category '+(premium?'premium':'standard')}>{premium?<Crown size={14}/>:<Armchair size={14}/>} {(b.trips.length>1?(j===0?'Aller : ':'Retour : '):'')+(premium?'Premium':'Standard')}</span>})}</div></div><strong className="traveler-passenger-price">{priceText(b.trips.reduce((sum,t)=>sum+(t.premium_positions.includes(i)?t.premium_price:t.price),0))}</strong></div>)}</article>
 }
 
-function BookingDetails({id,onBack,initialPayment=false,initialReport=false}:{id:number;onBack:()=>void;initialPayment?:boolean;initialReport?:boolean}){
+function BookingDetails({id,onBack,onTicketsExit=onBack,initialPayment=false,initialReport=false}:{id:number;onBack:()=>void;onTicketsExit?:()=>void;initialPayment?:boolean;initialReport?:boolean}){
  const q=useTravel<Booking>('bookings/'+id+'/',0);
  const [now,setNow]=useState(Date.now()),[busy,setBusy]=useState(false),[confirm,setConfirm]=useState(false),[error,setError]=useState('');
  const dialog=useRef<HTMLDialogElement>(null),submitting=useRef(false);
@@ -106,8 +106,8 @@ function BookingDetails({id,onBack,initialPayment=false,initialReport=false}:{id
   catch(e){setError(e instanceof Error?e.message:'Annulation impossible.');setConfirm(false)}
   finally{setBusy(false);submitting.current=false}
  }
- if(b&&status==='TEST_PAID'&&b.simulation_enabled&&!q.loading&&!q.error&&showTickets)return <TestTickets booking={b} initialReport={reportRequested} onBack={()=>{setShowTickets(false);setReportRequested(false);setPayment(false);q.retry()}}/>;
- if(payment&&b&&!q.loading&&!q.error)return <PaymentPreview booking={b} onBack={()=>{setPayment(false);q.retry()}}/>;
+ if(b&&status==='TEST_PAID'&&b.simulation_enabled&&!q.loading&&!q.error&&showTickets)return <TestTickets booking={b} initialReport={reportRequested} onBack={onTicketsExit}/>;
+ if(payment&&b&&!q.loading&&!q.error)return <PaymentPreview booking={b} onTicketsExit={onTicketsExit} onBack={()=>{setPayment(false);q.retry()}}/>;
  return <section className="booking-space booking-details traveler-booking-detail">
  <div className="travel-heading booking-heading"><div className="travel-heading-top"><button type="button" onClick={onBack} disabled={busy}><ArrowLeft size={19}/> {tr("Retour")}</button><Ticket size={23}/></div><span className="booking-eyebrow">SIRAGO · ESPACE VOYAGEUR</span><h1>{tr("Détails de la réservation")}</h1><p>Votre trajet, vos passagers et le suivi du paiement.</p></div>
  {q.loading&&<p className="panel" role="status">{tr("Chargement…")}</p>}
