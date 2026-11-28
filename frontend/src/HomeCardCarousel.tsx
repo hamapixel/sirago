@@ -4,7 +4,7 @@ import {A11y} from 'swiper/modules';
 import type {Swiper as SwiperInstance} from 'swiper';
 import './home-card-carousel.css';
 
-export function HomeCardCarousel({label,children,kind}:{label:string;children:ReactNode;kind:'trips'|'partners'}){
+export function HomeCardCarousel({label,children,kind}:{label:string;children:ReactNode;kind:'trips'|'partners'|'companies'}){
  const slides=Children.toArray(children);
  const slider=useRef<SwiperInstance|null>(null);
  const [reduced,setReduced]=useState(false);
@@ -22,8 +22,8 @@ export function HomeCardCarousel({label,children,kind}:{label:string;children:Re
     modules={[A11y]} direction="horizontal" onSwiper={instance=>{slider.current=instance}} simulateTouch={true} allowTouchMove={multiple}
     grabCursor={multiple} threshold={6} touchAngle={40} preventClicks={true} preventClicksPropagation={true}
     speed={reduced?0:320} watchOverflow={true} loop={false}
-    spaceBetween={12} slidesPerView={multiple?(kind==='trips'?1.06:1.12):1}
-    breakpoints={{640:{slidesPerView:multiple?2:1,spaceBetween:14}}}
+    spaceBetween={12} slidesPerView={multiple?(kind==='trips'?1.06:kind==='companies'?1.35:1.12):1}
+    breakpoints={{640:{slidesPerView:multiple?2:1,spaceBetween:14},900:{slidesPerView:multiple?(kind==='companies'?3:2):1,spaceBetween:14}}}
     navigation={false} pagination={false}
     a11y={{enabled:true,slideLabelMessage:'{{index}} sur {{slidesLength}}'}}>
     {slides.map((child,i)=><SwiperSlide key={i}>{child}</SwiperSlide>)}

@@ -14,3 +14,5 @@
 
 
 .home-card-carousel-region:focus-visible{outline:2px solid #b78417;outline-offset:3px;border-radius:12px}
+
+.home-card-carousel-companies:not(.has-multiple){max-width:100%}
