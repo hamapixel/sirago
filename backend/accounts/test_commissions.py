@@ -1,6 +1,8 @@
-from django.test import TestCase, Client
+from django.test import TestCase, Client, override_settings
+from accounts.test_helpers import force_mfa_login
 from .models import User, Company, CompanyCommission, CommissionChange
 
+@override_settings(SIRAGO_ADMIN_MFA_REQUIRED=True)
 class CommissionTests(TestCase):
     def setUp(self):
         self.admin=User.objects.create_superuser(username="admin-commission",password="Test-pass-123")
@@ -21,7 +23,7 @@ class CommissionTests(TestCase):
         self.assertEqual(self.post(500).status_code,403)
         self.assertFalse(CompanyCommission.objects.exists())
     def test_configuration_and_audit(self):
-        self.client.force_login(self.admin)
+        force_mfa_login(self.client, self.admin)
         r=self.client.get(self.base,{"q":"Diarra Bamako"}).json()
         self.assertIsNone(r["items"][0]["rate_bps"])
         self.assertEqual(self.post(500).status_code,200)
@@ -35,7 +37,7 @@ class CommissionTests(TestCase):
         self.assertEqual(h["items"][0]["actor"],self.admin.username)
         self.assertEqual(self.post(0,750).status_code,200)
     def test_reject_invalid_and_stale(self):
-        self.client.force_login(self.admin)
+        force_mfa_login(self.client, self.admin)
         for rate in (True,-1,1001,2.5,"500",None):
             self.assertEqual(self.post(rate).status_code,400)
         self.assertEqual(self.post(500).status_code,200)
@@ -44,13 +46,13 @@ class CommissionTests(TestCase):
         self.assertEqual(CommissionChange.objects.count(),1)
     def test_csrf_required(self):
         c=Client(enforce_csrf_checks=True)
-        c.force_login(self.admin)
+        force_mfa_login(c, self.admin)
         values={"rate_bps":500,"expected_bps":None}
         self.assertEqual(c.post(self.url,values,content_type="application/json").status_code,403)
         token=c.get("/api/v1/auth/csrf/").json()["csrfToken"]
         self.assertEqual(c.post(self.url,values,content_type="application/json",HTTP_X_CSRFTOKEN=token).status_code,200)
     def test_pagination(self):
-        self.client.force_login(self.admin)
+        force_mfa_login(self.client, self.admin)
         for n in range(12):
             u=User.objects.create_user(username=f"commission-owner-{n}")
             Company.objects.create(owner=u,name=f"Transport {n}",city="Sikasso",address="Gare")
