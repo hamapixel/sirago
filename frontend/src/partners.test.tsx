@@ -1,6 +1,6 @@
 import {it,expect} from 'vitest';
 import {renderToStaticMarkup} from 'react-dom/server';
-import {PartnerRoute,groupPartnerTrips} from './PartnerSpace';
+import PartnerSpace,{PartnerRoute,groupPartnerTrips} from './PartnerSpace';
 import {PartnerCard} from './PartnerCard';
 import {partnerInfo,partnerMapUrl,partnerPhones} from './partners';
 import {partnerPath,type Trip} from './travel-api';
@@ -15,3 +15,13 @@ it('transmet les critères réels au serveur',()=>{const url=partnerPath(7,'2026
 it('conserve la date vide pour tous les départs et affiche les dates réelles',()=>{expect(new URLSearchParams(partnerPath(1,'','',1,1).split('?')[1]).get('date')).toBe('');const html=renderToStaticMarkup(<PartnerRoute trips={[trip,{...trip,id:2,starts_at:'2026-12-02T06:00:00Z'}]} count={1} onBook={()=>{}}/>);expect(html).toContain('1 déc.');expect(html).toContain('2 déc.')});
 
 it('affiche le logo public envoyé par la compagnie',()=>{const logo='/api/v1/travel/partners/9/logo/';const html=renderToStaticMarkup(<PartnerCard company={{id:9,name:'Nouvelle compagnie',city:'Bamako',logo_url:logo}} onOpen={()=>{}}/>);expect(html).toContain('src="'+logo+'"');expect(html).toContain('Nouvelle compagnie')});
+
+it('affiche le compteur numérique de passagers dans la fiche compagnie sans liste déroulante',()=>{
+ const html=renderToStaticMarkup(<PartnerSpace company={company} initialCount={20} onBack={()=>{}} onBook={()=>{}}/>);
+ expect(html).toContain('class="partner-passenger-field"');
+ expect(html).toContain('inputMode="numeric"');
+ expect(html).toContain('value="20"');
+ expect(html).toContain('Retirer un passager');
+ expect(html).toContain('Ajouter un passager');
+ expect(html).not.toContain('<select');
+});
