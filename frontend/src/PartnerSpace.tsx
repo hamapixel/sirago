@@ -1,10 +1,11 @@
 import {useState} from 'react';
-import {ArrowLeft,ArrowRight,BusFront,CalendarDays,MapPin,Phone,ShieldCheck,Users,LocateFixed} from 'lucide-react';
+import {ArrowLeft,ArrowRight,BusFront,CalendarDays,MapPin,Phone,ShieldCheck,LocateFixed} from 'lucide-react';
 import {partnerInfo,partnerMapUrl,partnerPhones} from './partners';
 import {useTravel,partnerPath,priceText,timeText,durationText,dayText,minimumTripTotal,type Trip,type PartnerCompany,type PartnerPage} from './travel-api';
 import {localToday} from './search';
 import {Pagination,SearchField} from './listing';
 import './partners.css';
+import {PassengerCounter} from './PassengerCounter';
 import {PartnerLogo} from './PartnerCard';
 import './travel.css';
 
@@ -29,7 +30,7 @@ export default function PartnerSpace({company,onBack,onBook,initialCount}:{compa
  const validCompany=!data.error;
  return <section className="partner-space">
  <div className="partner-hero">{info?.cover&&!coverFailed&&<img className="partner-cover" src={info.cover} alt="" onError={()=>setCoverFailed(true)}/>}<div className="partner-hero-shade"/><div className="partner-hero-content"><div className="partner-hero-actions"><button type="button" className="partner-back" onClick={onBack}><ArrowLeft size={21}/> Retour</button>{mapUrl&&validCompany&&<a className="partner-map" href={mapUrl} target="_blank" rel="noopener noreferrer"><LocateFixed size={19}/> Localisation</a>}</div><div className="partner-identity"><PartnerLogo key={logo||company.id} src={logo} name={company.name}/><div><h1>{data.data?.company.name??company.name}</h1>{validCompany&&<><span><ShieldCheck size={16}/> Compagnie validée</span><span><MapPin size={16}/>{info?.address||company.city}</span>{phones.map(p=><a key={p} href={'tel:'+p}><Phone size={16}/>{p}</a>)}</>}</div></div></div></div>
- <div className="panel partner-filters"><SearchField value={query} onChange={v=>{setQuery(v);setPage(1)}} placeholder="Rechercher une ville…"/><div className="partner-filter-grid"><label>Date (facultatif)<div className="field"><CalendarDays size={18}/><input type="date" min={localToday()} value={date} onChange={e=>{setDate(e.target.value);setPage(1)}}/></div></label><label>Passagers<div className="field"><Users size={18}/><select value={count} onChange={e=>{setCount(Number(e.target.value));setPage(1)}}>{Array.from({length:100},(_,i)=><option key={i+1} value={i+1}>{i+1}</option>)}</select></div></label></div>{date?<button className="outline partner-all-days" onClick={()=>{setDate('');setPage(1)}}>Tous les jours</button>:<small className="partner-all-label">Tous les départs à venir</small>}</div>
+ <div className="panel partner-filters"><SearchField value={query} onChange={v=>{setQuery(v);setPage(1)}} placeholder="Rechercher une ville…"/><div className="partner-filter-grid"><label>Date (facultatif)<div className="field"><CalendarDays size={18}/><input type="date" min={localToday()} value={date} onChange={e=>{setDate(e.target.value);setPage(1)}}/></div></label><div className="partner-passenger-field"><span>Passagers</span><PassengerCounter count={count} onChange={v=>{setCount(v);setPage(1)}}/></div></div>{date?<button className="outline partner-all-days" onClick={()=>{setDate('');setPage(1)}}>Tous les jours</button>:<small className="partner-all-label">Tous les départs à venir</small>}</div>
  <div className="section-title"><h2 className="partner-section-title">Trajets disponibles</h2>{data.data&&<small>{data.data.total} départ(s)</small>}</div>
  {data.loading&&<p className="panel" role="status">Recherche…</p>}{data.error&&<div className="panel travel-empty" role="alert"><p>{data.error}</p><button className="outline" onClick={data.retry}>Réessayer</button></div>}
  {data.data?.total===0&&<div className="panel travel-empty"><BusFront size={28}/><strong>Aucun départ disponible</strong>{data.data.next_date?<button type="button" className="outline" onClick={()=>{setDate(data.data!.next_date!);setPage(1)}}>Prochain départ · {dayText(data.data.next_date)}</button>:<small>Modifiez les filtres.</small>}</div>}
