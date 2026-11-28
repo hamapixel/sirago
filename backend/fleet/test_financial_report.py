@@ -1,7 +1,8 @@
 from datetime import timedelta
 from io import BytesIO
 from uuid import uuid4
-from django.test import TestCase
+from django.test import TestCase, override_settings
+from accounts.test_helpers import force_mfa_login
 from django.utils import timezone
 from openpyxl import load_workbook
 from accounts.models import CompanyCommission, User
@@ -10,6 +11,7 @@ from .test_booking import BookingFixture
 from .commissions import freeze_commissions
 from zoneinfo import ZoneInfo
 
+@override_settings(SIRAGO_ADMIN_MFA_REQUIRED=True)
 class FinancialReportTests(BookingFixture,TestCase):
     def setUp(self):
         super().setUp()
@@ -27,7 +29,7 @@ class FinancialReportTests(BookingFixture,TestCase):
         self.day=timezone.now().astimezone(ZoneInfo("Africa/Bamako")).date().isoformat()
         self.params={"date_from":self.day,"date_to":self.day}
         self.base="/api/v1/auth/supervision/finances/"
-        self.client.force_login(self.admin)
+        force_mfa_login(self.client, self.admin)
     def report(self,**params):
         r=self.client.get(self.base,{**self.params,**params})
         self.assertEqual(r.status_code,200,r.content)
