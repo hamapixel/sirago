@@ -2,6 +2,23 @@ import {useEffect,useSyncExternalStore} from 'react';
 import {ChevronDown} from 'lucide-react';
 export type Language='fr'|'en'|'bm';
 const words:Record<string,{en:string;bm:string}>={
+"LE PARCOURS SIRAGO": {"en":"THE SIRAGO JOURNEY","bm":"SIRAGO KA TAAMA"},
+"De votre départ à votre arrivée, tout commence ici.": {"en":"From departure to arrival, it all starts here.","bm":"I ka taama bɛ daminɛ yan."},
+"Organisez votre voyage en quelques étapes, à votre rythme.": {"en":"Plan your trip in a few steps, at your own pace.","bm":"I ka taama labɛn i yɛrɛ ka waati la."},
+"Tracez votre itinéraire": {"en":"Plan your route","bm":"I ka sira sugandi"},
+"Indiquez vos villes, vos dates et les personnes qui voyagent avec vous.": {"en":"Enter your cities, dates and fellow travelers.","bm":"I ka duguw, donw ni taga bagaw sɛbɛn."},
+"Comparez les départs": {"en":"Compare departures","bm":"Bisi boli suguyaw lajɛ"},
+"Consultez les compagnies, les horaires, les places et les tarifs disponibles.": {"en":"Review available operators, times, seats and fares.","bm":"Bisi baaradaw, waatiw, sigiyɔrɔw ni sɔngɔw lajɛ."},
+"Préparez votre réservation": {"en":"Prepare your booking","bm":"I ka biyɛti taɲinini labɛn"},
+"Choisissez votre offre, renseignez les passagers et vérifiez le montant avant le paiement.": {"en":"Choose an offer, enter travelers and review the amount before paying.","bm":"Sugu sugandi, taga bagaw tɔgɔ sɛbɛn, wari hakɛ lajɛ sani i ka sara."},
+"Gardez votre billet à portée de main": {"en":"Keep your ticket handy","bm":"I ka biyɛti mara i bolo"},
+"Retrouvez le billet numérique et son QR code dans votre compte après confirmation.": {"en":"Find the digital ticket and QR code in your account after confirmation.","bm":"Biyɛti ni a QR bɛ i ka jate la sɛmɛntiyali kɔfɛ."},
+"Vous choisissez. SiraGo vous accompagne.": {"en":"Your choice. SiraGo is with you.","bm":"I bɛ sugandi, SiraGo bɛ i dɛmɛ."},
+"À VOTRE SERVICE": {"en":"HERE FOR YOU","bm":"I KA DƐMƐ"},
+"Vos essentiels de voyage": {"en":"Your travel essentials","bm":"I ka taama fɛnw"},
+"Accédez directement aux services SiraGo.": {"en":"Access SiraGo services directly.","bm":"SiraGo ka baaraw dayɛlɛ."},
+"Les paiements sont actuellement en simulation. Aucun paiement réel ni billet valable pour voyager ne peut être obtenu dans ce mode.": {"en":"Payments are currently simulated. No real payment or valid travel ticket can be obtained in this mode.","bm":"Wari sara bɛ kɔrɔbɔli la sisan. Wari sara tiɲɛ ni taama biyɛti tiɲɛ tɛ sɔrɔ nin cogoya la."},
+"Rejoignez SiraGo": {"en":"Join SiraGo","bm":"Don SiraGo la"},
   "Accueil": {
     "en": "Home",
     "bm": "So"

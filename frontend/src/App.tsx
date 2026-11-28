@@ -1,4 +1,4 @@
-import {t, t as translate,useLanguage,LanguageSelect} from './i18n';
+import {t,useLanguage,LanguageSelect} from './i18n';
 import {lazy,Suspense,useEffect,useState} from 'react';
 const AuthPage=lazy(()=>import('./AuthPage'));
 import SplashScreen from './SplashScreen';
@@ -15,6 +15,7 @@ import {PartnerCard} from './PartnerCard';
 import {PassengerCounter} from './PassengerCounter';
 import FeaturedTrips from './FeaturedTrips';
 import {HomeCardCarousel} from './HomeCardCarousel';
+import {HomeJourney,HomeServices} from './HomeJourney';
 const PartnerSpace=lazy(()=>import('./PartnerSpace'));
 const BookingSpace=lazy(()=>import('./BookingSpace'));
 const MyBookings=lazy(()=>import('./BookingSpace').then(m=>({default:m.MyBookings})));
@@ -23,7 +24,7 @@ import {useTravel,type HomeData,type Trip,type PartnerCompany,type Criteria} fro
 import {authPost,currentAccount,destination,type Account} from './auth-api';
 import InstallApp from './InstallApp';
 import './install-app.css';
-import {ArrowLeftRight, ArrowRight, Bell, CalendarDays, CalendarClock, LogOut, CircleHelp, House, Search, ShieldCheck, Ticket, UserRound, Users} from 'lucide-react';
+import {ArrowLeftRight, ArrowRight, Bell, CalendarDays, LogOut, House, Search, Ticket, UserRound, Users} from 'lucide-react';
 import {Swiper,SwiperSlide} from 'swiper/react';
 import {Autoplay,Pagination,A11y} from 'swiper/modules';
 import {localToday,validSearch} from './search';
@@ -64,6 +65,8 @@ export default function App(){
  function openPartner(company:PartnerCompany){setPartner(company);SResult(false);window.scrollTo({top:0,behavior:'instant'})}
  function closePartner(){setPartner(null);requestAnimationFrame(()=>document.getElementById('home-partners')?.scrollIntoView({block:'start'}))}
  function bookPartner(trip:Trip,passengers:number,ret?:Trip){const s:Selection={out:trip.id,count:passengers,...(ret?{ret:ret.id}:{})};window.location.assign(account?.role==='TRAVELER'?bookingUrl(s):authUrl(false,s))}
+ function goToSearch(){choose('home');requestAnimationFrame(()=>{const section=document.querySelector('.search-section');section?.scrollIntoView({block:'start'});section?.querySelector<HTMLInputElement>('input')?.focus({preventScroll:true})})}
+ function goToService(v:'tickets'|'support'){choose(v);window.scrollTo({top:0,behavior:'instant'})}
  function closeResults(){SResult(false);requestAnimationFrame(()=>document.querySelector('.search-section')?.scrollIntoView({block:'start'}))}
 
  if(loading)return <SplashScreen message="Chargement…"/>;
@@ -80,8 +83,9 @@ export default function App(){
  
  <section>{homeData.error?<><div className="section-title"><h2>{t("Trajets proposés")}</h2></div><div className="panel travel-home-empty">{homeData.error} <button className="outline" onClick={homeData.retry}>{t("Réessayer")}</button></div></>:homeData.loading?<><div className="section-title"><h2>{t("Trajets proposés")}</h2></div><p className="muted" role="status">{t("Chargement des trajets…")}</p></>:<FeaturedTrips trips={popular} logos={homeData.data?.company_logos??{}} count={count} onSearch={openFeaturedSearch}/>}</section>
  <section id="home-partners" style={{scrollMarginTop:80}}><div className="section-title"><h2>{t("Compagnies partenaires")}</h2></div>{homeData.error?<p className="panel travel-home-empty">Impossible de charger les compagnies.</p>:homeData.loading?<p className="muted">Chargement des compagnies…</p>:!companies.length?<p className="panel travel-home-empty">Aucune compagnie disponible.</p>:<HomeCardCarousel key={'partner-'+partnerPage} label={t('Compagnies partenaires')} kind="partners">{companies.map(c=><PartnerCard key={c.id} company={c} onOpen={()=>openPartner(c)}/>)}</HomeCardCarousel>}{(partnerPage>1||homeData.data?.partners_has_next)&&<div className="partner-directory-pages"><button type="button" className="outline" disabled={partnerPage<=1||homeData.loading} onClick={()=>setPartnerPage(n=>n-1)}>Précédent</button><span>Page {partnerPage}</span><button type="button" className="outline" disabled={!homeData.data?.partners_has_next||homeData.loading} onClick={()=>setPartnerPage(n=>n+1)}>Suivant</button></div>}</section>
- <section className="stats benefits">{[[ShieldCheck,'Paiement SasPay','Simulation'],[Ticket,'Billet numérique','QR individuel ou collectif'],[CalendarClock,'Report de voyage','Selon les conditions'],[CircleHelp,'Assistance','Centre d’aide']].map(([I,t,status])=>{const Icon=I as typeof ShieldCheck;return t==='Assistance'?<button type="button" className="panel menu" key={String(t)} onClick={()=>{choose('support');window.scrollTo({top:0,behavior:'instant'})}}><Icon size={23}/>{translate(String(t))}<small>{translate(String(status))}</small></button>:<article className="panel menu" key={String(t)}><Icon size={23}/>{translate(String(t))}<small>{translate(String(status))}</small></article>})}</section>
- {!account&&!loading&&<section className="panel join"><h2>Rejoignez SiraGo</h2><a className="primary" href="/register/">Créer mon compte <ArrowRight size={18}/></a></section>}
+ <HomeJourney onSearch={goToSearch}/>
+ <HomeServices onSearch={goToSearch} onTickets={()=>goToService('tickets')} onSupport={()=>goToService('support')}/>
+ {!account&&!loading&&<section className="panel join home-join"><h2>{t("Rejoignez SiraGo")}</h2><a className="primary" href="/register/">{t("Créer mon compte")} <ArrowRight size={18}/></a></section>}
  </>:tab==='support'?<section className="booking-space"><button className="outline" onClick={()=>choose('home')}>Retour à l’accueil</button><Suspense fallback={<p role="status">Chargement de l’assistance…</p>}><SupportCenter signedIn={!!account}/></Suspense></section>:tab==='tickets'?<MyBookings account={account} onSearch={()=>choose('home')}/>:<TravelerProfile account={account?.role==='TRAVELER'?account:null} onUpdated={setAccount} onTickets={()=>choose('tickets')} onLogout={signOut}/>}
  </Suspense><footer>Propulsé par BTDIGIT</footer></main>
  {!auth&&!preview&&<nav className="bottom" aria-label="Navigation principale">{preview?<a href="/"><House size={22}/>{t("Accueil")}</a>:[[House,'Accueil','home'],[Ticket,'Mes billets','tickets'],[UserRound,'Profil','profile']].map(([I,label,v])=>{const Icon=I as typeof House;return <button key={String(v)} className={tab===v?'selected':''} onClick={()=>choose(String(v))} aria-current={tab===v?'page':undefined}><Icon size={23}/>{t(String(label))}</button>})}</nav>}{notificationsOpen&&<Suspense fallback={<div className="sirago-inline-loading" role="status"><span className="sirago-splash-loader" aria-hidden="true"/>{t("Chargement…")}</div>}><NotificationsDialog signedIn={!!account} onClose={closeNotifications}/></Suspense>}</>;
