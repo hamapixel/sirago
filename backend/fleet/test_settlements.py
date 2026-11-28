@@ -1,13 +1,14 @@
 from uuid import uuid4
 from unittest.mock import patch
 from django.test import TestCase, Client, override_settings
+from accounts.test_helpers import force_mfa_login
 from django.utils import timezone
 from accounts.models import Company, CompanyCommission, User
 from .models import Booking, SandboxCheckout, SandboxSettlement
 from .test_booking import BookingFixture
 from .commissions import freeze_commissions
 
-@override_settings(DEBUG=True,SIRAGO_ENABLE_SIMULATED_PAYMENTS=True)
+@override_settings(DEBUG=True,SIRAGO_ENABLE_SIMULATED_PAYMENTS=True,SIRAGO_ADMIN_MFA_REQUIRED=True)
 class SettlementTests(BookingFixture,TestCase):
     def setUp(self):
         super().setUp()
@@ -22,7 +23,7 @@ class SettlementTests(BookingFixture,TestCase):
         self.checkout=SandboxCheckout.objects.create(booking=b,amount=16000,status="PAID",provider_id=uuid4(),transaction_id=uuid4(),issued_at=timezone.now())
         freeze_commissions(self.checkout,list(b.legs.all()))
         b.status=Booking.Status.TEST_PAID;b.save(update_fields=["status"])
-        self.client.force_login(self.admin)
+        force_mfa_login(self.client, self.admin)
         self.base="/api/v1/auth/supervision/settlements/"
         self.owner_url="/api/v1/auth/company/settlements/"
         self.url=self.base+str(self.company.pk)+"/"
@@ -78,7 +79,7 @@ class SettlementTests(BookingFixture,TestCase):
     def test_disabled_and_csrf(self):
         with patch.dict("os.environ",{"SIRAGO_ENABLE_SASPAY_TICKETS":"0"}):
             self.assertEqual(self.post(100,15200).status_code,403)
-        c=Client(enforce_csrf_checks=True);c.force_login(self.admin)
+        c=Client(enforce_csrf_checks=True);force_mfa_login(c, self.admin)
         self.assertEqual(self.post(100,15200,client=c).status_code,403)
         token=c.get("/api/v1/auth/csrf/").json()["csrfToken"]
         r=c.post(self.url,{"amount":100,"expected_remaining":15200,"reference":str(uuid4())},content_type="application/json",HTTP_X_CSRFTOKEN=token)
