@@ -101,3 +101,33 @@ class PushTests(TestCase):
         n=notify(self.a.pk,"TEST_BOARDING","Private name","Private route and amount")
         self.assertTrue(deliver_one(None,"dummy","mailto:test@example.org"))
         self.assertEqual(json.loads(send.call_args.kwargs["data"]),{"path":"/app/","id":n.pk,"kind":"TEST_BOARDING"})
+
+    def test_inbox_read_and_ticket_filters_preserve_history_and_privacy(self):
+        ticket=notify(self.a.pk,"TEST_PAYMENT","Billet test","PDF",booking_id=42)
+        other=notify(self.a.pk,"RESERVATION","Réservation","Message")
+        notify(self.b.pk,"TEST_PAYMENT","Autre billet","Privé",booking_id=99)
+        self.assertEqual(self.client.post(self.base+f"{ticket.pk}/read/").status_code,200)
+        def inbox(**params):
+            response=self.client.get(self.base,params)
+            self.assertEqual(response.status_code,200,response.content)
+            return response.json()
+        self.assertEqual(inbox()["total"],2)
+        self.assertEqual(inbox()["unread_count"],1)
+        self.assertEqual([n["id"] for n in inbox(read="1")["items"]],[ticket.pk])
+        self.assertEqual([n["id"] for n in inbox(unread="1")["items"]],[other.pk])
+        self.assertEqual(inbox(category="tickets")["items"][0]["booking_id"],42)
+        self.assertEqual(inbox(category="tickets",unread="1")["total"],0)
+        self.assertEqual(inbox(category="tickets",read="1")["total"],1)
+        self.assertEqual(self.client.get(self.base,{"read":"1","unread":"1"}).status_code,400)
+        self.assertEqual(self.client.get(self.base,{"category":"invalid"}).status_code,400)
+        self.assertEqual(Notification.objects.filter(recipient=self.a).count(),2)
+
+    def test_inbox_paginates_large_read_history(self):
+        for i in range(23):
+            notice=notify(self.a.pk,"TEST_PAYMENT",f"Billet {i}","PDF",booking_id=i+1)
+            Notification.objects.filter(pk=notice.pk).update(read_at=notice.created_at)
+        first=self.client.get(self.base,{"category":"tickets","read":"1","page":1}).json()
+        last=self.client.get(self.base,{"category":"tickets","read":"1","page":3}).json()
+        self.assertEqual((first["total"],len(first["items"]),first["has_next"]),(23,10,True))
+        self.assertEqual((last["total"],len(last["items"]),last["has_next"]),(23,3,False))
+        self.assertGreater(first["items"][-1]["id"],last["items"][0]["id"])
