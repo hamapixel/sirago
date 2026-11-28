@@ -1,8 +1,6 @@
 .featured-trips{display:grid;gap:12px;min-width:0}
 .featured-title{display:flex;align-items:center;justify-content:space-between;gap:10px}
 .featured-title h2{border-left:4px solid #e4b54c;padding-left:9px;font-size:1.12rem;line-height:1.35}
-.featured-more{border:0;background:none;color:#14664f;font-weight:700;display:flex;align-items:center;gap:5px;min-height:44px;flex:none;font-size:.82rem}
-.featured-trip-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:13px;min-width:0;align-items:stretch}
 .featured-trip-card{display:grid;align-content:start;gap:12px;padding:15px;min-width:0;border:1px solid #cce3db;border-radius:19px;background:linear-gradient(150deg,#fff 66%,#f1f8f4);box-shadow:0 4px 16px #103b3808}
 .featured-trip-identity{display:flex;align-items:center;gap:10px;min-width:0}
 .featured-trip-identity .partner-logo{width:47px;height:47px;border:1px solid #dce6e3;background:#e2f1e9;color:#14664f}
@@ -38,5 +36,4 @@
 .featured-total{font-size:.8rem;color:#14664f}
 .featured-trip-card .featured-book{width:100%;min-height:46px;border-radius:11px;background:linear-gradient(105deg,#16836c,#103b38);border:1px solid #d0b064;box-shadow:0 3px 8px #103b3819;justify-content:center;gap:9px;font-weight:750;white-space:normal;line-height:1.25}
 .featured-trip-card .featured-book:disabled{opacity:.55;box-shadow:none}
-@media(max-width:720px){.featured-trip-grid{grid-template-columns:minmax(0,1fr)}}
 @media(max-width:350px){.featured-trip-card{padding:11px;gap:10px}.featured-trip-timeline{gap:4px}.featured-line svg{width:19px}.featured-trip-identity .partner-logo{width:39px;height:39px}.featured-trip-fares>div{flex-basis:90px}}

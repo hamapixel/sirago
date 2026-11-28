@@ -1,9 +1,11 @@
 from django.contrib import admin
 from django.core.cache import cache
-from django.test import Client, TestCase
+from django.test import Client, TestCase, override_settings
 from accounts.models import User
 
 
+# Legacy password-only admin mode; mandatory MFA denial is covered in accounts.test_mfa.
+@override_settings(SIRAGO_ADMIN_MFA_REQUIRED=False)
 class AdminSecurityTests(TestCase):
     def setUp(self):
         cache.clear()

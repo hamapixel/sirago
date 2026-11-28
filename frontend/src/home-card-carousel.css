@@ -1,0 +1,18 @@
+.home-card-carousel-region{min-width:0;max-width:100%;overflow:hidden}
+.home-card-carousel{width:100%;min-width:0;--swiper-theme-color:#16836c;}
+.home-card-carousel .swiper-wrapper{align-items:stretch}
+.home-card-carousel .swiper-slide{height:auto;min-width:0;display:flex;align-items:stretch;box-sizing:border-box;padding-bottom:4px}
+.home-card-carousel .swiper-slide>article,.home-card-carousel .swiper-slide>button{width:100%;height:auto;min-width:0}
+.home-card-carousel .swiper-slide>article{display:flex;flex-direction:column;align-items:stretch}
+.home-card-carousel .swiper-slide .featured-book{margin-top:auto}
+
+
+.home-card-carousel .swiper-slide .partner-card:hover{transform:none}
+@media(min-width:640px){.home-card-carousel:not(.has-multiple){max-width:calc((100% - 14px)/2);margin-left:0;margin-right:auto}}
+@media(prefers-reduced-motion:reduce){.home-card-carousel .partner-card{transition:none}}
+
+
+
+.home-card-carousel-region:focus-visible{outline:2px solid #b78417;outline-offset:3px;border-radius:12px}
+
+.home-card-carousel-companies:not(.has-multiple){max-width:100%}

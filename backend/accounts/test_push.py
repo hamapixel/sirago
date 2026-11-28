@@ -5,7 +5,8 @@ from uuid import uuid4
 from cryptography.hazmat.primitives.asymmetric import ec
 from cryptography.hazmat.primitives.serialization import Encoding, PublicFormat
 from django.core.cache import cache
-from django.test import TestCase, Client
+from django.test import TestCase, Client, override_settings
+from accounts.test_helpers import force_mfa_login
 from accounts.models import User, Notification, PushSubscription, PushDelivery
 from accounts.notifications import notify
 from accounts.management.commands.send_web_push import deliver_one, valid_subscription
@@ -14,6 +15,7 @@ from accounts.push import validate_endpoint
 def b64(data):
     return base64.urlsafe_b64encode(data).decode().rstrip("=")
 
+@override_settings(SIRAGO_ADMIN_MFA_REQUIRED=True)
 class PushTests(TestCase):
     def setUp(self):
         cache.clear()
@@ -37,7 +39,7 @@ class PushTests(TestCase):
         self.client.post("/api/v1/auth/support/",{"request_id":str(uuid4()),"category":"BOOKING","subject":"Billet absent","message":"Je ne trouve pas mon billet."},content_type="application/json")
         self.assertEqual(Notification.objects.filter(recipient=self.admin,kind="SUPPORT_NEW").count(),1)
         self.assertEqual(self.client.get(self.base).json()["total"],0)
-        self.client.force_login(self.admin)
+        force_mfa_login(self.client, self.admin)
         self.assertEqual(self.client.get(self.base+"count/").json()["unread_count"],1)
 
     def test_opt_in_is_private_and_idempotent(self):

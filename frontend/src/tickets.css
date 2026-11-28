@@ -37,3 +37,5 @@
 .ticket-list-title{display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:6px}
 .ticket-list-title h2{font-size:1rem}
 @media(max-width:350px){.digital-ticket-body{padding:12px}.digital-ticket-qr{grid-template-columns:minmax(0,106px) minmax(0,1fr)}.digital-ticket-head{padding:12px}.digital-ticket-actions{gap:5px}}
+
+.ticket-finish{display:flex;align-items:center;justify-content:center;gap:9px;min-height:48px;text-align:center;border-radius:12px;margin-top:8px;background:linear-gradient(110deg,#16836c,#103b38);color:#fff}

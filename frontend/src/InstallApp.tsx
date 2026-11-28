@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
-import { ArrowDownToLine, ChevronDown, Share, Smartphone, X } from 'lucide-react';
-import { installPlatform } from './install-platform';
+import { ArrowDownToLine, Share, Smartphone, X } from 'lucide-react';
+import { installPlatform, isMacSafari } from './install-platform';
 
 interface InstallPromptEvent extends Event {
   prompt(): Promise<unknown>;
@@ -37,6 +37,7 @@ export default function InstallApp() {
   const [busy, setBusy] = useState(false);
   const [message, setMessage] = useState('');
   const platform = installPlatform(navigator.userAgent, navigator.platform, navigator.maxTouchPoints);
+  const macSafari = platform === 'desktop' && isMacSafari(navigator.userAgent, navigator.platform);
 
   useEffect(() => {
     const sync = () => {
@@ -85,14 +86,14 @@ export default function InstallApp() {
         <div className="install-logo"><img src="/logo.svg" alt="" width="48" height="48"/></div>
         <div className="install-copy">
           <h2>SiraGo, toujours avec vous</h2>
-          <p>Installez l’application pour y accéder en un clic.</p>
+          <p>Sur téléphone, tablette ou ordinateur compatible.</p>
         </div>
         <button type="button" className="install-button" disabled={busy}
           aria-expanded={!available ? help : undefined} aria-controls={!available ? 'sirago-install-help' : undefined}
           onClick={install}>
           <ArrowDownToLine size={19} aria-hidden="true"/>
           <span>{busy ? 'Installation…' : 'Installer SiraGo'}</span>
-          {!available && !busy && <ChevronDown size={15} aria-hidden="true"/>}
+
         </button>
       </div>
       {message && <p className="install-status" role="status">{message}</p>}
@@ -106,12 +107,12 @@ export default function InstallApp() {
           <li>Ouvrez SiraGo dans Chrome.</li>
           <li>Dans le menu ⋮, choisissez « Installer l’application » ou « Ajouter à l’écran d’accueil ».</li>
           <li>Confirmez l’installation si proposée.</li>
-        </ol> : <ol>
+        </ol> : macSafari ? <ol><li>Dans Safari sur Mac (macOS Sonoma ou ultérieur), ouvrez le menu Fichier.</li><li>Choisissez « Ajouter au Dock », puis confirmez.</li><li>Si cette option est absente, essayez Chrome ou Edge.</li></ol> : <ol>
           <li>Ouvrez SiraGo dans Chrome ou Edge.</li>
           <li>Utilisez l’icône d’installation dans la barre d’adresse ou le menu du navigateur.</li>
           <li>Confirmez l’installation si proposée.</li>
         </ol>}
-        <p><Smartphone size={16} aria-hidden="true"/> Si l’option n’apparaît pas, utilisez la version de production (HTTPS ou localhost). L’application est peut-être déjà installée ou le navigateur ne propose pas l’installation.</p>
+        <p><Smartphone size={16} aria-hidden="true"/> Utilisez l’adresse HTTPS de SiraGo sur votre appareil. Si le menu d’installation est absent, ouvrez la page dans un navigateur compatible plutôt que dans une application de messagerie. Vous pouvez toujours utiliser SiraGo dans le navigateur. Sur ce PC, localhost sert uniquement aux tests.</p>
       </div>}
     </section>
   );

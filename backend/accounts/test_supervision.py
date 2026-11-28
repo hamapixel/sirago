@@ -1,7 +1,9 @@
-from django.test import TestCase
+from django.test import TestCase, override_settings
+from accounts.test_helpers import force_mfa_login
 from .models import User,Company,SupportRequest
 from uuid import uuid4
 
+@override_settings(SIRAGO_ADMIN_MFA_REQUIRED=True)
 class SupervisionTests(TestCase):
     def setUp(self):
         self.admin=User.objects.create_superuser(username="supervisor",password="Test-password-123")
@@ -21,7 +23,7 @@ class SupervisionTests(TestCase):
         self.client.force_login(self.traveler)
         self.assertEqual(self.client.get(self.url).status_code,403)
     def test_overview_and_read_only(self):
-        self.client.force_login(self.admin)
+        force_mfa_login(self.client, self.admin)
         r=self.client.get(self.url)
         self.assertEqual(r.status_code,200,r.content)
         s=r.json()
@@ -30,7 +32,7 @@ class SupervisionTests(TestCase):
         self.assertEqual(s["real_amount"],0)
         self.assertEqual(self.client.post(self.url+"companies/").status_code,405)
     def test_lists_filters_and_minimal_fields(self):
-        self.client.force_login(self.admin)
+        force_mfa_login(self.client, self.admin)
         c=self.client.get(self.url+"companies/",{"q":"Transport Bamako","status":"PENDING"}).json()
         self.assertEqual(c["total"],1)
         self.assertEqual(c["items"][0]["id"],self.company.pk)

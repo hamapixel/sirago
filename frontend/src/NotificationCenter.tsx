@@ -1,13 +1,13 @@
 import {useState,useEffect,useRef} from 'react';
-import {Bell,CheckCheck,CheckCircle2,Ticket,CalendarDays,ScanLine,RefreshCw,Building2,MessageCircle,Wallet,BusFront} from 'lucide-react';
+import {Bell,CheckCheck,CheckCircle2,Ticket,CalendarDays,ScanLine,RefreshCw,Building2,MessageCircle,Wallet,BusFront,ArrowUpRight,Download} from 'lucide-react';
 import {authPost} from './auth-api';
 import PushPreferences from './PushPreferences';
 import {t,useLanguage} from './i18n';
-import {dayText,timeText} from './travel-api';
+import {dayText,timeText,useTravel} from './travel-api';
 import {Pagination} from './listing';
 import './notifications-dialog.css';
 
-type Notice={id:number;kind:string;title:string;message:string;created_at:string;read_at:string|null};
+type Notice={id:number;kind:string;title:string;message:string;created_at:string;read_at:string|null;booking_id?:number|null};
 type NoticePage={items:Notice[];total:number;page_size:number;unread_count:number};
 const changed='sirago:notifications-changed';
 function listenForUpdates(refresh:()=>void){
@@ -30,10 +30,18 @@ export function useNotificationCount(enabled:boolean){
  return()=>{active=false;controller?.abort();stop()}},[enabled]);
  return count;
 }
+type NoticeTicket={code:string;leg:number;passenger:number;name:string;count?:number;category:string;origin:string;destination:string};
+export function NoticeTicketLinks({bookingId}:{bookingId:number}){
+ const q=useTravel<{items:NoticeTicket[]}>('bookings/'+bookingId+'/tickets/',0);
+ return <div className="notice-ticket-downloads">{q.loading?<small role="status">Chargement des billets…</small>:q.error?<div role="alert"><small>Billets indisponibles. {q.error}</small><button type="button" className="outline" onClick={q.retry}>Réessayer</button></div>:q.data?.items.length?<>{q.data.items.map(t=><a className="outline notice-pdf-link" key={t.code} href={'/api/v1/travel/bookings/'+bookingId+'/tickets/'+t.leg+'/'+t.passenger+'/pdf/'} download><Download size={17}/><span><strong>{(t.count??1)>1?t.count+' passagers':t.name} · {t.category}</strong><small>{t.origin} → {t.destination} · PDF</small></span></a>)}</>:<small>Aucun billet disponible.</small>}</div>
+}
 export function NotificationItem({item,onRead,busy}:{item:Notice;onRead:(id:number)=>void;busy:boolean}){
+ const [expanded,setExpanded]=useState(false),[downloads,setDownloads]=useState(false);
+ const bookingId=item.kind==='TEST_PAYMENT'&&Number.isSafeInteger(item.booking_id)&&Number(item.booking_id)>0?Number(item.booking_id):null;
  const Icon=item.kind==='DEPARTURE'?BusFront:item.kind==='TEST_REPORT'?CalendarDays:item.kind==='TEST_BOARDING'?ScanLine:item.kind==='COMPANY_REVIEW'?Building2:item.kind.startsWith('SUPPORT')?MessageCircle:item.kind==='TEST_PAYMENT'?Wallet:item.kind==='CANCELLED'?Bell:Ticket;
  const tone=item.kind==='CANCELLED'?'cancelled':item.kind==='TEST_REPORT'||item.kind==='DEPARTURE'?'schedule':item.kind.startsWith('SUPPORT')?'support':'default';
- return <article className={'notice-card '+(!item.read_at?'unread':'')}><div className="notice-card-top"><span className={"notice-icon notice-icon-"+tone}><Icon size={21}/></span><div><strong>{item.title.replace(/\bTEST\b/g,'').trim()}</strong><small>{dayText(item.created_at)} · {timeText(item.created_at)}</small></div>{(item.kind.startsWith('TEST_')||/\bTEST\b/.test(item.title))&&<span className="notice-simulation">{t("Simulation")}</span>}{!item.read_at&&<span className="notice-dot" aria-label="Non lu"/>}</div><p>{item.message.replace(/\bmode TEST\b/g,'simulation')}</p>{item.read_at?<small className="notice-read"><CheckCircle2 size={15}/> Lu</small>:<button className="notice-mark" type="button" disabled={busy} onClick={()=>onRead(item.id)}><CheckCircle2 size={16}/> Marquer comme lu</button>}</article>
+ const detailId='notice-detail-'+item.id;
+ return <article className={'notice-card '+(!item.read_at?'unread':'')}><div className="notice-card-top"><span className={"notice-icon notice-icon-"+tone}><Icon size={21}/></span><div><strong>{item.title.replace(/\bTEST\b/g,'').trim()}</strong><small>{dayText(item.created_at)} · {timeText(item.created_at)}</small></div>{(item.kind.startsWith('TEST_')||/\bTEST\b/.test(item.title))&&<span className="notice-simulation">{t("Simulation")}</span>}{!item.read_at&&<span className="notice-dot" aria-label="Non lu"/>}</div><p className="notice-preview">{item.message.replace(/\bmode TEST\b/g,'simulation')}</p><div className="notice-detail-actions"><button type="button" className="notice-detail-button" aria-expanded={expanded} aria-controls={detailId} onClick={()=>setExpanded(v=>!v)}>{expanded?'Masquer le détail':'Voir le détail'} <ArrowUpRight size={16}/></button>{item.read_at?<small className="notice-read"><CheckCircle2 size={15}/> Lu</small>:<button className="notice-mark" type="button" disabled={busy} onClick={()=>onRead(item.id)}><CheckCircle2 size={16}/> Marquer comme lu</button>}</div>{item.kind==='TEST_PAYMENT'&&<div className="notice-ticket-actions"><a className="primary" href={bookingId?'/app/?view=tickets&booking='+bookingId:'/app/?view=tickets'} onClick={()=>{if(!item.read_at&&!busy)onRead(item.id)}}><Ticket size={17}/> Voir mes billets</a>{bookingId&&<button type="button" className="outline" aria-expanded={downloads} aria-controls={'notice-tickets-'+item.id} onClick={()=>setDownloads(v=>!v)}><Download size={17}/> {downloads?'Masquer les PDF':'Télécharger les billets'}</button>}</div>}{bookingId&&downloads&&<div id={'notice-tickets-'+item.id}><NoticeTicketLinks bookingId={bookingId}/></div>}{expanded&&<div className="notice-detail-panel" id={detailId}><span className="notice-detail-label">DÉTAIL DE LA NOTIFICATION</span><strong>{item.title.replace(/\bTEST\b/g,'').trim()}</strong><p>{item.message.replace(/\bmode TEST\b/g,'simulation')}</p><dl><dt>Reçue le</dt><dd>{dayText(item.created_at)} · {timeText(item.created_at)}</dd><dt>Statut</dt><dd>{item.read_at?'Lue':'Non lue'}</dd>{item.read_at&&<><dt>Consultée le</dt><dd>{dayText(item.read_at)} · {timeText(item.read_at)}</dd></>}</dl></div>}</article>
 }
 export default function NotificationCenter({signedIn=true,compact=false}:{signedIn?:boolean;compact?:boolean}){
  useLanguage();

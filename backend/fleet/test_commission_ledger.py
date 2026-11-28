@@ -2,6 +2,7 @@ from datetime import timedelta
 from unittest.mock import patch
 from uuid import uuid4
 from django.test import TestCase,override_settings
+from accounts.test_helpers import force_mfa_login
 from django.utils import timezone
 from accounts.models import CompanyCommission,User
 from .models import Booking,BookingLeg,SandboxCheckout,SandboxCommission,Route,Departure
@@ -9,7 +10,7 @@ from .test_booking import BookingFixture
 from .commissions import fee_per_ticket,freeze_commissions
 from .sandbox_reconcile import reconcile
 
-@override_settings(DEBUG=True,SIRAGO_ENABLE_SIMULATED_PAYMENTS=True)
+@override_settings(DEBUG=True,SIRAGO_ENABLE_SIMULATED_PAYMENTS=True,SIRAGO_ADMIN_MFA_REQUIRED=True)
 class CommissionLedgerTests(BookingFixture,TestCase):
     def setUp(self):
         super().setUp()
@@ -34,7 +35,7 @@ class CommissionLedgerTests(BookingFixture,TestCase):
             reconcile(a.pk)
         a.refresh_from_db()
     def report(self,**params):
-        self.client.force_login(self.admin)
+        force_mfa_login(self.client, self.admin)
         r=self.client.get(self.ledger,params)
         self.assertEqual(r.status_code,200,r.content)
         return r.json()

@@ -60,6 +60,7 @@ class Notification(models.Model):
     kind = models.CharField(max_length=32)
     title = models.CharField(max_length=120)
     message = models.CharField(max_length=500)
+    booking_id = models.PositiveBigIntegerField(null=True, blank=True)
     created_at = models.DateTimeField(auto_now_add=True)
     read_at = models.DateTimeField(null=True, blank=True)
 

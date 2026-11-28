@@ -4,3 +4,5 @@ export function installPlatform(userAgent: string, platform: string, maxTouchPoi
   if (/Android/i.test(userAgent)) return 'android';
   return 'desktop';
 }
+
+export function isMacSafari(userAgent:string,platform:string){return /Mac/i.test(platform)&&/Safari\//i.test(userAgent)&&!/(Chrome|Chromium|Edg|OPR|Firefox)\//i.test(userAgent)}

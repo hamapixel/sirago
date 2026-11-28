@@ -85,7 +85,7 @@ def booking_json(b):
             "sandbox_checkout_enabled":sandbox_enabled(),
             "sandbox_checkout":({"status":b.sandbox_checkout.status,"amount":b.sandbox_checkout.amount,"checkout_url":b.sandbox_checkout.checkout_url if b.sandbox_checkout.status=="PENDING" and b.status==Booking.Status.HELD and b.expires_at>now and sandbox_enabled() else ""} if hasattr(b,"sandbox_checkout") else None),
             "simulated_payment":({"amount":b.simulated_payment.amount,"network":b.simulated_payment.network,"created_at":b.simulated_payment.created_at.isoformat()} if b.status==Booking.Status.TEST_PAID and hasattr(b,"simulated_payment") else None),
-            "trips":[{"id":l.departure_id,"company":l.departure.company.name,"origin":l.departure.route.origin,"destination":l.departure.route.destination,"starts_at":l.departure.starts_at.isoformat(),"ends_at":l.departure.ends_at.isoformat(),"boarding_point":l.departure.route.boarding_point,"arrival_point":l.departure.route.arrival_point,"bus_name":l.departure.bus.name,"price":l.unit_price,"premium_price":l.premium_unit_price,"premium_positions":l.premium_positions,"total":l.total} for l in legs]}
+            "trips":[{"id":l.departure_id,"company_id":l.departure.company_id,"company":l.departure.company.name,"origin":l.departure.route.origin,"destination":l.departure.route.destination,"starts_at":l.departure.starts_at.isoformat(),"ends_at":l.departure.ends_at.isoformat(),"boarding_point":l.departure.route.boarding_point,"arrival_point":l.departure.route.arrival_point,"bus_name":l.departure.bus.name,"price":l.unit_price,"premium_price":l.premium_unit_price,"premium_positions":l.premium_positions,"total":l.total} for l in legs]}
 
 def traveler_error(request):
     if not request.user.is_authenticated:
@@ -222,7 +222,7 @@ def simulate_payment(request,pk):
         b.status=Booking.Status.TEST_PAID
         b.save(update_fields=["status"])
         register_refs(b,legs)
-        notify(b.traveler_id,"TEST_PAYMENT","Billets de test disponibles","Paiement simulé réussi. Aucun argent débité. Consultez Mes billets.")
+        notify(b.traveler_id,"TEST_PAYMENT","Billets de test disponibles","Paiement simulé réussi. Aucun argent débité. Consultez Mes billets.",booking_id=b.pk)
         for l in legs:
             d=l.departure
             notify(d.company.owner_id,"TEST_BOOKING","Nouvelle réservation TEST",f"{d.route.origin} → {d.route.destination} : {b.passengers} passager(s). Aucun encaissement réel.")

@@ -1,7 +1,9 @@
-from django.test import TestCase, Client
+from django.test import TestCase, Client, override_settings
+from accounts.test_helpers import force_mfa_login
 from django.core.cache import cache
 from .models import User, Company
 
+@override_settings(SIRAGO_ADMIN_MFA_REQUIRED=True)
 class AuthTests(TestCase):
     def setUp(self):
         cache.clear()
@@ -78,7 +80,7 @@ class AuthTests(TestCase):
         self.assertEqual(self.post("profile",{}).status_code,403)
         self.assertEqual(self.post("password",{}).status_code,403)
         admin=User.objects.create_superuser(username="admin",password="Demo!Strong2026")
-        self.client.force_login(admin)
+        force_mfa_login(self.client, admin)
         self.assertEqual(self.post("profile",{}).status_code,403)
         self.assertEqual(self.post("password",{}).status_code,403)
 
@@ -134,6 +136,7 @@ class AuthTests(TestCase):
         self.assertEqual(self.post("company/profile",{"first_name":"A","last_name":"B"}).status_code,403)
         self.assertEqual(self.post("company/password",{}).status_code,403)
 
+    @override_settings(SIRAGO_ADMIN_MFA_REQUIRED=False)
     def test_superuser_can_login_directly_with_django_username(self):
         password = "Admin!Test2026"
         admin = User.objects.create_superuser(username="supervisor", password=password)
@@ -180,7 +183,7 @@ class AuthTests(TestCase):
     def test_admin_profile_updates_only_own_names(self):
         admin = User.objects.create_superuser(username="supervisor", password="Admin!Test2026", email="admin@example.com")
         other = User.objects.create_user(username="other", first_name="Other")
-        self.client.force_login(admin)
+        force_mfa_login(self.client, admin)
         response = self.post("supervision/profile", {"first_name": " Awa ", "last_name": " Traoré ",
                              "id": other.pk, "username": "changed", "email": "changed@example.com",
                              "is_superuser": False, "role": "TRAVELER"})
@@ -208,18 +211,19 @@ class AuthTests(TestCase):
     def test_admin_profile_csrf_and_invalid_names(self):
         admin = User.objects.create_superuser(username="supervisor", password="Admin!Test2026")
         client = Client(enforce_csrf_checks=True)
-        client.force_login(admin)
+        force_mfa_login(client, admin)
         for path in ("profile", "password"):
             self.assertEqual(client.post("/api/v1/auth/supervision/" + path + "/", {}, content_type="application/json").status_code, 403)
-        self.client.force_login(admin)
+        force_mfa_login(self.client, admin)
         for value in ("", " ", "A" * 151, 42):
             self.assertEqual(self.post("supervision/profile", {"first_name": value, "last_name": "Test"}).status_code, 400)
 
+    @override_settings(SIRAGO_ADMIN_MFA_REQUIRED=False)
     def test_admin_password_change_requires_current_and_preserves_session(self):
         old = "Admin!Test2026"
         new = "Nouveau!Fleuve2027"
         admin = User.objects.create_superuser(username="supervisor", password=old)
-        self.client.force_login(admin)
+        force_mfa_login(self.client, admin)
         payload = {"current_password": old, "password": new, "password_confirmation": new}
         self.assertEqual(self.post("supervision/password", {**payload, "current_password": "wrong"}).status_code, 400)
         self.assertEqual(self.post("supervision/password", payload).status_code, 200)

@@ -48,7 +48,15 @@ class SandboxIssuanceTests(BookingFixture,TestCase):
         self.assertEqual(str(self.a.transaction_id),self.txid)
         self.assertFalse(SimulatedPayment.objects.exists())
         self.assertEqual(TestTicketReference.objects.count(),1)
-        self.assertEqual(Notification.objects.filter(recipient=self.user,kind="TEST_PAYMENT").count(),1)
+        notice = Notification.objects.get(recipient=self.user,kind="TEST_PAYMENT")
+        self.assertEqual(notice.booking_id,self.b.pk)
+        notices = self.client.get("/api/v1/auth/notifications/").json()["items"]
+        self.assertEqual(next(n for n in notices if n["id"]==notice.id)["booking_id"],self.b.pk)
+        self.client.force_login(self.other)
+        other_notices = self.client.get("/api/v1/auth/notifications/").json()["items"]
+        self.assertFalse(any(n["id"]==notice.id for n in other_notices))
+        self.assertEqual(self.client.get(self.base+"tickets/0/0/pdf/").status_code,404)
+        self.client.force_login(self.user)
     def test_reject_signature_timestamp_and_disabled(self):
         self.assertEqual(self.hook(signature="0"*64).status_code,403)
         self.assertEqual(self.hook(stamp=int(time.time())-301).status_code,403)
