@@ -1,6 +1,6 @@
 import {t as tr} from './i18n';
 import {useState,lazy,Suspense} from 'react';
-import {ArrowLeft,BusFront,Crown,Download,Share2,Ticket,CheckCircle2} from 'lucide-react';
+import {ArrowLeft,BusFront,Crown,Download,Share2,Ticket,CheckCircle2,House} from 'lucide-react';
 import {useTravel,priceText,timeText} from './travel-api';
 import {sandboxTicketsIssued,type Booking,type ReportResult} from './booking-api';
 import './tickets.css';
@@ -57,6 +57,6 @@ export default function TestTickets({booking:initial,onBack,initialReport=false}
  {replacements.length>1&&<article className="panel ticket-report-groups"><h2>Nouvelles réservations</h2>{replacements.map(b=><button type="button" className="outline" key={b.id} aria-pressed={booking.id===b.id} onClick={()=>setActiveId(b.id)}><strong>{dateText(b.trips[0].starts_at)} · {timeText(b.trips[0].starts_at)}</strong>{b.trips.length===2&&<small>Retour : {dateText(b.trips[1].starts_at)} · {timeText(b.trips[1].starts_at)}</small>}<small>{b.count} passager(s) · {priceText(b.total)}</small></button>)}</article>}
  <ReportAction booking={booking} onReport={()=>setReporting(true)}/>
  {q.loading&&<p role="status">Chargement des billets…</p>}{q.error&&<article className="panel booking-checkout" role="alert">{q.error}<button className="outline" onClick={q.retry}>{tr("Réessayer")}</button></article>}
- <div className="ticket-list-title"><h2>{tr("Billets numériques")}</h2><small>{q.data?.items.length??0} billet(s)</small></div><div className="digital-ticket-list">{q.data?.items.map(t=><TicketCard key={t.code} ticket={t} bookingId={booking.id} round={booking.trips.length>1}/>)}</div></>}
+ <div className="ticket-list-title"><h2>{tr("Billets numériques")}</h2><small>{q.data?.items.length??0} billet(s)</small></div><div className="digital-ticket-list">{q.data?.items.map(t=><TicketCard key={t.code} ticket={t} bookingId={booking.id} round={booking.trips.length>1}/>)}</div>{!!q.data?.items.length&&<a className="primary ticket-finish" href="/app/"><House size={20}/> Terminer et retourner à l’accueil</a>}</>}
  </section>
 }
