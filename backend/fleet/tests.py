@@ -206,3 +206,37 @@ class FleetTests(TestCase):
         d.starts_at=timezone.now()-timedelta(hours=2)
         d.save(update_fields=["starts_at"])
         self.assertEqual(self.post("departures/publish-batch",{"ids":[d.pk],"status":"SUSPENDED"}).status_code,409)
+
+    def test_bus_repartition_adapts_only_unreserved_departures_explicitly(self):
+        self.verify()
+        d=self.create_departure()
+        self.assertEqual(self.post(f"departures/{d.id}/status",{"status":"PUBLISHED"}).status_code,200)
+        path=f"buses/{self.bus.id}"
+        values={"name":"Car 01","plate":"AA 001","capacity":60,"premium_capacity":10,"active":True}
+        self.assertEqual(self.post(path,values).status_code,409)
+        self.assertEqual(self.post(path,{**values,"adapt_departures":True,"adapt_premium_price":7000}).status_code,400)
+        response=self.post(path,{**values,"adapt_departures":True,"adapt_premium_price":12000})
+        self.assertEqual(response.status_code,200,response.content)
+        self.assertEqual(response.json()["adapted_departures"],1)
+        d.refresh_from_db()
+        self.assertEqual((d.capacity,d.premium_capacity,d.premium_price,d.status),(60,10,12000,"PUBLISHED"))
+        self.assertEqual(self.post(path,{**values,"capacity":65}).status_code,200)
+        d.refresh_from_db()
+        self.assertEqual(d.capacity,60)
+
+    def test_bus_repartition_rejects_any_booking_history_without_partial_changes(self):
+        from uuid import uuid4
+        self.verify()
+        d=self.create_departure()
+        self.assertEqual(self.post(f"departures/{d.id}/status",{"status":"PUBLISHED"}).status_code,200)
+        traveler=User.objects.create_user(username="capacity-traveler",role=User.Role.TRAVELER)
+        client=Client()
+        client.force_login(traveler)
+        response=client.post("/api/v1/travel/bookings/reserve/",{"out":d.pk,"count":1,"passenger_names":["Awa Test"],"total":8000,"request_id":str(uuid4())},content_type="application/json")
+        self.assertEqual(response.status_code,201,response.content)
+        path=f"buses/{self.bus.id}"
+        values={"name":"Car 01","plate":"AA 001","capacity":60,"premium_capacity":10,"active":True,"adapt_departures":True,"adapt_premium_price":12000}
+        self.assertEqual(self.post(path,values).status_code,409)
+        self.bus.refresh_from_db()
+        d.refresh_from_db()
+        self.assertEqual((self.bus.premium_capacity,d.premium_capacity),(0,0))

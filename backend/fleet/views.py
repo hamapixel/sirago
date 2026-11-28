@@ -3,7 +3,7 @@ from datetime import date, datetime, time, timedelta
 from functools import wraps
 from zoneinfo import ZoneInfo
 from django.db import IntegrityError, transaction
-from django.db.models import Q, TextField, Exists, OuterRef
+from django.db.models import Q, TextField, Exists, OuterRef, F
 from django.db.models.functions import Cast
 from .listing import search_term, page_slice
 from django.http import JsonResponse
@@ -119,8 +119,31 @@ def buses(request,company,pk=None):
     capacity=integer(v,"capacity",1,100)
     premium=integer({"premium_capacity":v.get("premium_capacity",b.premium_capacity if pk is not None else 0)},"premium_capacity",0,capacity-1)
     active=flag(v,"active")
-    if pk is not None and future_departures(b.departures).exists() and ((b.active and not active) or capacity!=b.capacity or premium!=b.premium_capacity):
-        return error("La capacité et la désactivation sont protégées tant que ce car a des départs non terminés. Les autres informations restent modifiables.",409)
+    adapt=flag(v,"adapt_departures",False)
+    updates=[]
+    if pk is not None:
+        future=future_departures(b.departures)
+        if b.active and not active and future.exists():
+            return error("Impossible de désactiver un car avec des départs non terminés.",409)
+        if capacity!=b.capacity or premium!=b.premium_capacity:
+            # All company writes and reservation creation take the company lock.
+            # Never change a departure that has any reservation history, even expired.
+            incompatible=future.filter(Q(capacity__gt=capacity)|Q(premium_capacity__gt=premium)|Q(capacity__gt=F("premium_capacity")+capacity-premium))
+            if incompatible.exists() and not adapt:
+                return error("Des départs sont incompatibles avec cette répartition. Cochez l’adaptation des départs sans réservation ou conservez les capacités actuelles.",409)
+            now=timezone.now()
+            for d in incompatible.select_for_update().order_by("pk"):
+                if d.starts_at<=now or d.booking_legs.exists() or d.capacity>capacity:
+                    return error("Un départ a déjà commencé, possède un historique de réservation ou dépasse la nouvelle capacité. Aucune modification effectuée.",409)
+                new_premium=min(premium,d.capacity-1,max(d.premium_capacity,d.capacity-(capacity-premium)))
+                if d.capacity-new_premium>capacity-premium:
+                    return error("Impossible de conserver une place Standard sur ce départ.",409)
+                new_price=0
+                if new_premium:
+                    new_price=d.premium_price or integer(v,"adapt_premium_price",d.price,1000000)
+                    if new_price<d.price:
+                        raise ValueError("Le tarif Premium doit être au moins égal au tarif Standard.")
+                updates.append((d,new_premium,new_price))
     driver = {key: field({key: v.get(key, getattr(b,key))},key,20 if key=="driver_phone" else 100,required=False) for key in ("driver_first_name","driver_last_name","driver_phone")}
     if any(driver.values()):
         if not all(driver.values()):
@@ -129,7 +152,10 @@ def buses(request,company,pk=None):
     for key,value in driver.items():setattr(b,key,value)
     b.name,b.plate,b.capacity,b.premium_capacity,b.active=name,plate,capacity,premium,active
     b.save()
-    return JsonResponse(bus_json(b),status=201 if pk is None else 200)
+    for d,new_premium,new_price in updates:
+        d.premium_capacity,d.premium_price=new_premium,new_price
+        d.save(update_fields=['premium_capacity','premium_price'])
+    return JsonResponse({**bus_json(b),'adapted_departures':len(updates)},status=201 if pk is None else 200)
 
 @company_endpoint
 def routes(request,company,pk=None):

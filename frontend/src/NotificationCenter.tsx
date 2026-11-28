@@ -1,5 +1,5 @@
 import {useState,useEffect,useRef} from 'react';
-import {Bell,CheckCheck,CheckCircle2,Ticket,CalendarDays,ScanLine,RefreshCw,Building2,MessageCircle,Wallet,BusFront} from 'lucide-react';
+import {Bell,CheckCheck,CheckCircle2,Ticket,CalendarDays,ScanLine,RefreshCw,Building2,MessageCircle,Wallet,BusFront,ArrowUpRight} from 'lucide-react';
 import {authPost} from './auth-api';
 import PushPreferences from './PushPreferences';
 import {t,useLanguage} from './i18n';
@@ -31,9 +31,11 @@ export function useNotificationCount(enabled:boolean){
  return count;
 }
 export function NotificationItem({item,onRead,busy}:{item:Notice;onRead:(id:number)=>void;busy:boolean}){
+ const [expanded,setExpanded]=useState(false);
  const Icon=item.kind==='DEPARTURE'?BusFront:item.kind==='TEST_REPORT'?CalendarDays:item.kind==='TEST_BOARDING'?ScanLine:item.kind==='COMPANY_REVIEW'?Building2:item.kind.startsWith('SUPPORT')?MessageCircle:item.kind==='TEST_PAYMENT'?Wallet:item.kind==='CANCELLED'?Bell:Ticket;
  const tone=item.kind==='CANCELLED'?'cancelled':item.kind==='TEST_REPORT'||item.kind==='DEPARTURE'?'schedule':item.kind.startsWith('SUPPORT')?'support':'default';
- return <article className={'notice-card '+(!item.read_at?'unread':'')}><div className="notice-card-top"><span className={"notice-icon notice-icon-"+tone}><Icon size={21}/></span><div><strong>{item.title.replace(/\bTEST\b/g,'').trim()}</strong><small>{dayText(item.created_at)} · {timeText(item.created_at)}</small></div>{(item.kind.startsWith('TEST_')||/\bTEST\b/.test(item.title))&&<span className="notice-simulation">{t("Simulation")}</span>}{!item.read_at&&<span className="notice-dot" aria-label="Non lu"/>}</div><p>{item.message.replace(/\bmode TEST\b/g,'simulation')}</p>{item.read_at?<small className="notice-read"><CheckCircle2 size={15}/> Lu</small>:<button className="notice-mark" type="button" disabled={busy} onClick={()=>onRead(item.id)}><CheckCircle2 size={16}/> Marquer comme lu</button>}</article>
+ const detailId='notice-detail-'+item.id;
+ return <article className={'notice-card '+(!item.read_at?'unread':'')}><div className="notice-card-top"><span className={"notice-icon notice-icon-"+tone}><Icon size={21}/></span><div><strong>{item.title.replace(/\bTEST\b/g,'').trim()}</strong><small>{dayText(item.created_at)} · {timeText(item.created_at)}</small></div>{(item.kind.startsWith('TEST_')||/\bTEST\b/.test(item.title))&&<span className="notice-simulation">{t("Simulation")}</span>}{!item.read_at&&<span className="notice-dot" aria-label="Non lu"/>}</div><p className="notice-preview">{item.message.replace(/\bmode TEST\b/g,'simulation')}</p><div className="notice-detail-actions"><button type="button" className="notice-detail-button" aria-expanded={expanded} aria-controls={detailId} onClick={()=>setExpanded(v=>!v)}>{expanded?'Masquer le détail':'Voir le détail'} <ArrowUpRight size={16}/></button>{item.read_at?<small className="notice-read"><CheckCircle2 size={15}/> Lu</small>:<button className="notice-mark" type="button" disabled={busy} onClick={()=>onRead(item.id)}><CheckCircle2 size={16}/> Marquer comme lu</button>}</div>{expanded&&<div className="notice-detail-panel" id={detailId}><span className="notice-detail-label">DÉTAIL DE LA NOTIFICATION</span><strong>{item.title.replace(/\bTEST\b/g,'').trim()}</strong><p>{item.message.replace(/\bmode TEST\b/g,'simulation')}</p><dl><dt>Reçue le</dt><dd>{dayText(item.created_at)} · {timeText(item.created_at)}</dd><dt>Statut</dt><dd>{item.read_at?'Lue':'Non lue'}</dd>{item.read_at&&<><dt>Consultée le</dt><dd>{dayText(item.read_at)} · {timeText(item.read_at)}</dd></>}</dl></div>}</article>
 }
 export default function NotificationCenter({signedIn=true,compact=false}:{signedIn?:boolean;compact?:boolean}){
  useLanguage();
