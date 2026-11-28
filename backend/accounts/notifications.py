@@ -38,10 +38,14 @@ def notifications(request):
         page=int(request.GET.get("page","1"))
         if not 1<=page<=100000:raise ValueError
         unread=request.GET.get("unread","0")
-        if unread not in ("0","1"):raise ValueError
+        read=request.GET.get("read","0")
+        category=request.GET.get("category","all")
+        if unread not in ("0","1") or read not in ("0","1") or (unread==read=="1") or category not in ("all","tickets"):raise ValueError
     except ValueError:return error("Filtre ou page invalide.")
     unread_count=qs.filter(read_at__isnull=True).count()
     if unread=="1":qs=qs.filter(read_at__isnull=True)
+    elif read=="1":qs=qs.filter(read_at__isnull=False)
+    if category=="tickets":qs=qs.filter(kind="TEST_PAYMENT")
     total=qs.count();size=10;offset=(page-1)*size
     rows=qs.order_by("-id")[offset:offset+size]
     return JsonResponse({"items":[{"id":n.id,"kind":n.kind,"title":n.title,"message":n.message,"booking_id":n.booking_id,"created_at":n.created_at.isoformat(),"read_at":n.read_at.isoformat() if n.read_at else None} for n in rows],"page":page,"page_size":size,"total":total,"unread_count":unread_count,"has_next":offset+size<total})

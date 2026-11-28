@@ -52,3 +52,34 @@
 .notice-ticket-downloads{display:grid;gap:7px;background:#f4f9f6;border:1px solid #d5e7de;border-radius:12px;padding:9px;margin-top:8px}
 .notice-ticket-downloads .notice-pdf-link{display:flex;align-items:center;justify-content:flex-start;gap:8px;min-height:44px;text-align:left;background:#fff;color:#14664f;overflow-wrap:anywhere}
 .notice-pdf-link svg{flex:none}.notice-pdf-link>span{display:grid;gap:3px;min-width:0}.notice-pdf-link small{color:#506866}
+
+/* Independent scrolling inbox: the heading and close button never scroll away. */
+.sirago-notifications-dialog[open]{display:flex;flex-direction:column;overflow:hidden;padding:0;min-height:0}
+.notification-fixed-header{flex:none;position:relative;z-index:3;padding:12px 16px 9px;border-bottom:1px solid #dce6e3;background:#fff;box-shadow:0 3px 10px #103b3809}
+.notification-fixed-header .notification-dialog-top{margin:0 0 4px}
+.notification-fixed-header .notification-dialog-top>span{font-size:.85rem}
+.notification-fixed-header .notification-dialog-top img{width:24px;height:24px}
+.notification-fixed-header h2{font-size:1.12rem;line-height:1.2;margin:0 0 2px}
+.sirago-notifications-dialog .notification-fixed-header #notification-dialog-description{margin:0;font-size:.76rem;line-height:1.4}
+.notification-scroll-body{flex:1 1 auto;min-height:0;overflow:auto;overscroll-behavior:contain;scrollbar-width:none;padding:10px 16px 16px}
+.notification-scroll-body::-webkit-scrollbar{display:none}
+.notice-filter-area{display:grid;gap:7px;min-width:0}
+.notice-compact .notice-filter-area{position:sticky;top:0;z-index:2;background:#fff;padding:4px 0 8px;border-bottom:1px solid #e8efec}
+.notice-device-settings{border:1px solid #dce6e3;border-radius:10px;background:#f4f9f6;min-width:0}
+.notice-device-settings summary{cursor:pointer;padding:10px 12px;font-size:.8rem;color:#14664f;font-weight:700}
+.notice-device-settings[open] .push-preferences{margin:0 7px 7px}
+.notice-category-filter{display:flex;align-items:center;justify-content:space-between;gap:8px;color:#506866;font-size:.75rem;min-width:0}
+.notice-category-filter select{min-width:0;max-width:65%;padding:7px 8px;border:1px solid #dce6e3;border-radius:8px;background:#fff;color:#103b38;font:inherit;min-height:38px}
+.notice-compact .notice-tabs button{font-size:.77rem;min-height:36px;padding:6px 4px}
+.notice-compact .notice-card{padding:10px;gap:6px}
+.notice-compact .notice-ticket-actions{margin-top:4px}
+.notice-compact .notice-ticket-actions>a,.notice-compact .notice-ticket-actions>button{flex-basis:120px}
+@media(max-width:660px){.sirago-notifications-dialog[open]{max-height:calc(100dvh - env(safe-area-inset-top,0px) - 12px)}.notification-fixed-header{padding:9px 14px 8px}.notification-fixed-header .notification-sheet-handle{margin:0 auto 4px}.notification-scroll-body{padding:8px 12px calc(14px + env(safe-area-inset-bottom,0px))}}
+@media(max-height:440px){.notice-compact .notice-filter-area{position:static}}
+
+.notification-fixed-header .notification-dialog-top{margin:0}
+.notification-fixed-header .notification-heading-brand{min-width:0;flex:1;gap:10px}
+.notification-fixed-header .notification-heading-brand img{width:32px;height:32px;flex:none}
+.notification-heading-copy{display:grid;gap:2px;min-width:0;overflow-wrap:anywhere}
+.notification-fixed-header .notification-heading-copy h2{margin:0;font-weight:800}
+.notification-fixed-header .notification-heading-copy #notification-dialog-description{display:block;font-weight:400}
