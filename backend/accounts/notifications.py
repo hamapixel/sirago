@@ -9,8 +9,8 @@ import os
 from .views import error
 
 @transaction.atomic
-def notify(recipient_id,kind,title,message):
-    notice = Notification.objects.create(recipient_id=recipient_id,kind=kind,title=title,message=message[:500])
+def notify(recipient_id,kind,title,message,*,booking_id=None):
+    notice = Notification.objects.create(recipient_id=recipient_id,kind=kind,title=title,message=message[:500],booking_id=booking_id)
     if os.environ.get("SIRAGO_PUSH_ENABLED") == "1":
         PushDelivery.objects.bulk_create([
             PushDelivery(subscription_id=pk, notification=notice, next_attempt=timezone.now())
@@ -44,7 +44,7 @@ def notifications(request):
     if unread=="1":qs=qs.filter(read_at__isnull=True)
     total=qs.count();size=10;offset=(page-1)*size
     rows=qs.order_by("-id")[offset:offset+size]
-    return JsonResponse({"items":[{"id":n.id,"kind":n.kind,"title":n.title,"message":n.message,"created_at":n.created_at.isoformat(),"read_at":n.read_at.isoformat() if n.read_at else None} for n in rows],"page":page,"page_size":size,"total":total,"unread_count":unread_count,"has_next":offset+size<total})
+    return JsonResponse({"items":[{"id":n.id,"kind":n.kind,"title":n.title,"message":n.message,"booking_id":n.booking_id,"created_at":n.created_at.isoformat(),"read_at":n.read_at.isoformat() if n.read_at else None} for n in rows],"page":page,"page_size":size,"total":total,"unread_count":unread_count,"has_next":offset+size<total})
 
 @never_cache
 @require_GET
