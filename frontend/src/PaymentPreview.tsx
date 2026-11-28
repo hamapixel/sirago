@@ -7,7 +7,7 @@ import {PartnerLogo} from './PartnerCard';
 import TestTickets from './TestTickets';
 import SandboxCheckoutPanel from './SandboxCheckoutPanel';
 
-export default function PaymentPreview({booking,onBack}:{booking:Booking;onBack:()=>void}){
+export default function PaymentPreview({booking,onBack,onTicketsExit=onBack}:{booking:Booking;onBack:()=>void;onTicketsExit?:()=>void}){
  const [now,setNow]=useState(Date.now());
  const [result,setResult]=useState<Booking|null>(null),[busy,setBusy]=useState(false),[error,setError]=useState('');
  const pending=useRef(false);
@@ -18,7 +18,7 @@ export default function PaymentPreview({booking,onBack}:{booking:Booking;onBack:
  useEffect(()=>{if(current.sandbox_checkout?.status!=='PENDING')return;let active=true;async function refresh(){try{const r=await fetch('/api/v1/travel/bookings/'+booking.id+'/',{cache:'no-store'});if(r.ok){const b=await r.json() as Booking;if(active&&b.sandbox_checkout?.status!=='PENDING')setResult(b)}}catch{/* manual verification remains */}}const timer=window.setInterval(refresh,5000);window.addEventListener('focus',refresh);return()=>{active=false;window.clearInterval(timer);window.removeEventListener('focus',refresh)}},[booking.id,current.sandbox_checkout?.status]);
  async function simulate(){if(pending.current||current.sandbox_checkout||!booking.simulation_enabled||effectiveBookingStatus(booking)!=='HELD')return;pending.current=true;setBusy(true);setError('');try{setResult(await bookingPost<Booking>('bookings/'+booking.id+'/simulate-payment/',{network:method==='orange'?'orange_ml':'moov_ml'}))}catch(e){setError(e instanceof Error?e.message:'Simulation impossible.')}finally{pending.current=false;setBusy(false)}}
  const seconds=Math.max(0,Math.ceil((Date.parse(booking.expires_at)-now)/1000));
- if(status==='TEST_PAID'&&(result??booking).simulation_enabled)return <TestTickets booking={result??booking} onBack={onBack}/>;
+ if(status==='TEST_PAID'&&(result??booking).simulation_enabled)return <TestTickets booking={result??booking} onBack={onTicketsExit}/>;
  return <section className="booking-space booking-details payment-preview">
  <div className="travel-heading payment-hero"><div className="travel-heading-top"><button type="button" disabled={busy} onClick={onBack}><ArrowLeft size={19}/> Retour</button><LockKeyhole size={22}/></div><div className="payment-hero-content"><div><span className="payment-eyebrow">SIRAGO · RÉSERVATION</span><h1>Paiement</h1><p>{booking.trips[0]?.origin} {booking.trips.length>1?"⇄":"→"} {booking.trips[0]?.destination}</p></div><div className="payment-hero-amount"><small>Montant de la réservation</small><strong>{priceText(booking.total)}</strong></div></div></div>
  {current.sandbox_checkout_enabled&&status==='HELD'&&current.sandbox_checkout?.status!=='PAID'&&<div className="booking-info payment-hold"><Clock size={20}/><p>Places bloquées</p><strong>{Math.floor(seconds/60)} min {String(seconds%60).padStart(2,'0')} s</strong></div>}
