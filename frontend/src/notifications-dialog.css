@@ -76,3 +76,10 @@
 .notice-compact .notice-ticket-actions>a,.notice-compact .notice-ticket-actions>button{flex-basis:120px}
 @media(max-width:660px){.sirago-notifications-dialog[open]{max-height:calc(100dvh - env(safe-area-inset-top,0px) - 12px)}.notification-fixed-header{padding:9px 14px 8px}.notification-fixed-header .notification-sheet-handle{margin:0 auto 4px}.notification-scroll-body{padding:8px 12px calc(14px + env(safe-area-inset-bottom,0px))}}
 @media(max-height:440px){.notice-compact .notice-filter-area{position:static}}
+
+.notification-fixed-header .notification-dialog-top{margin:0}
+.notification-fixed-header .notification-heading-brand{min-width:0;flex:1;gap:10px}
+.notification-fixed-header .notification-heading-brand img{width:32px;height:32px;flex:none}
+.notification-heading-copy{display:grid;gap:2px;min-width:0;overflow-wrap:anywhere}
+.notification-fixed-header .notification-heading-copy h2{margin:0;font-weight:800}
+.notification-fixed-header .notification-heading-copy #notification-dialog-description{display:block;font-weight:400}
