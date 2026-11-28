@@ -11,3 +11,5 @@ describe('Préparation du paiement',()=>{
  it('distingue le succès simulé du paiement réel',()=>{const html=render({...b,status:'TEST_PAID'});expect(html).toContain('Aucun argent débité');expect(html).not.toContain('Confirmer et payer')});
  it('refuse les réservations annulées ou expirées',()=>{for(const booking of [{...b,status:'CANCELLED' as const},{...b,expires_at:'2000-01-01T00:00:00Z'}]){const html=render(booking);expect(html).toContain('ne peut plus être payée');expect(html).not.toContain('Confirmer et payer')}});
 });
+
+it('affiche le logo de la compagnie et les tarifs par catégorie dans le résumé',()=>{const html=render({...b,trips:[{...b.trips[0],company_id:17}],sandbox_checkout_enabled:true});for(const v of ['/api/v1/travel/partners/17/logo/','payment-category premium','payment-category standard','Gare','06:00','13:00','Total à payer','SANDBOX · TEST'])expect(html).toContain(v)});

@@ -97,6 +97,7 @@ class BookingTests(BookingFixture,TestCase):
         self.assertEqual(response.status_code,200)
         detail=response.json()
         self.assertEqual(detail["total"],16000)
+        self.assertEqual(detail["trips"][0]["company_id"],self.company.pk)
         self.assertEqual(detail["trips"][0]["price"],8000)
         self.assertEqual(detail["trips"][0]["boarding_point"],"Gare A")
         self.assertEqual(detail["trips"][0]["arrival_point"],"Gare B")
